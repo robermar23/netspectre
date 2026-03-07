@@ -143,4 +143,12 @@ export const IPC_CHANNELS = {
   SHARE_DOWNLOAD: 'share-download',
   SHARE_RESULT: 'share-result',
   SHARE_ERROR: 'share-error',
+
+  // Offensive Pentest: Web Directory Fuzzing (4E)
+  DIRFUZZ_START: 'dirfuzz-start',
+  DIRFUZZ_STOP: 'dirfuzz-stop',
+  DIRFUZZ_HIT: 'dirfuzz-hit',
+  DIRFUZZ_PROGRESS: 'dirfuzz-progress',
+  DIRFUZZ_COMPLETE: 'dirfuzz-complete',
+  DIRFUZZ_ERROR: 'dirfuzz-error',
 };

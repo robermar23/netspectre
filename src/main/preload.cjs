@@ -120,7 +120,14 @@ var IPC_CHANNELS = {
   SHARE_BROWSE: "share-browse",
   SHARE_DOWNLOAD: "share-download",
   SHARE_RESULT: "share-result",
-  SHARE_ERROR: "share-error"
+  SHARE_ERROR: "share-error",
+  // Offensive Pentest: Web Directory Fuzzing (4E)
+  DIRFUZZ_START: "dirfuzz-start",
+  DIRFUZZ_STOP: "dirfuzz-stop",
+  DIRFUZZ_HIT: "dirfuzz-hit",
+  DIRFUZZ_PROGRESS: "dirfuzz-progress",
+  DIRFUZZ_COMPLETE: "dirfuzz-complete",
+  DIRFUZZ_ERROR: "dirfuzz-error"
 };
 
 // src/main/preload.js
@@ -244,6 +251,13 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   downloadShareFile: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SHARE_DOWNLOAD, opts),
   onShareResult: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SHARE_RESULT, (_e, v) => cb(v)),
   onShareError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SHARE_ERROR, (_e, v) => cb(v)),
+  // Offensive Pentest: Web Directory Fuzzing (4E)
+  startDirFuzz: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.DIRFUZZ_START, opts),
+  stopDirFuzz: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.DIRFUZZ_STOP),
+  onDirFuzzHit: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_HIT, (_e, v) => cb(v)),
+  onDirFuzzProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_PROGRESS, (_e, v) => cb(v)),
+  onDirFuzzComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_COMPLETE, (_e, v) => cb(v)),
+  onDirFuzzError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_ERROR, (_e, v) => cb(v)),
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -295,5 +309,9 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_ERROR);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SHARE_RESULT);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SHARE_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_HIT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_PROGRESS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_COMPLETE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_ERROR);
   }
 });

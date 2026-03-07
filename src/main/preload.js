@@ -139,6 +139,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onShareResult: (cb) => ipcRenderer.on(IPC_CHANNELS.SHARE_RESULT, (_e, v) => cb(v)),
   onShareError: (cb) => ipcRenderer.on(IPC_CHANNELS.SHARE_ERROR, (_e, v) => cb(v)),
 
+  // Offensive Pentest: Web Directory Fuzzing (4E)
+  startDirFuzz: (opts) => ipcRenderer.invoke(IPC_CHANNELS.DIRFUZZ_START, opts),
+  stopDirFuzz: () => ipcRenderer.invoke(IPC_CHANNELS.DIRFUZZ_STOP),
+  onDirFuzzHit: (cb) => ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_HIT, (_e, v) => cb(v)),
+  onDirFuzzProgress: (cb) => ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_PROGRESS, (_e, v) => cb(v)),
+  onDirFuzzComplete: (cb) => ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_COMPLETE, (_e, v) => cb(v)),
+  onDirFuzzError: (cb) => ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_ERROR, (_e, v) => cb(v)),
+
   // Cleanup listeners
   removeListeners: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -190,5 +198,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_ERROR);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.SHARE_RESULT);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.SHARE_ERROR);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_HIT);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_PROGRESS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_COMPLETE);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_ERROR);
   }
 });

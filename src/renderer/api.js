@@ -70,4 +70,8 @@ export const api = {
   enumerateShares: async (opts) => window.electronAPI.enumerateShares(opts),
   browseShare: async (opts) => window.electronAPI.browseShare(opts),
   downloadShareFile: async (opts) => window.electronAPI.downloadShareFile(opts),
+
+  // Web Directory Fuzzing (4E)
+  startDirFuzz: async (opts) => window.electronAPI.startDirFuzz(opts),
+  stopDirFuzz: async () => window.electronAPI.stopDirFuzz(),
 };

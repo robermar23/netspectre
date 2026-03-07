@@ -69,6 +69,9 @@
           <button id="btn-share-enum-open" class="btn pentest smbclient-only" title="SMB/NFS Share Enumeration" style="display: none;">
             <span class="icon">📂</span> Shares
           </button>
+          <button id="btn-dirfuzz-open" class="btn pentest" title="Web Directory Fuzzer">
+            <span class="icon">🔎</span> Dir Fuzz
+          </button>
           <div class="divider"></div>
           <button id="btn-exit" class="btn danger-outline">Exit</button>
         </div>
@@ -773,6 +776,133 @@
           <span id="share-footer-info">—</span>
           <div style="flex: 1;"></div>
           <button id="btn-share-clear" class="btn secondary" style="font-size: 11px; padding: 4px 10px;">Clear</button>
+        </div>
+      </aside>
+
+      <!-- Resizer Handle for Dir Fuzzer -->
+      <div id="dirfuzz-resizer" class="resizer" style="display: none;"></div>
+      <!-- Dir Fuzzer Panel -->
+      <aside id="dirfuzz-panel" class="details-panel glass-panel" style="width: 560px; display: none;">
+        <div class="panel-header"
+          style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass); padding-bottom: 12px; margin-bottom: 0; flex-shrink: 0;">
+          <h2 style="font-size: 16px; font-weight: 500; margin: 0; color: white;">🔎 Web Directory Fuzzer</h2>
+          <button id="btn-close-dirfuzz-panel" class="btn icon-only" title="Hide Panel"
+            style="color: var(--text-muted); padding: 4px;">✕</button>
+        </div>
+
+        <!-- Target + Config bar -->
+        <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-glass); display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;">
+
+          <!-- Row 1: URL + Start/Stop -->
+          <div style="display: flex; gap: 8px; align-items: flex-end;">
+            <div class="form-group" style="flex: 1; margin: 0;">
+              <label class="form-label">Target URL</label>
+              <input type="text" id="dirfuzz-target-url" class="text-input full-width"
+                placeholder="http://192.168.1.100:8080">
+            </div>
+            <button id="btn-dirfuzz-start" class="btn pentest" style="white-space: nowrap;">
+              <span class="icon">▶</span> Start
+            </button>
+            <button id="btn-dirfuzz-stop" class="btn danger-outline" disabled style="white-space: nowrap;">
+              <span class="icon">⏹</span> Stop
+            </button>
+          </div>
+
+          <!-- Row 2: Wordlist selector -->
+          <div style="display: flex; gap: 8px; align-items: flex-end;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label">Wordlist</label>
+              <select id="dirfuzz-wordlist-mode" class="dropdown-select">
+                <option value="builtin">Built-in (50 paths)</option>
+                <option value="custom">Custom file...</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1; margin: 0;" id="dirfuzz-wordlist-file-group" style="display: none;">
+              <label class="form-label">File</label>
+              <div style="display: flex; gap: 6px;">
+                <input type="text" id="dirfuzz-wordlist-path" class="text-input full-width" placeholder="Path to wordlist" readonly>
+                <button id="btn-dirfuzz-browse-wordlist" class="btn secondary icon-only" title="Browse">📂</button>
+              </div>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label">Extensions</label>
+              <input type="text" id="dirfuzz-extensions" class="text-input" placeholder=".php,.html,.bak" style="width: 150px;">
+            </div>
+          </div>
+
+          <!-- Row 3: Status filters + Concurrency -->
+          <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label">Report Status Codes</label>
+              <div class="dirfuzz-status-filters" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="200" checked> <span class="dirfuzz-badge dirfuzz-badge-200">200</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="201" checked> <span class="dirfuzz-badge dirfuzz-badge-200">201</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="204" checked> <span class="dirfuzz-badge dirfuzz-badge-200">204</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="301" checked> <span class="dirfuzz-badge dirfuzz-badge-301">301</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="302" checked> <span class="dirfuzz-badge dirfuzz-badge-301">302</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="307" checked> <span class="dirfuzz-badge dirfuzz-badge-301">307</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="403" checked> <span class="dirfuzz-badge dirfuzz-badge-403">403</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="405"> <span class="dirfuzz-badge dirfuzz-badge-403">405</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="500"> <span class="dirfuzz-badge dirfuzz-badge-500">500</span></label>
+              </div>
+            </div>
+            <div class="form-group" style="margin: 0; min-width: 160px;">
+              <label class="form-label">Concurrency: <span id="dirfuzz-concurrency-val">10</span></label>
+              <input type="range" id="dirfuzz-concurrency" min="1" max="50" value="10"
+                style="width: 100%; margin-top: 6px; accent-color: var(--pentest);">
+            </div>
+            <div class="form-group" style="margin: 0; min-width: 130px;">
+              <label class="form-label">Timeout (ms)</label>
+              <input type="number" id="dirfuzz-timeout" class="text-input full-width" value="3000" min="500" max="30000" step="500">
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Progress bar + stats -->
+        <div style="padding: 8px 16px; border-bottom: 1px solid var(--border-glass); flex-shrink: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 11px; color: var(--text-muted);">
+            <span id="dirfuzz-progress-text">Idle</span>
+            <span id="dirfuzz-stats-text" style="color: var(--primary);"></span>
+          </div>
+          <div class="dirfuzz-progress-track">
+            <div id="dirfuzz-progress-bar" class="dirfuzz-progress-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Error banner -->
+        <div id="dirfuzz-error-banner"
+          style="display: none; margin: 8px 16px 0; padding: 8px 12px; background: rgba(235,94,94,0.1); border-left: 3px solid var(--danger); border-radius: 4px; font-size: 12px; color: var(--danger); flex-shrink: 0;">
+        </div>
+
+        <!-- Results table -->
+        <div style="flex: 1; overflow-y: auto; min-height: 0; background: rgba(0,0,0,0.15);">
+          <table class="data-table dirfuzz-results-table" style="width: 100%; font-size: 11px; table-layout: fixed;">
+            <thead style="position: sticky; top: 0; background: #16161c; z-index: 1;">
+              <tr>
+                <th style="width: 52px;">Status</th>
+                <th>Path</th>
+                <th style="width: 68px; text-align: right;">Size</th>
+                <th style="width: 80px;">Type</th>
+                <th style="width: 60px; text-align: right;">ms</th>
+              </tr>
+            </thead>
+            <tbody id="dirfuzz-results-tbody">
+              <tr id="dirfuzz-empty-row">
+                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 32px;">
+                  Enter a URL and click Start to begin fuzzing
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 8px 16px; border-top: 1px solid var(--border-glass); display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--text-muted); flex-shrink: 0;">
+          <span id="dirfuzz-footer-hits">0 hits</span>
+          <div style="flex: 1;"></div>
+          <button id="btn-dirfuzz-clear" class="btn secondary" style="font-size: 11px; padding: 4px 10px;">Clear</button>
+          <button id="btn-dirfuzz-export" class="btn secondary" style="font-size: 11px; padding: 4px 10px;" disabled>Export CSV</button>
         </div>
       </aside>
 

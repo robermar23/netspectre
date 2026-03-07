@@ -1367,6 +1367,35 @@ function openDetailsPanel(host) {
     portsList.parentElement.appendChild(shareSection);
   }
 
+  // Dir Fuzzer quick-action for HTTP/HTTPS hosts
+  if (host.ports) {
+    const HTTP_PORTS = [80, 443, 8080, 8443, 8000, 8888, 3000, 5000];
+    const webPorts = host.ports.filter(p => HTTP_PORTS.includes(p));
+    if (webPorts.length > 0) {
+      const fuzzSection = document.createElement('div');
+      fuzzSection.style.cssText = 'margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
+      const fuzzLabel = document.createElement('span');
+      fuzzLabel.style.cssText = 'font-size: 11px; color: var(--text-muted);';
+      fuzzLabel.textContent = '🔎 Dir Fuzz:';
+      fuzzSection.appendChild(fuzzLabel);
+      webPorts.forEach(port => {
+        const scheme = (port === 443 || port === 8443) ? 'https' : 'http';
+        const url = `${scheme}://${host.ip}:${port}`;
+        const btn = document.createElement('button');
+        btn.className = 'btn-action pentest-action';
+        btn.style.cssText = 'font-size: 10px; padding: 3px 8px;';
+        btn.textContent = `${scheme.toUpperCase()}:${port}`;
+        btn.title = `Fuzz web directories on ${url}`;
+        btn.addEventListener('click', () => {
+          if (typeof openDirFuzzPanel !== 'undefined') openDirFuzzPanel(url);
+          else if (window.__openDirFuzzPanel) window.__openDirFuzzPanel(url);
+        });
+        fuzzSection.appendChild(btn);
+      });
+      portsList.parentElement.appendChild(fuzzSection);
+    }
+  }
+
   // Brute-Force quick-actions for detected ports (visible when Hydra is installed + enabled)
   if (host.ports && host.ports.length > 0 && state.isHydraInstalled) {
     const bfPorts = { 22: 'ssh', 21: 'ftp', 445: 'smb', 3389: 'rdp', 80: 'http-get', 8080: 'http-get', 23: 'telnet', 3306: 'mysql', 1433: 'mssql', 5432: 'postgres', 5900: 'vnc' };
@@ -3758,10 +3787,14 @@ btnPentestConsentAccept?.addEventListener('click', async () => {
   // Persist consent
   await api.settings.set('pentestConsentAccepted', true);
   pentestConsentOverlay?.classList.add('hidden');
-  // Open the pending brute-force modal if we have a pending config
   if (pendingBfConfig) {
-    showBruteForceModal(pendingBfConfig.ip, pendingBfConfig.port, pendingBfConfig.protocol);
+    const cfg = pendingBfConfig;
     pendingBfConfig = null;
+    if (cfg._type === 'dirfuzz') {
+      runDirFuzz();
+    } else {
+      showBruteForceModal(cfg.ip, cfg.port, cfg.protocol);
+    }
   }
 });
 
@@ -5038,3 +5071,300 @@ window.electronAPI.onShareError?.((err) => {
 
 // Expose for host-card context integration
 window.__openSharePanel = openSharePanel;
+
+// =============================================
+// --- 4E: Web Directory Fuzzer Panel ---
+// =============================================
+
+const dirfuzzPanel      = document.getElementById('dirfuzz-panel');
+const dirfuzzResizer    = document.getElementById('dirfuzz-resizer');
+const btnDirfuzzOpen    = document.getElementById('btn-dirfuzz-open');
+const btnCloseDirfuzz   = document.getElementById('btn-close-dirfuzz-panel');
+const btnDirfuzzStart   = document.getElementById('btn-dirfuzz-start');
+const btnDirfuzzStop    = document.getElementById('btn-dirfuzz-stop');
+const btnDirfuzzClear   = document.getElementById('btn-dirfuzz-clear');
+const btnDirfuzzExport  = document.getElementById('btn-dirfuzz-export');
+const dirfuzzTargetUrl  = document.getElementById('dirfuzz-target-url');
+const dirfuzzWordlistMode = document.getElementById('dirfuzz-wordlist-mode');
+const dirfuzzWordlistFileGroup = document.getElementById('dirfuzz-wordlist-file-group');
+const dirfuzzWordlistPath = document.getElementById('dirfuzz-wordlist-path');
+const btnDirfuzzBrowse  = document.getElementById('btn-dirfuzz-browse-wordlist');
+const dirfuzzExtensions = document.getElementById('dirfuzz-extensions');
+const dirfuzzConcurrency = document.getElementById('dirfuzz-concurrency');
+const dirfuzzConcurrencyVal = document.getElementById('dirfuzz-concurrency-val');
+const dirfuzzTimeout    = document.getElementById('dirfuzz-timeout');
+const dirfuzzProgressText = document.getElementById('dirfuzz-progress-text');
+const dirfuzzProgressBar  = document.getElementById('dirfuzz-progress-bar');
+const dirfuzzStatsText  = document.getElementById('dirfuzz-stats-text');
+const dirfuzzErrorBanner = document.getElementById('dirfuzz-error-banner');
+const dirfuzzResultsTbody = document.getElementById('dirfuzz-results-tbody');
+const dirfuzzFooterHits = document.getElementById('dirfuzz-footer-hits');
+
+// --- internal state ---
+let dirfuzzRunning = false;
+let dirfuzzHits = [];
+
+// --- helpers ---
+
+function openDirFuzzPanel(prefilledUrl) {
+  if (prefilledUrl && dirfuzzTargetUrl) dirfuzzTargetUrl.value = prefilledUrl;
+  if (dirfuzzPanel && typeof openPanel !== 'undefined') openPanel(dirfuzzPanel, dirfuzzResizer);
+}
+
+function closeDirFuzzPanel() {
+  if (dirfuzzPanel && typeof closePanel !== 'undefined') closePanel(dirfuzzPanel, dirfuzzResizer);
+}
+
+function showDirFuzzError(msg) {
+  if (!dirfuzzErrorBanner) return;
+  dirfuzzErrorBanner.textContent = msg;
+  dirfuzzErrorBanner.style.display = 'block';
+}
+
+function clearDirFuzzError() {
+  if (dirfuzzErrorBanner) dirfuzzErrorBanner.style.display = 'none';
+}
+
+function setDirFuzzRunning(running) {
+  dirfuzzRunning = running;
+  if (btnDirfuzzStart) {
+    btnDirfuzzStart.disabled = running;
+    btnDirfuzzStart.classList.toggle('dirfuzz-running', running);
+  }
+  if (btnDirfuzzStop) btnDirfuzzStop.disabled = !running;
+}
+
+function resetDirFuzzUI() {
+  dirfuzzHits = [];
+  if (dirfuzzResultsTbody) {
+    dirfuzzResultsTbody.innerHTML = '';
+    const empty = document.createElement('tr');
+    empty.id = 'dirfuzz-empty-row';
+    empty.innerHTML = '<td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px;">Enter a URL and click Start to begin fuzzing</td>';
+    dirfuzzResultsTbody.appendChild(empty);
+  }
+  if (dirfuzzProgressBar) dirfuzzProgressBar.style.width = '0%';
+  if (dirfuzzProgressText) dirfuzzProgressText.textContent = 'Idle';
+  if (dirfuzzStatsText) dirfuzzStatsText.textContent = '';
+  if (dirfuzzFooterHits) dirfuzzFooterHits.textContent = '0 hits';
+  if (btnDirfuzzExport) btnDirfuzzExport.disabled = true;
+  clearDirFuzzError();
+}
+
+/** Map status code → CSS class suffix */
+function statusClass(code) {
+  if (code >= 200 && code < 300) return '2xx';
+  if (code >= 300 && code < 400) return '3xx';
+  if (code >= 400 && code < 500) return '4xx';
+  return '5xx';
+}
+
+/** Format bytes → human-readable string */
+function formatBytes(n) {
+  if (!n || n === 0) return '—';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Truncate content-type to just mime */
+function shortMime(ct) {
+  if (!ct) return '—';
+  return ct.split(';')[0].split('/').pop().slice(0, 12);
+}
+
+function appendDirFuzzHit(hit) {
+  // Remove the placeholder empty row on first real result
+  const existingEmpty = dirfuzzResultsTbody?.querySelector('#dirfuzz-empty-row');
+  if (existingEmpty) existingEmpty.remove();
+
+  dirfuzzHits.push(hit);
+
+  const row = document.createElement('tr');
+  row.className = `dirfuzz-row-${hit.statusCode}`;
+  const sc = statusClass(hit.statusCode);
+  const path = escapeHtml(hit.path);
+  const redirect = hit.redirectUrl ? ` → ${escapeHtml(hit.redirectUrl)}` : '';
+  row.innerHTML = `
+    <td class="dirfuzz-status-cell dirfuzz-status-${sc}">${hit.statusCode}</td>
+    <td class="col-path" title="${path}${redirect}">${path}</td>
+    <td style="text-align:right;">${formatBytes(hit.contentLength)}</td>
+    <td title="${escapeHtml(hit.contentType)}">${escapeHtml(shortMime(hit.contentType))}</td>
+    <td style="text-align:right;">${hit.responseTime}</td>
+  `;
+  dirfuzzResultsTbody?.appendChild(row);
+
+  // Auto-scroll
+  const tableWrap = dirfuzzResultsTbody?.closest('div[style*="overflow-y"]');
+  if (tableWrap) tableWrap.scrollTop = tableWrap.scrollHeight;
+
+  // Update footer
+  if (dirfuzzFooterHits) dirfuzzFooterHits.textContent = `${dirfuzzHits.length} hit${dirfuzzHits.length !== 1 ? 's' : ''}`;
+  if (btnDirfuzzExport) btnDirfuzzExport.disabled = false;
+}
+
+function getSelectedStatusCodes() {
+  const checkboxes = document.querySelectorAll('.dirfuzz-status-cb:checked');
+  return Array.from(checkboxes).map(cb => parseInt(cb.value, 10));
+}
+
+async function runDirFuzz() {
+  if (dirfuzzRunning) return;
+
+  const url = dirfuzzTargetUrl?.value.trim();
+  if (!url) {
+    showDirFuzzError('Please enter a target URL.');
+    return;
+  }
+
+  // Require consent before running
+  if (!pentestConsentAccepted) {
+    pendingBfConfig = { _type: 'dirfuzz' };
+    pentestConsentOverlay?.classList.remove('hidden');
+    return;
+  }
+
+  clearDirFuzzError();
+  resetDirFuzzUI();
+  setDirFuzzRunning(true);
+  if (dirfuzzProgressText) dirfuzzProgressText.textContent = 'Starting…';
+
+  const wordlistMode = dirfuzzWordlistMode?.value || 'builtin';
+  const wordlistPath = (wordlistMode === 'custom') ? (dirfuzzWordlistPath?.value.trim() || null) : null;
+
+  const rawExts = dirfuzzExtensions?.value.trim() || '';
+  const extensions = rawExts
+    ? rawExts.split(',').map(e => e.trim()).filter(Boolean)
+    : [];
+
+  const statusFilter = getSelectedStatusCodes();
+  const concurrency = parseInt(dirfuzzConcurrency?.value, 10) || 10;
+  const timeout = parseInt(dirfuzzTimeout?.value, 10) || 3000;
+
+  const opts = {
+    targetUrl: url,
+    wordlistPath,
+    extensions,
+    statusFilter,
+    concurrency,
+    timeout,
+    followRedirects: false,
+  };
+
+  try {
+    await api.startDirFuzz(opts);
+  } catch (err) {
+    showDirFuzzError(`Failed to start: ${err.message}`);
+    setDirFuzzRunning(false);
+  }
+}
+
+// --- concurrency slider label ---
+if (dirfuzzConcurrency) {
+  dirfuzzConcurrency.addEventListener('input', () => {
+    if (dirfuzzConcurrencyVal) dirfuzzConcurrencyVal.textContent = dirfuzzConcurrency.value;
+  });
+}
+
+// --- wordlist mode toggle ---
+if (dirfuzzWordlistMode) {
+  dirfuzzWordlistMode.addEventListener('change', () => {
+    const isCustom = dirfuzzWordlistMode.value === 'custom';
+    if (dirfuzzWordlistFileGroup) {
+      dirfuzzWordlistFileGroup.style.display = isCustom ? 'flex' : 'none';
+    }
+  });
+}
+
+// --- wordlist file browse ---
+if (btnDirfuzzBrowse) {
+  btnDirfuzzBrowse.addEventListener('click', async () => {
+    const result = await api.browseFile({
+      title: 'Select Wordlist File',
+      filters: [
+        { name: 'Text Files', extensions: ['txt', 'lst', 'wordlist'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+    if (result?.status === 'selected' && dirfuzzWordlistPath) {
+      dirfuzzWordlistPath.value = result.path;
+    }
+  });
+}
+
+// --- panel open/close ---
+initResizer(dirfuzzResizer, dirfuzzPanel);
+
+btnDirfuzzOpen?.addEventListener('click', () => {
+  if (dirfuzzPanel?.classList.contains('open')) {
+    closeDirFuzzPanel();
+  } else {
+    openDirFuzzPanel('');
+  }
+});
+
+btnCloseDirfuzz?.addEventListener('click', closeDirFuzzPanel);
+
+// --- start/stop ---
+btnDirfuzzStart?.addEventListener('click', runDirFuzz);
+
+btnDirfuzzStop?.addEventListener('click', async () => {
+  try {
+    await api.stopDirFuzz();
+  } catch { /* ignore */ }
+  setDirFuzzRunning(false);
+  if (dirfuzzProgressText) dirfuzzProgressText.textContent = 'Stopped';
+});
+
+// --- clear ---
+btnDirfuzzClear?.addEventListener('click', () => {
+  if (dirfuzzRunning) return;
+  resetDirFuzzUI();
+});
+
+// --- export CSV ---
+btnDirfuzzExport?.addEventListener('click', () => {
+  if (dirfuzzHits.length === 0) return;
+  const header = 'Status,Path,Size,ContentType,ResponseTime(ms),Redirect\n';
+  const rows = dirfuzzHits.map(h =>
+    [h.statusCode, `"${h.path}"`, h.contentLength, `"${h.contentType}"`, h.responseTime, `"${h.redirectUrl || ''}"`].join(',')
+  ).join('\n');
+  const blob = new Blob([header + rows], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dirfuzz_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// --- IPC event listeners ---
+
+window.electronAPI.onDirFuzzHit?.((hit) => {
+  appendDirFuzzHit(hit);
+});
+
+window.electronAPI.onDirFuzzProgress?.((data) => {
+  const { tested, total, percent } = data;
+  if (dirfuzzProgressBar) dirfuzzProgressBar.style.width = `${percent}%`;
+  if (dirfuzzProgressText) dirfuzzProgressText.textContent = `${tested} / ${total} paths`;
+  if (dirfuzzStatsText) dirfuzzStatsText.textContent = `${dirfuzzHits.length} hit${dirfuzzHits.length !== 1 ? 's' : ''}`;
+});
+
+window.electronAPI.onDirFuzzComplete?.((data) => {
+  setDirFuzzRunning(false);
+  if (dirfuzzProgressBar) dirfuzzProgressBar.style.width = '100%';
+  const secs = (data.elapsed / 1000).toFixed(1);
+  if (dirfuzzProgressText) dirfuzzProgressText.textContent = `Complete — ${data.hits} hit${data.hits !== 1 ? 's' : ''} in ${secs}s`;
+  if (dirfuzzStatsText) dirfuzzStatsText.textContent = `${data.total} paths tested`;
+  if (dirfuzzFooterHits) dirfuzzFooterHits.textContent = `${data.hits} hit${data.hits !== 1 ? 's' : ''}`;
+});
+
+window.electronAPI.onDirFuzzError?.((err) => {
+  setDirFuzzRunning(false);
+  showDirFuzzError(err.message || 'Fuzzing error');
+  if (dirfuzzProgressText) dirfuzzProgressText.textContent = 'Error';
+});
+
+// Expose for host-card context integration
+window.__openDirFuzzPanel = openDirFuzzPanel;

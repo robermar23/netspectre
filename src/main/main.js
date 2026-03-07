@@ -40,6 +40,7 @@ import { startBruteForce, stopBruteForce, cleanupBruteForce } from './bruteForce
 import { msfConnect, msfDisconnect, msfListExploits, msfRunExploit, msfGetSessions, cleanupMsf } from './metasploitRpc.js';
 import { startListener as startRevShell, stopListener as stopRevShell, sendToShell as sendRevShell } from './revShellListener.js';
 import { enumerateShares, browseShare, downloadFile as downloadShareFile, cleanupShares } from './shareEnumerator.js';
+import { startDirFuzz, stopDirFuzz, cleanupDirFuzz } from './dirFuzzer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -96,6 +97,7 @@ app.on('window-all-closed', function () {
   cleanupMsf();
   stopRevShell();
   cleanupShares();
+  cleanupDirFuzz();
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -619,6 +621,33 @@ ipcMain.handle(IPC_CHANNELS.SHARE_DOWNLOAD, async (event, options) => {
     return { status: 'downloaded', localPath: filePath };
   }
   return { status: 'error', error: 'Download failed — check share error stream' };
+});
+
+// --- Offensive Pentest: Web Directory Fuzzing (4E) ---
+
+ipcMain.handle(IPC_CHANNELS.DIRFUZZ_START, async (event, options) => {
+  console.log(`Dir fuzz requested on ${options?.targetUrl}`);
+
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid options payload' };
+  }
+
+  // startDirFuzz is async and streams results; fire and don't await
+  startDirFuzz(
+    options,
+    (hit)      => mainWindow?.webContents.send(IPC_CHANNELS.DIRFUZZ_HIT, hit),
+    (progress) => mainWindow?.webContents.send(IPC_CHANNELS.DIRFUZZ_PROGRESS, progress),
+    (complete) => mainWindow?.webContents.send(IPC_CHANNELS.DIRFUZZ_COMPLETE, complete),
+    (err)      => mainWindow?.webContents.send(IPC_CHANNELS.DIRFUZZ_ERROR, err)
+  );
+
+  return { status: 'started' };
+});
+
+ipcMain.handle(IPC_CHANNELS.DIRFUZZ_STOP, async () => {
+  console.log('Dir fuzz stop requested');
+  stopDirFuzz();
+  return { status: 'stopped' };
 });
 
 // --- Results Management ---
