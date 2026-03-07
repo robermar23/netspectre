@@ -65,4 +65,9 @@ export const api = {
   startRevShell: async (opts) => window.electronAPI.startRevShell(opts),
   stopRevShell: async () => window.electronAPI.stopRevShell(),
   sendRevShell: async (data) => window.electronAPI.sendRevShell(data),
+
+  // Share Enumeration (4D)
+  enumerateShares: async (opts) => window.electronAPI.enumerateShares(opts),
+  browseShare: async (opts) => window.electronAPI.browseShare(opts),
+  downloadShareFile: async (opts) => window.electronAPI.downloadShareFile(opts),
 };

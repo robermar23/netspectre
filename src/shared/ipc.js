@@ -136,4 +136,11 @@ export const IPC_CHANNELS = {
   REVSHELL_SEND: 'revshell-send',
   REVSHELL_CONNECTION: 'revshell-connection',
   REVSHELL_ERROR: 'revshell-error',
+
+  // Offensive Pentest: Share Enumeration (4D)
+  SHARE_ENUMERATE: 'share-enumerate',
+  SHARE_BROWSE: 'share-browse',
+  SHARE_DOWNLOAD: 'share-download',
+  SHARE_RESULT: 'share-result',
+  SHARE_ERROR: 'share-error',
 };

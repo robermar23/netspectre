@@ -132,6 +132,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onRevShellConnection: (cb) => ipcRenderer.on(IPC_CHANNELS.REVSHELL_CONNECTION, (_e, v) => cb(v)),
   onRevShellError: (cb) => ipcRenderer.on(IPC_CHANNELS.REVSHELL_ERROR, (_e, v) => cb(v)),
 
+  // Offensive Pentest: Share Enumeration (4D)
+  enumerateShares: (opts) => ipcRenderer.invoke(IPC_CHANNELS.SHARE_ENUMERATE, opts),
+  browseShare: (opts) => ipcRenderer.invoke(IPC_CHANNELS.SHARE_BROWSE, opts),
+  downloadShareFile: (opts) => ipcRenderer.invoke(IPC_CHANNELS.SHARE_DOWNLOAD, opts),
+  onShareResult: (cb) => ipcRenderer.on(IPC_CHANNELS.SHARE_RESULT, (_e, v) => cb(v)),
+  onShareError: (cb) => ipcRenderer.on(IPC_CHANNELS.SHARE_ERROR, (_e, v) => cb(v)),
+
   // Cleanup listeners
   removeListeners: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -181,5 +188,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_DATA);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_CONNECTION);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_ERROR);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.SHARE_RESULT);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.SHARE_ERROR);
   }
 });

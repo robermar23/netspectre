@@ -39,6 +39,7 @@ import { startRogueDnsDetection, stopRogueDnsDetection } from './rogueDnsDetecto
 import { startBruteForce, stopBruteForce, cleanupBruteForce } from './bruteForce.js';
 import { msfConnect, msfDisconnect, msfListExploits, msfRunExploit, msfGetSessions, cleanupMsf } from './metasploitRpc.js';
 import { startListener as startRevShell, stopListener as stopRevShell, sendToShell as sendRevShell } from './revShellListener.js';
+import { enumerateShares, browseShare, downloadFile as downloadShareFile, cleanupShares } from './shareEnumerator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,6 +95,7 @@ app.on('window-all-closed', function () {
   cleanupBruteForce();
   cleanupMsf();
   stopRevShell();
+  cleanupShares();
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -547,6 +549,76 @@ ipcMain.handle(IPC_CHANNELS.MSF_SESSION_LIST, async () => {
     mainWindow?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
     return { status: 'error', error: err.message };
   }
+});
+
+// --- Offensive Pentest: Share Enumeration (4D) ---
+
+ipcMain.handle(IPC_CHANNELS.SHARE_ENUMERATE, async (event, options) => {
+  const { targetIp, credentials } = options || {};
+  console.log(`Share enumeration requested on ${targetIp}`);
+
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid options payload' };
+  }
+
+  enumerateShares(
+    targetIp,
+    credentials || null,
+    (result) => mainWindow?.webContents.send(IPC_CHANNELS.SHARE_RESULT, result),
+    (err)    => mainWindow?.webContents.send(IPC_CHANNELS.SHARE_ERROR, err)
+  );
+  return { status: 'started' };
+});
+
+ipcMain.handle(IPC_CHANNELS.SHARE_BROWSE, async (event, options) => {
+  const { targetIp, shareName, remotePath, credentials } = options || {};
+  console.log(`Share browse requested: //${targetIp}/${shareName}${remotePath || '/'}`);
+
+  if (!options || !targetIp || !shareName) {
+    return { status: 'error', error: 'targetIp and shareName are required' };
+  }
+
+  await browseShare(
+    targetIp,
+    shareName,
+    remotePath || '',
+    credentials || null,
+    (result) => mainWindow?.webContents.send(IPC_CHANNELS.SHARE_RESULT, { type: 'browse', ...result }),
+    (err)    => mainWindow?.webContents.send(IPC_CHANNELS.SHARE_ERROR, err)
+  );
+  return { status: 'done' };
+});
+
+ipcMain.handle(IPC_CHANNELS.SHARE_DOWNLOAD, async (event, options) => {
+  const { targetIp, shareName, remoteFile, credentials } = options || {};
+  console.log(`Share download requested: //${targetIp}/${shareName}/${remoteFile}`);
+
+  if (!targetIp || !shareName || !remoteFile) {
+    return { status: 'error', error: 'targetIp, shareName, and remoteFile are required' };
+  }
+
+  // Prompt user to choose save location
+  const filename = remoteFile.split(/[\\/]/).filter(Boolean).pop() || 'download';
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save Downloaded File',
+    defaultPath: path.join(app.getPath('downloads'), filename),
+  });
+
+  if (canceled || !filePath) return { status: 'cancelled' };
+
+  const ok = await downloadShareFile(
+    targetIp,
+    shareName,
+    remoteFile,
+    filePath,
+    credentials || null,
+    (err) => mainWindow?.webContents.send(IPC_CHANNELS.SHARE_ERROR, err)
+  );
+
+  if (ok) {
+    return { status: 'downloaded', localPath: filePath };
+  }
+  return { status: 'error', error: 'Download failed — check share error stream' };
 });
 
 // --- Results Management ---

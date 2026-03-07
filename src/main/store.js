@@ -36,6 +36,22 @@ const schema = {
       path: { type: 'string', default: '' }
     },
     default: { enabled: false, path: '' }
+  },
+  smbclient: {
+    type: 'object',
+    properties: {
+      enabled: { type: 'boolean', default: false },
+      path: { type: 'string', default: '' }
+    },
+    default: { enabled: false, path: '' }
+  },
+  showmount: {
+    type: 'object',
+    properties: {
+      enabled: { type: 'boolean', default: false },
+      path: { type: 'string', default: '' }
+    },
+    default: { enabled: false, path: '' }
   }
 };
 
@@ -118,6 +134,39 @@ const DEPENDENCY_PATHS = {
       '/usr/local/bin/msfrpcd'
     ],
     versionArg: '-h'
+  },
+  smbclient: {
+    win32: [
+      'smbclient'
+    ],
+    darwin: [
+      'smbclient',
+      '/opt/homebrew/bin/smbclient',
+      '/usr/local/bin/smbclient',
+      '/usr/bin/smbclient'
+    ],
+    linux: [
+      'smbclient',
+      '/usr/bin/smbclient',
+      '/usr/local/bin/smbclient'
+    ],
+    versionArg: '--version'
+  },
+  showmount: {
+    win32: [
+      'showmount'
+    ],
+    darwin: [
+      'showmount',
+      '/usr/sbin/showmount',
+      '/opt/homebrew/bin/showmount'
+    ],
+    linux: [
+      'showmount',
+      '/usr/sbin/showmount',
+      '/usr/bin/showmount'
+    ],
+    versionArg: '--version'
   }
 };
 

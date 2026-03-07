@@ -1884,3 +1884,147 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
+/* ============================================= */
+/* === OFFENSIVE PENTEST: SHARE ENUMERATION  === */
+/* ============================================= */
+
+/* Share item button in the left pane list */
+.share-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+  word-break: break-all;
+}
+
+.share-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-glass);
+}
+
+.share-item.active {
+  background: rgba(231, 76, 60, 0.12);
+  border-color: rgba(231, 76, 60, 0.4);
+  color: #fff;
+}
+
+.share-item-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.share-item-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-item-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Breadcrumb navigation */
+.share-breadcrumb-part {
+  color: var(--info);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.share-breadcrumb-part:hover {
+  text-decoration: underline;
+}
+
+.share-breadcrumb-sep {
+  opacity: 0.4;
+  margin: 0 2px;
+}
+
+/* File table rows */
+.share-file-table tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.share-dir-row td:nth-child(2) {
+  color: var(--info);
+  font-weight: 500;
+}
+
+.share-file-row td:nth-child(2) {
+  color: var(--text-primary);
+}
+
+/* Download button in file table */
+.btn-share-download {
+  background: transparent;
+  border: 1px solid var(--border-glass);
+  color: var(--text-muted);
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-share-download:hover {
+  background: rgba(231, 76, 60, 0.15);
+  border-color: var(--pentest);
+  color: var(--pentest);
+}
+
+/* Animated spinner for enumeration in progress */
+.share-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--pentest);
+  border-radius: 50%;
+  animation: shareSpinnerRotate 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes shareSpinnerRotate {
+  to { transform: rotate(360deg); }
+}
+
+/* Type badge on shares */
+.share-type-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+}
+
+.share-type-badge.disk    { background: rgba(52, 152, 219, 0.2); color: #3498db; border: 1px solid rgba(52,152,219,0.3); }
+.share-type-badge.ipc     { background: rgba(127, 140, 141, 0.2); color: #7f8c8d; border: 1px solid rgba(127,140,141,0.3); }
+.share-type-badge.printer { background: rgba(241, 196, 15, 0.2); color: #f1c40f; border: 1px solid rgba(241,196,15,0.3); }
+.share-type-badge.nfs     { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+
+/* Resizer handle between panes */
+#share-pane-resizer {
+  background: transparent;
+  transition: background 0.2s;
+}
+
+#share-pane-resizer:hover,
+#share-pane-resizer.dragging {
+  background: rgba(231, 76, 60, 0.3);
+}

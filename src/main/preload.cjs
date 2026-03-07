@@ -114,7 +114,13 @@ var IPC_CHANNELS = {
   REVSHELL_DATA: "revshell-data",
   REVSHELL_SEND: "revshell-send",
   REVSHELL_CONNECTION: "revshell-connection",
-  REVSHELL_ERROR: "revshell-error"
+  REVSHELL_ERROR: "revshell-error",
+  // Offensive Pentest: Share Enumeration (4D)
+  SHARE_ENUMERATE: "share-enumerate",
+  SHARE_BROWSE: "share-browse",
+  SHARE_DOWNLOAD: "share-download",
+  SHARE_RESULT: "share-result",
+  SHARE_ERROR: "share-error"
 };
 
 // src/main/preload.js
@@ -232,6 +238,12 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   onRevShellData: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.REVSHELL_DATA, (_e, v) => cb(v)),
   onRevShellConnection: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.REVSHELL_CONNECTION, (_e, v) => cb(v)),
   onRevShellError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.REVSHELL_ERROR, (_e, v) => cb(v)),
+  // Offensive Pentest: Share Enumeration (4D)
+  enumerateShares: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SHARE_ENUMERATE, opts),
+  browseShare: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SHARE_BROWSE, opts),
+  downloadShareFile: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SHARE_DOWNLOAD, opts),
+  onShareResult: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SHARE_RESULT, (_e, v) => cb(v)),
+  onShareError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SHARE_ERROR, (_e, v) => cb(v)),
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -281,5 +293,7 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_DATA);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_CONNECTION);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SHARE_RESULT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SHARE_ERROR);
   }
 });
