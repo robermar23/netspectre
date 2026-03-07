@@ -96,7 +96,18 @@ var IPC_CHANNELS = {
   BRUTEFORCE_RESULT: "bruteforce-result",
   BRUTEFORCE_PROGRESS: "bruteforce-progress",
   BRUTEFORCE_ERROR: "bruteforce-error",
-  BRUTEFORCE_COMPLETE: "bruteforce-complete"
+  BRUTEFORCE_COMPLETE: "bruteforce-complete",
+  // Generic file dialog
+  BROWSE_FILE: "browse-file",
+  // Offensive Pentest: Metasploit RPC
+  MSF_CONNECT: "msf-connect",
+  MSF_DISCONNECT: "msf-disconnect",
+  MSF_RUN_EXPLOIT: "msf-run-exploit",
+  MSF_LIST_EXPLOITS: "msf-list-exploits",
+  MSF_SESSION_LIST: "msf-session-list",
+  MSF_STATUS: "msf-status",
+  MSF_RESULT: "msf-result",
+  MSF_ERROR: "msf-error"
 };
 
 // src/main/preload.js
@@ -196,6 +207,17 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   onBruteForceProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_PROGRESS, (_e, v) => cb(v)),
   onBruteForceError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_ERROR, (_e, v) => cb(v)),
   onBruteForceComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_COMPLETE, (_e, v) => cb(v)),
+  // Generic file dialog
+  browseFile: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.BROWSE_FILE, opts),
+  // Offensive Pentest: Metasploit RPC
+  msfConnect: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.MSF_CONNECT, opts),
+  msfDisconnect: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.MSF_DISCONNECT),
+  msfRunExploit: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.MSF_RUN_EXPLOIT, opts),
+  msfListExploits: (query) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.MSF_LIST_EXPLOITS, query),
+  msfSessionList: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.MSF_SESSION_LIST),
+  onMsfStatus: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.MSF_STATUS, (_e, v) => cb(v)),
+  onMsfResult: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.MSF_RESULT, (_e, v) => cb(v)),
+  onMsfError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.MSF_ERROR, (_e, v) => cb(v)),
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -239,5 +261,8 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_PROGRESS);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_ERROR);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_COMPLETE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_STATUS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_RESULT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_ERROR);
   }
 });

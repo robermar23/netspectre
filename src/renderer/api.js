@@ -52,4 +52,12 @@ export const api = {
   // Brute-Force
   startBruteForce: async (opts) => window.electronAPI.startBruteForce(opts),
   stopBruteForce: async () => window.electronAPI.stopBruteForce(),
+  browseFile: async (opts) => window.electronAPI.browseFile(opts),
+
+  // Metasploit RPC
+  msfConnect: async (opts) => window.electronAPI.msfConnect(opts),
+  msfDisconnect: async () => window.electronAPI.msfDisconnect(),
+  msfRunExploit: async (opts) => window.electronAPI.msfRunExploit(opts),
+  msfListExploits: async (query) => window.electronAPI.msfListExploits(query),
+  msfSessionList: async () => window.electronAPI.msfSessionList(),
 };

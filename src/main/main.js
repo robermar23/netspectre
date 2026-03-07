@@ -37,6 +37,7 @@ import { stopAll as stopAllPassive } from './passiveCapture.js';
 import { startLiveCapture, stopLiveCapture, analyzePcapFile } from './pcapAnalyzer.js';
 import { startRogueDnsDetection, stopRogueDnsDetection } from './rogueDnsDetector.js';
 import { startBruteForce, stopBruteForce, cleanupBruteForce } from './bruteForce.js';
+import { msfConnect, msfDisconnect, msfListExploits, msfRunExploit, msfGetSessions, cleanupMsf } from './metasploitRpc.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -90,6 +91,7 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', function () {
   cleanupBruteForce();
+  cleanupMsf();
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -437,6 +439,84 @@ ipcMain.handle(IPC_CHANNELS.BRUTEFORCE_STOP, async () => {
   console.log('Brute-force stop requested');
   stopBruteForce();
   return { status: 'stopped' };
+});
+
+// --- Generic File Dialog ---
+
+ipcMain.handle(IPC_CHANNELS.BROWSE_FILE, async (event, options) => {
+  const opts = options || {};
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: opts.title || 'Select File',
+    properties: ['openFile'],
+    filters: opts.filters || [{ name: 'All Files', extensions: ['*'] }],
+    defaultPath: opts.defaultPath || undefined,
+  });
+  if (canceled || filePaths.length === 0) return { status: 'cancelled' };
+  return { status: 'selected', path: filePaths[0] };
+});
+
+// --- Offensive Pentest: Metasploit RPC ---
+
+ipcMain.handle(IPC_CHANNELS.MSF_CONNECT, async (event, options) => {
+  console.log(`MSF connect requested to ${options?.host}:${options?.port}`);
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid options payload' };
+  }
+  try {
+    const result = await msfConnect(options);
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_STATUS, { state: 'connected', ...result });
+    return result;
+  } catch (err) {
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
+    return { status: 'error', error: err.message };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.MSF_DISCONNECT, async () => {
+  console.log('MSF disconnect requested');
+  try {
+    const result = await msfDisconnect();
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_STATUS, { state: 'disconnected' });
+    return result;
+  } catch (err) {
+    return { status: 'error', error: err.message };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.MSF_LIST_EXPLOITS, async (event, query) => {
+  console.log(`MSF exploit search: ${query}`);
+  try {
+    const exploits = await msfListExploits(query);
+    return { status: 'success', exploits };
+  } catch (err) {
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
+    return { status: 'error', error: err.message };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.MSF_RUN_EXPLOIT, async (event, options) => {
+  console.log(`MSF run exploit: ${options?.modulePath} against ${options?.targetIp}`);
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid exploit options' };
+  }
+  try {
+    const result = await msfRunExploit(options);
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_RESULT, result);
+    return { status: 'started', ...result };
+  } catch (err) {
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
+    return { status: 'error', error: err.message };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.MSF_SESSION_LIST, async () => {
+  try {
+    const sessions = await msfGetSessions();
+    return { status: 'success', sessions };
+  } catch (err) {
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
+    return { status: 'error', error: err.message };
+  }
 });
 
 // --- Results Management ---

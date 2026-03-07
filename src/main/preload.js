@@ -111,6 +111,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onBruteForceError: (cb) => ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_ERROR, (_e, v) => cb(v)),
   onBruteForceComplete: (cb) => ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_COMPLETE, (_e, v) => cb(v)),
 
+  // Generic file dialog
+  browseFile: (opts) => ipcRenderer.invoke(IPC_CHANNELS.BROWSE_FILE, opts),
+
+  // Offensive Pentest: Metasploit RPC
+  msfConnect: (opts) => ipcRenderer.invoke(IPC_CHANNELS.MSF_CONNECT, opts),
+  msfDisconnect: () => ipcRenderer.invoke(IPC_CHANNELS.MSF_DISCONNECT),
+  msfRunExploit: (opts) => ipcRenderer.invoke(IPC_CHANNELS.MSF_RUN_EXPLOIT, opts),
+  msfListExploits: (query) => ipcRenderer.invoke(IPC_CHANNELS.MSF_LIST_EXPLOITS, query),
+  msfSessionList: () => ipcRenderer.invoke(IPC_CHANNELS.MSF_SESSION_LIST),
+  onMsfStatus: (cb) => ipcRenderer.on(IPC_CHANNELS.MSF_STATUS, (_e, v) => cb(v)),
+  onMsfResult: (cb) => ipcRenderer.on(IPC_CHANNELS.MSF_RESULT, (_e, v) => cb(v)),
+  onMsfError: (cb) => ipcRenderer.on(IPC_CHANNELS.MSF_ERROR, (_e, v) => cb(v)),
+
   // Cleanup listeners
   removeListeners: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -154,5 +167,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_PROGRESS);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_ERROR);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_COMPLETE);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_STATUS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_RESULT);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_ERROR);
   }
 });

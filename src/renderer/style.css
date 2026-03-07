@@ -1665,3 +1665,170 @@ body {
   border-color: var(--pentest);
   color: white;
 }
+
+/* ============================================= */
+/* === OFFENSIVE PENTEST: METASPLOIT RPC     === */
+/* ============================================= */
+
+/* Modal */
+.msf-modal {
+  max-width: 680px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+.msf-modal .modal-body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Connection Status Dot (Animated) */
+.msf-status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+  flex-shrink: 0;
+}
+.msf-status-dot.disconnected {
+  background: var(--danger);
+  box-shadow: 0 0 4px rgba(235, 94, 94, 0.4);
+}
+.msf-status-dot.connecting {
+  background: var(--warning);
+  box-shadow: 0 0 4px rgba(243, 156, 18, 0.4);
+  animation: msfStatusPulse 1.2s ease-in-out infinite;
+}
+.msf-status-dot.connected {
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(59, 226, 130, 0.5);
+  animation: msfStatusGlow 2s ease-in-out infinite;
+}
+.msf-status-dot.error {
+  background: var(--danger);
+  box-shadow: 0 0 6px rgba(235, 94, 94, 0.6);
+}
+
+@keyframes msfStatusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes msfStatusGlow {
+  0%, 100% { box-shadow: 0 0 6px rgba(59, 226, 130, 0.4); }
+  50% { box-shadow: 0 0 12px rgba(59, 226, 130, 0.7); }
+}
+
+/* Exploit Table */
+.msf-exploit-table th {
+  text-align: left;
+  padding: 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-glass);
+}
+.msf-exploit-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  word-break: break-word;
+}
+.msf-exploit-table tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Exploit Rank Badges */
+.msf-rank {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.msf-rank.excellent { background: rgba(59, 226, 130, 0.15); color: var(--success); }
+.msf-rank.great { background: rgba(59, 226, 130, 0.1); color: #86efac; }
+.msf-rank.good { background: rgba(94, 114, 235, 0.15); color: var(--primary); }
+.msf-rank.normal { background: rgba(255, 255, 255, 0.08); color: var(--text-muted); }
+.msf-rank.average { background: rgba(243, 156, 18, 0.12); color: var(--warning); }
+.msf-rank.low { background: rgba(235, 94, 94, 0.1); color: var(--danger); }
+.msf-rank.manual { background: rgba(255, 255, 255, 0.05); color: #6b7280; }
+
+/* Run Exploit Button in Table */
+.btn-msf-run {
+  background: rgba(231, 76, 60, 0.15);
+  color: var(--pentest);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.btn-msf-run:hover {
+  background: rgba(231, 76, 60, 0.35);
+  border-color: var(--pentest);
+  color: white;
+}
+
+/* Session Cards */
+.msf-session-card {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-left: 3px solid var(--success);
+  border-radius: 6px;
+  padding: 12px;
+  animation: cardFadeIn 0.3s ease forwards;
+}
+.msf-session-card .session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.msf-session-card .session-id {
+  font-weight: 700;
+  color: var(--success);
+  font-family: monospace;
+  font-size: 13px;
+}
+.msf-session-card .session-type {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(59, 226, 130, 0.12);
+  color: var(--success);
+  font-weight: 500;
+}
+.msf-session-card .session-details {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Advanced Options Accordion */
+.msf-advanced-details summary {
+  list-style: none;
+}
+.msf-advanced-details summary::-webkit-details-marker {
+  display: none;
+}
+.msf-advanced-details[open] summary {
+  color: var(--text-main);
+}
+
+/* Visibility Toggle */
+.msfrpcd-only {
+  display: none;
+}
+
+/* MSF Tab Panes */
+.msf-tab-pane {
+  min-height: 200px;
+}

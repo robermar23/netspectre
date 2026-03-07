@@ -115,4 +115,17 @@ export const IPC_CHANNELS = {
   BRUTEFORCE_PROGRESS: 'bruteforce-progress',
   BRUTEFORCE_ERROR: 'bruteforce-error',
   BRUTEFORCE_COMPLETE: 'bruteforce-complete',
+
+  // Generic file dialog
+  BROWSE_FILE: 'browse-file',
+
+  // Offensive Pentest: Metasploit RPC
+  MSF_CONNECT: 'msf-connect',
+  MSF_DISCONNECT: 'msf-disconnect',
+  MSF_RUN_EXPLOIT: 'msf-run-exploit',
+  MSF_LIST_EXPLOITS: 'msf-list-exploits',
+  MSF_SESSION_LIST: 'msf-session-list',
+  MSF_STATUS: 'msf-status',
+  MSF_RESULT: 'msf-result',
+  MSF_ERROR: 'msf-error',
 };
