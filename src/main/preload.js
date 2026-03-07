@@ -124,6 +124,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMsfResult: (cb) => ipcRenderer.on(IPC_CHANNELS.MSF_RESULT, (_e, v) => cb(v)),
   onMsfError: (cb) => ipcRenderer.on(IPC_CHANNELS.MSF_ERROR, (_e, v) => cb(v)),
 
+  // Offensive Pentest: Reverse Shell Listener
+  startRevShell: (opts) => ipcRenderer.invoke(IPC_CHANNELS.REVSHELL_START, opts),
+  stopRevShell: () => ipcRenderer.invoke(IPC_CHANNELS.REVSHELL_STOP),
+  sendRevShell: (data) => ipcRenderer.invoke(IPC_CHANNELS.REVSHELL_SEND, data),
+  onRevShellData: (cb) => ipcRenderer.on(IPC_CHANNELS.REVSHELL_DATA, (_e, v) => cb(v)),
+  onRevShellConnection: (cb) => ipcRenderer.on(IPC_CHANNELS.REVSHELL_CONNECTION, (_e, v) => cb(v)),
+  onRevShellError: (cb) => ipcRenderer.on(IPC_CHANNELS.REVSHELL_ERROR, (_e, v) => cb(v)),
+
   // Cleanup listeners
   removeListeners: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -170,5 +178,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_STATUS);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_RESULT);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_ERROR);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_DATA);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_CONNECTION);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_ERROR);
   }
 });

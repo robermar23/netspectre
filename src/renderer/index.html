@@ -58,6 +58,14 @@
           <button id="btn-settings" class="btn secondary" title="Settings">
             <span class="icon">⚙️</span> Settings
           </button>
+          <div class="divider msf-only" style="display: none;"></div>
+          <button id="btn-msf-open" class="btn pentest msf-only" title="Metasploit RPC" style="display: none;">
+            <span class="icon">💀</span> Metasploit
+          </button>
+          <div class="divider"></div>
+          <button id="btn-revshell-open" class="btn pentest" title="Reverse Shell Listener">
+            <span class="icon">💻</span> RevShell
+          </button>
           <div class="divider"></div>
           <button id="btn-exit" class="btn danger-outline">Exit</button>
         </div>
@@ -550,6 +558,94 @@
         </div>
       </aside>
 
+      <!-- Resizer Handle for Reverse Shell -->
+      <div id="revshell-resizer" class="resizer" style="display: none;"></div>
+      <!-- Reverse Shell Panel -->
+      <aside id="revshell-panel" class="details-panel glass-panel" style="width: 420px; display: none;">
+        <div class="panel-header"
+          style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass); padding-bottom: 12px; margin-bottom: 16px;">
+          <h2 style="font-size: 16px; font-weight: 500; margin: 0; color: white;">💻 Reverse Shell Listener</h2>
+          <button id="btn-close-revshell-panel" class="btn icon-only" title="Hide Panel"
+            style="color: var(--text-muted); padding: 4px;">✕</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px; flex-grow: 1; overflow-y: auto;">
+          <!-- Config -->
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">Listen Port</label>
+              <input type="number" id="revshell-port" class="text-input full-width" value="4444" min="1" max="65535">
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">Mode</label>
+              <select id="revshell-mode" class="dropdown-select full-width">
+                <option value="native">Native TCP Server</option>
+                <option value="ncat">Ncat Listener</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-top: 24px; display: flex; gap: 8px;">
+              <button id="btn-revshell-start" class="btn pentest">
+                <span class="icon">▶️</span> Start
+              </button>
+              <button id="btn-revshell-stop" class="btn danger-outline" disabled>
+                <span class="icon">🛑</span> Stop
+              </button>
+            </div>
+          </div>
+
+          <!-- Connection Status -->
+          <div id="revshell-status-banner"
+            style="padding: 8px 12px; border-radius: 4px; font-size: 13px; font-weight: 500; background: rgba(0,0,0,0.2); border-left: 3px solid var(--text-muted); color: var(--text-muted);">
+            Status: <span id="revshell-status-text">Disconnected</span>
+          </div>
+
+          <!-- Terminal Output -->
+          <div class="form-group" style="flex: 1; display: flex; flex-direction: column;">
+            <label class="form-label" style="display: flex; justify-content: space-between;">
+              Terminal Output
+              <button id="btn-revshell-clear" class="btn secondary icon-only" style="padding: 2px"
+                title="Clear Terminal">🧹</button>
+            </label>
+            <div id="revshell-terminal" class="terminal-panel"
+              style="height: 300px; background: #0d1117; color: #00ff41; font-family: 'Fira Code', monospace; padding: 12px; font-size: 12px; border-radius: 6px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; border: 1px solid var(--border-glass);">
+              Waiting for connection...</div>
+          </div>
+
+          <!-- Command Input -->
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="revshell-input" class="text-input full-width"
+              style="font-family: 'Fira Code', monospace; color: #00ff41; background: #0d1117;"
+              placeholder="Enter command to send..." disabled>
+            <button id="btn-revshell-send" class="btn info" disabled>Send</button>
+          </div>
+
+          <!-- Payload Generator -->
+          <details class="msf-advanced-details" style="margin-top: 8px;">
+            <summary style="cursor: pointer; font-size: 12px; color: var(--text-muted); padding: 4px 0;">🛠️ Generate
+              One-Liner Payload</summary>
+            <div
+              style="margin-top: 8px; display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 6px; border: 1px solid var(--border-glass);">
+              <div style="display: flex; gap: 8px;">
+                <select id="revshell-payload-os" class="dropdown-select" style="flex: 1;">
+                  <option value="bash">Bash</option>
+                  <option value="python">Python</option>
+                  <option value="powershell">PowerShell</option>
+                  <option value="php">PHP</option>
+                  <option value="nc">Netcat</option>
+                </select>
+                <input type="text" id="revshell-payload-lhost" class="text-input" placeholder="LHOST (Your IP)"
+                  style="flex: 1;" title="Leave empty to auto-detect">
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="revshell-payload-output" class="text-input full-width" readonly
+                  style="font-family: monospace; font-size: 11px;">
+                <button id="btn-revshell-copy" class="btn secondary" title="Copy to clipboard">📋</button>
+              </div>
+            </div>
+          </details>
+        </div>
+      </aside>
+
       <!-- Resizer Handle for Details -->
       <div id="sidebar-resizer" class="resizer" style="display: none;"></div>
       <!-- Host Details Side Panel -->
@@ -854,6 +950,7 @@
             <option value="ssh">SSH (22)</option>
             <option value="ftp">FTP (21)</option>
             <option value="smb">SMB (445)</option>
+            <option value="smb2">SMB2 (445)</option>
             <option value="rdp">RDP (3389)</option>
             <option value="http-get">HTTP GET (80)</option>
             <option value="http-post">HTTP POST (80)</option>
@@ -1119,6 +1216,8 @@
       </div>
     </div>
   </div>
+
+
 </body>
 
 </html>

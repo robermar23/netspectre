@@ -1832,3 +1832,55 @@ body {
 .msf-tab-pane {
   min-height: 200px;
 }
+
+/* ============================================= */
+/* === OFFENSIVE PENTEST: REVERSE SHELL      === */
+/* ============================================= */
+
+.revshell-modal {
+  max-width: 700px;
+  width: 100%;
+}
+
+.revshell-terminal {
+  background: #0d0d0d;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-family: monospace;
+  font-size: 12px;
+  height: 300px;
+  overflow-y: auto;
+  color: #00ff41; /* classic hacker green */
+  white-space: pre-wrap;
+  word-break: break-all;
+  display: flex;
+  flex-direction: column;
+}
+
+.revshell-input-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.revshell-input-group input {
+  flex-grow: 1;
+  font-family: monospace;
+}
+
+.revshell-payload-generator {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  margin-top: 16px;
+}
+
+.revshell-payload-generator h4 {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}

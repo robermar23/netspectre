@@ -128,4 +128,12 @@ export const IPC_CHANNELS = {
   MSF_STATUS: 'msf-status',
   MSF_RESULT: 'msf-result',
   MSF_ERROR: 'msf-error',
+
+  // Offensive Pentest: Reverse Shell Listener
+  REVSHELL_START: 'revshell-start',
+  REVSHELL_STOP: 'revshell-stop',
+  REVSHELL_DATA: 'revshell-data',
+  REVSHELL_SEND: 'revshell-send',
+  REVSHELL_CONNECTION: 'revshell-connection',
+  REVSHELL_ERROR: 'revshell-error',
 };

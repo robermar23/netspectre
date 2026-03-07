@@ -186,7 +186,7 @@ export const SNMP_OID_MAP = {
 
 // Brute-force target protocols (Hydra service names)
 export const BRUTEFORCE_PROTOCOLS = [
-  'ssh', 'ftp', 'smb', 'rdp', 'http-get', 'http-post',
+  'ssh', 'ftp', 'smb', 'smb2', 'rdp', 'http-get', 'http-post',
   'telnet', 'mysql', 'mssql', 'postgres', 'vnc'
 ];
 

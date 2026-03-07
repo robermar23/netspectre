@@ -107,7 +107,14 @@ var IPC_CHANNELS = {
   MSF_SESSION_LIST: "msf-session-list",
   MSF_STATUS: "msf-status",
   MSF_RESULT: "msf-result",
-  MSF_ERROR: "msf-error"
+  MSF_ERROR: "msf-error",
+  // Offensive Pentest: Reverse Shell Listener
+  REVSHELL_START: "revshell-start",
+  REVSHELL_STOP: "revshell-stop",
+  REVSHELL_DATA: "revshell-data",
+  REVSHELL_SEND: "revshell-send",
+  REVSHELL_CONNECTION: "revshell-connection",
+  REVSHELL_ERROR: "revshell-error"
 };
 
 // src/main/preload.js
@@ -218,6 +225,13 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   onMsfStatus: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.MSF_STATUS, (_e, v) => cb(v)),
   onMsfResult: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.MSF_RESULT, (_e, v) => cb(v)),
   onMsfError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.MSF_ERROR, (_e, v) => cb(v)),
+  // Offensive Pentest: Reverse Shell Listener
+  startRevShell: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.REVSHELL_START, opts),
+  stopRevShell: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.REVSHELL_STOP),
+  sendRevShell: (data) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.REVSHELL_SEND, data),
+  onRevShellData: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.REVSHELL_DATA, (_e, v) => cb(v)),
+  onRevShellConnection: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.REVSHELL_CONNECTION, (_e, v) => cb(v)),
+  onRevShellError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.REVSHELL_ERROR, (_e, v) => cb(v)),
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -264,5 +278,8 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_STATUS);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_RESULT);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_DATA);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_CONNECTION);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_ERROR);
   }
 });

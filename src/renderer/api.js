@@ -60,4 +60,9 @@ export const api = {
   msfRunExploit: async (opts) => window.electronAPI.msfRunExploit(opts),
   msfListExploits: async (query) => window.electronAPI.msfListExploits(query),
   msfSessionList: async () => window.electronAPI.msfSessionList(),
+
+  // Reverse Shell
+  startRevShell: async (opts) => window.electronAPI.startRevShell(opts),
+  stopRevShell: async () => window.electronAPI.stopRevShell(),
+  sendRevShell: async (data) => window.electronAPI.sendRevShell(data),
 };

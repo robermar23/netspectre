@@ -38,6 +38,7 @@ import { startLiveCapture, stopLiveCapture, analyzePcapFile } from './pcapAnalyz
 import { startRogueDnsDetection, stopRogueDnsDetection } from './rogueDnsDetector.js';
 import { startBruteForce, stopBruteForce, cleanupBruteForce } from './bruteForce.js';
 import { msfConnect, msfDisconnect, msfListExploits, msfRunExploit, msfGetSessions, cleanupMsf } from './metasploitRpc.js';
+import { startListener as startRevShell, stopListener as stopRevShell, sendToShell as sendRevShell } from './revShellListener.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -92,6 +93,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', function () {
   cleanupBruteForce();
   cleanupMsf();
+  stopRevShell();
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -439,6 +441,34 @@ ipcMain.handle(IPC_CHANNELS.BRUTEFORCE_STOP, async () => {
   console.log('Brute-force stop requested');
   stopBruteForce();
   return { status: 'stopped' };
+});
+
+// --- Offensive Pentest: Reverse Shell Listener ---
+
+ipcMain.handle(IPC_CHANNELS.REVSHELL_START, async (event, options) => {
+  console.log(`Reverse shell listener requested on port ${options?.port} using ${options?.mode}`);
+  
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid options payload' };
+  }
+
+  startRevShell(options,
+    (conn) => mainWindow?.webContents.send(IPC_CHANNELS.REVSHELL_CONNECTION, conn),
+    (data) => mainWindow?.webContents.send(IPC_CHANNELS.REVSHELL_DATA, data),
+    (err)  => mainWindow?.webContents.send(IPC_CHANNELS.REVSHELL_ERROR, err)
+  );
+  return { status: 'started' };
+});
+
+ipcMain.handle(IPC_CHANNELS.REVSHELL_STOP, async () => {
+  console.log('Reverse shell listener stop requested');
+  stopRevShell();
+  return { status: 'stopped' };
+});
+
+ipcMain.handle(IPC_CHANNELS.REVSHELL_SEND, async (event, data) => {
+  const success = sendRevShell(data);
+  return { status: success ? 'sent' : 'failed' };
 });
 
 // --- Generic File Dialog ---
