@@ -88,7 +88,15 @@ var IPC_CHANNELS = {
   PCAP_PACKET_SUMMARY: "pcap-packet-summary",
   PCAP_STATS_UPDATE: "pcap-stats-update",
   PCAP_CAPTURE_ERROR: "pcap-capture-error",
-  PCAP_CAPTURE_COMPLETE: "pcap-capture-complete"
+  PCAP_CAPTURE_COMPLETE: "pcap-capture-complete",
+  // Offensive Pentest: Brute-Force
+  BRUTEFORCE_START: "bruteforce-start",
+  BRUTEFORCE_STOP: "bruteforce-stop",
+  BRUTEFORCE_ATTEMPT: "bruteforce-attempt",
+  BRUTEFORCE_RESULT: "bruteforce-result",
+  BRUTEFORCE_PROGRESS: "bruteforce-progress",
+  BRUTEFORCE_ERROR: "bruteforce-error",
+  BRUTEFORCE_COMPLETE: "bruteforce-complete"
 };
 
 // src/main/preload.js
@@ -180,6 +188,14 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   onPcapStatsUpdate: (callback) => import_electron.ipcRenderer.on(IPC_CHANNELS.PCAP_STATS_UPDATE, (_event, value) => callback(value)),
   onPcapCaptureError: (callback) => import_electron.ipcRenderer.on(IPC_CHANNELS.PCAP_CAPTURE_ERROR, (_event, value) => callback(value)),
   onPcapCaptureComplete: (callback) => import_electron.ipcRenderer.on(IPC_CHANNELS.PCAP_CAPTURE_COMPLETE, (_event, value) => callback(value)),
+  // Offensive Pentest: Brute-Force
+  startBruteForce: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.BRUTEFORCE_START, opts),
+  stopBruteForce: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.BRUTEFORCE_STOP),
+  onBruteForceAttempt: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_ATTEMPT, (_e, v) => cb(v)),
+  onBruteForceResult: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_RESULT, (_e, v) => cb(v)),
+  onBruteForceProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_PROGRESS, (_e, v) => cb(v)),
+  onBruteForceError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_ERROR, (_e, v) => cb(v)),
+  onBruteForceComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_COMPLETE, (_e, v) => cb(v)),
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -218,5 +234,10 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PCAP_STATS_UPDATE);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PCAP_CAPTURE_ERROR);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PCAP_CAPTURE_COMPLETE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_ATTEMPT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_RESULT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_PROGRESS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_COMPLETE);
   }
 });

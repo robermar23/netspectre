@@ -36,6 +36,7 @@ import { exportPcap } from './pcapExporter.js';
 import { stopAll as stopAllPassive } from './passiveCapture.js';
 import { startLiveCapture, stopLiveCapture, analyzePcapFile } from './pcapAnalyzer.js';
 import { startRogueDnsDetection, stopRogueDnsDetection } from './rogueDnsDetector.js';
+import { startBruteForce, stopBruteForce, cleanupBruteForce } from './bruteForce.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -88,6 +89,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', function () {
+  cleanupBruteForce();
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -409,6 +411,32 @@ ipcMain.handle(IPC_CHANNELS.ANALYZE_PCAP_FILE, async (event, filePath) => {
     (msg) => mainWindow?.webContents.send(IPC_CHANNELS.PCAP_CAPTURE_COMPLETE, msg)
   );
   return { status: 'started' };
+});
+
+// --- Offensive Pentest: Brute-Force ---
+
+ipcMain.handle(IPC_CHANNELS.BRUTEFORCE_START, async (event, options) => {
+  console.log(`Brute-force requested on ${options?.targetIp}:${options?.port} (${options?.protocol})`);
+
+  // Validate basic input structure
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid options payload' };
+  }
+
+  startBruteForce(options,
+    (attempt)  => mainWindow?.webContents.send(IPC_CHANNELS.BRUTEFORCE_ATTEMPT, attempt),
+    (result)   => mainWindow?.webContents.send(IPC_CHANNELS.BRUTEFORCE_RESULT, result),
+    (progress) => mainWindow?.webContents.send(IPC_CHANNELS.BRUTEFORCE_PROGRESS, progress),
+    (err)      => mainWindow?.webContents.send(IPC_CHANNELS.BRUTEFORCE_ERROR, err),
+    (msg)      => mainWindow?.webContents.send(IPC_CHANNELS.BRUTEFORCE_COMPLETE, msg)
+  );
+  return { status: 'started' };
+});
+
+ipcMain.handle(IPC_CHANNELS.BRUTEFORCE_STOP, async () => {
+  console.log('Brute-force stop requested');
+  stopBruteForce();
+  return { status: 'stopped' };
 });
 
 // --- Results Management ---

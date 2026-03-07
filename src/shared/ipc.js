@@ -106,4 +106,13 @@ export const IPC_CHANNELS = {
   PCAP_STATS_UPDATE: 'pcap-stats-update',
   PCAP_CAPTURE_ERROR: 'pcap-capture-error',
   PCAP_CAPTURE_COMPLETE: 'pcap-capture-complete',
+
+  // Offensive Pentest: Brute-Force
+  BRUTEFORCE_START: 'bruteforce-start',
+  BRUTEFORCE_STOP: 'bruteforce-stop',
+  BRUTEFORCE_ATTEMPT: 'bruteforce-attempt',
+  BRUTEFORCE_RESULT: 'bruteforce-result',
+  BRUTEFORCE_PROGRESS: 'bruteforce-progress',
+  BRUTEFORCE_ERROR: 'bruteforce-error',
+  BRUTEFORCE_COMPLETE: 'bruteforce-complete',
 };

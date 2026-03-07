@@ -20,6 +20,14 @@ const schema = {
       path: { type: 'string', default: '' }
     },
     default: { enabled: false, path: '' }
+  },
+  hydra: {
+    type: 'object',
+    properties: {
+      enabled: { type: 'boolean', default: false },
+      path: { type: 'string', default: '' }
+    },
+    default: { enabled: false, path: '' }
   }
 };
 
@@ -65,6 +73,23 @@ const DEPENDENCY_PATHS = {
       '/usr/local/bin/tshark'
     ],
     versionArg: '-v'
+  },
+  hydra: {
+    win32: [
+      'hydra',
+      'C:\\Program Files\\THC-Hydra\\hydra.exe'
+    ],
+    darwin: [
+      'hydra',
+      '/opt/homebrew/bin/hydra',
+      '/usr/local/bin/hydra'
+    ],
+    linux: [
+      'hydra',
+      '/usr/bin/hydra',
+      '/usr/local/bin/hydra'
+    ],
+    versionArg: '-h'
   }
 };
 

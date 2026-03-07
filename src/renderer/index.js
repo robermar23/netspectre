@@ -16,10 +16,12 @@ function escapeHtml(unsafe) {
 }
 
 // --- Initialization ---
-Promise.all([api.checkNmap(), api.settings.checkDependency('tshark')]).then(async ([isNmapInstalled, tsharkStatus]) => {
+Promise.all([api.checkNmap(), api.settings.checkDependency('tshark'), api.settings.checkDependency('hydra')]).then(async ([isNmapInstalled, tsharkStatus, hydraStatus]) => {
   const isTsharkInstalled = tsharkStatus ? tsharkStatus.installed : false;
+  const isHydraInstalled = hydraStatus ? hydraStatus.installed : false;
   state.isNmapInstalled = isNmapInstalled;
   state.isTsharkInstalled = isTsharkInstalled;
+  state.isHydraInstalled = isHydraInstalled;
   
   if (isNmapInstalled) {
     state.nmapScripts = await api.getNmapScripts();
@@ -33,6 +35,7 @@ Promise.all([api.checkNmap(), api.settings.checkDependency('tshark')]).then(asyn
   const missing = [];
   if (!isNmapInstalled) missing.push({ name: 'Nmap', url: 'https://nmap.org/download.html' });
   if (!isTsharkInstalled) missing.push({ name: 'Tshark (Wireshark)', url: 'https://www.wireshark.org/download.html' });
+  if (!isHydraInstalled) missing.push({ name: 'Hydra (THC-Hydra)', url: 'https://github.com/vanhauser-thc/thc-hydra' });
   
   if (missing.length > 0) {
     if (elements.nmapInstallBanner) {
@@ -74,6 +77,8 @@ const toggleNmap = document.getElementById('setting-nmap-enabled');
 const statusNmap = document.getElementById('status-nmap');
 const toggleTshark = document.getElementById('setting-tshark-enabled');
 const statusTshark = document.getElementById('status-tshark');
+const toggleHydra = document.getElementById('setting-hydra-enabled');
+const statusHydra = document.getElementById('status-hydra');
 
 // VLAN Discovery DOM elements
 const btnToggleVlanPanel = document.getElementById('btn-toggle-vlan-panel');
@@ -152,6 +157,15 @@ async function loadAndApplySettings() {
     toggleEl: toggleTshark,
   });
 
+  await syncDependencyToggle({
+    checkFn: () => api.settings.checkDependency('hydra'),
+    installedText: 'Installed',
+    missingText: 'Not Found — Install THC-Hydra',
+    statusEl: statusHydra,
+    settingsKey: 'hydra',
+    toggleEl: toggleHydra,
+  });
+
   applySettingsUI(settings);
 }
 
@@ -175,6 +189,12 @@ function applySettingsUI(settings) {
         elements.sidebarResizer.style.display = 'none';
      }
   }
+
+  // Hide/Show Hydra UI components globally
+  const hydraEnabled = settings.hydra?.enabled !== false;
+  document.querySelectorAll('.hydra-only').forEach(el => {
+    el.style.display = hydraEnabled ? 'flex' : 'none';
+  });
 }
 
 toggleNmap.addEventListener('change', async (e) => {
@@ -185,6 +205,12 @@ toggleNmap.addEventListener('change', async (e) => {
 
 toggleTshark.addEventListener('change', async (e) => {
   await api.settings.set('tshark.enabled', e.target.checked);
+  const settings = await api.settings.getAll();
+  applySettingsUI(settings);
+});
+
+toggleHydra.addEventListener('change', async (e) => {
+  await api.settings.set('hydra.enabled', e.target.checked);
   const settings = await api.settings.getAll();
   applySettingsUI(settings);
 });
@@ -924,6 +950,18 @@ function renderActionButtons(container, ip, data) {
     btn.innerHTML = '<span class="icon">🖥️</span> Remote Desktop';
     btn.addEventListener('click', () => window.electronAPI.openExternalAction({type:'rdp', ip}));
     container.appendChild(btn);
+  }
+
+  // Brute-Force action for brute-forceable ports
+  const bfPorts = { 22: 'ssh', 21: 'ftp', 445: 'smb', 3389: 'rdp', 80: 'http-get', 8080: 'http-get', 23: 'telnet', 3306: 'mysql', 1433: 'mssql', 5432: 'postgres', 5900: 'vnc' };
+  if (bfPorts[data.port] && state.isHydraInstalled) {
+    const bfBtn = document.createElement('button');
+    bfBtn.className = 'btn-action pentest-action hydra-only';
+    bfBtn.innerHTML = '<span class="icon">⚔️</span> Brute-Force';
+    bfBtn.addEventListener('click', () => {
+      openBruteForceModal(ip, data.port, bfPorts[data.port]);
+    });
+    container.appendChild(bfBtn);
   }
 }
 
@@ -3564,4 +3602,288 @@ window.electronAPI.onSnmpWalkError && window.electronAPI.onSnmpWalkError(({ host
   el.appendChild(header);
   el.appendChild(body);
   container.appendChild(el);
+});
+
+// =============================================
+// === OFFENSIVE PENTEST: BRUTE-FORCE MODULE ===
+// =============================================
+
+let isBfRunning = false;
+let bfAttemptCount = 0;
+let pentestConsentAccepted = false;
+let pendingBfConfig = null; // Holds {ip, port, protocol} while consent is pending
+
+// --- Consent Flow ---
+const pentestConsentOverlay = document.getElementById('pentest-consent-overlay');
+const btnClosePentestConsent = document.getElementById('btn-close-pentest-consent');
+const btnPentestConsentReject = document.getElementById('btn-pentest-consent-reject');
+const btnPentestConsentAccept = document.getElementById('btn-pentest-consent-accept');
+
+function closePentestConsent() {
+  pentestConsentOverlay?.classList.add('hidden');
+  pendingBfConfig = null;
+}
+
+btnClosePentestConsent?.addEventListener('click', closePentestConsent);
+btnPentestConsentReject?.addEventListener('click', closePentestConsent);
+
+btnPentestConsentAccept?.addEventListener('click', async () => {
+  pentestConsentAccepted = true;
+  // Persist consent
+  await api.settings.set('pentestConsentAccepted', true);
+  pentestConsentOverlay?.classList.add('hidden');
+  // Open the pending brute-force modal if we have a pending config
+  if (pendingBfConfig) {
+    showBruteForceModal(pendingBfConfig.ip, pendingBfConfig.port, pendingBfConfig.protocol);
+    pendingBfConfig = null;
+  }
+});
+
+// Check persisted consent on load
+api.settings.get('pentestConsentAccepted').then(val => {
+  pentestConsentAccepted = !!val;
+});
+
+// --- Brute-Force Modal ---
+const bfOverlay = document.getElementById('bruteforce-modal-overlay');
+const btnCloseBfModal = document.getElementById('btn-close-bf-modal');
+const bfTargetIp = document.getElementById('bf-target-ip');
+const bfPort = document.getElementById('bf-port');
+const bfProtocol = document.getElementById('bf-protocol');
+const bfUsername = document.getElementById('bf-username');
+const bfWordlistPath = document.getElementById('bf-wordlist-path');
+const btnBfBrowseWordlist = document.getElementById('btn-bf-browse-wordlist');
+const bfThreads = document.getElementById('bf-threads');
+const bfThreadsVal = document.getElementById('bf-threads-val');
+const bfDelay = document.getElementById('bf-delay');
+const bfMaxAttempts = document.getElementById('bf-max-attempts');
+const btnBfStart = document.getElementById('btn-bf-start');
+const btnBfStop = document.getElementById('btn-bf-stop');
+const bfProgressContainer = document.getElementById('bf-progress-container');
+const bfProgressFill = document.getElementById('bf-progress-fill');
+const bfProgressText = document.getElementById('bf-progress-text');
+const bfResultsBody = document.getElementById('bf-results-body');
+const bfErrorDisplay = document.getElementById('bf-error-display');
+
+// Protocol → default port map
+const protocolPortMap = {
+  'ssh': 22, 'ftp': 21, 'smb': 445, 'rdp': 3389,
+  'http-get': 80, 'http-post': 80, 'telnet': 23,
+  'mysql': 3306, 'mssql': 1433, 'postgres': 5432, 'vnc': 5900
+};
+
+/**
+ * Open the brute-force modal. Checks consent first.
+ */
+function openBruteForceModal(ip, port, protocol) {
+  if (!pentestConsentAccepted) {
+    pendingBfConfig = { ip, port, protocol };
+    pentestConsentOverlay?.classList.remove('hidden');
+    return;
+  }
+  showBruteForceModal(ip, port, protocol);
+}
+
+function showBruteForceModal(ip, port, protocol) {
+  resetBfModal();
+  if (bfTargetIp) bfTargetIp.value = ip || '';
+  if (bfPort) bfPort.value = port || 22;
+  if (bfProtocol) bfProtocol.value = protocol || 'ssh';
+  bfOverlay?.classList.remove('hidden');
+}
+
+function closeBfModal() {
+  bfOverlay?.classList.add('hidden');
+}
+
+function resetBfModal() {
+  isBfRunning = false;
+  bfAttemptCount = 0;
+  if (btnBfStart) { btnBfStart.disabled = false; btnBfStart.classList.remove('pulsing'); }
+  if (btnBfStop) btnBfStop.disabled = true;
+  if (bfProgressContainer) bfProgressContainer.style.display = 'none';
+  if (bfProgressFill) bfProgressFill.style.width = '0%';
+  if (bfProgressText) bfProgressText.textContent = '0 attempts';
+  if (bfResultsBody) bfResultsBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--text-muted); padding: 16px;">Configure and start an attack above</td></tr>';
+  if (bfErrorDisplay) { bfErrorDisplay.style.display = 'none'; bfErrorDisplay.textContent = ''; }
+}
+
+btnCloseBfModal?.addEventListener('click', closeBfModal);
+
+// Thread slider live value update
+bfThreads?.addEventListener('input', () => {
+  if (bfThreadsVal) bfThreadsVal.textContent = bfThreads.value;
+});
+
+// Protocol → port auto-sync
+bfProtocol?.addEventListener('change', () => {
+  const defaultPort = protocolPortMap[bfProtocol.value];
+  if (defaultPort && bfPort) bfPort.value = defaultPort;
+});
+
+// Wordlist file picker (uses Electron's dialog via IPC)
+btnBfBrowseWordlist?.addEventListener('click', async () => {
+  try {
+    // Use the import scope file dialog as a model — call a generic file open
+    const result = await window.electronAPI.openExternalAction({ type: 'file-dialog-wordlist' });
+    // Since we don't have a dedicated IPC for this yet, we'll let users type the path
+    // For now, we make the input editable temporarily
+    if (bfWordlistPath) {
+      bfWordlistPath.removeAttribute('readonly');
+      bfWordlistPath.focus();
+      bfWordlistPath.placeholder = 'Type full path to wordlist file...';
+    }
+  } catch (_) {
+    if (bfWordlistPath) {
+      bfWordlistPath.removeAttribute('readonly');
+      bfWordlistPath.focus();
+      bfWordlistPath.placeholder = 'Type full path to wordlist file...';
+    }
+  }
+});
+
+// Start Attack
+btnBfStart?.addEventListener('click', async () => {
+  const targetIp = bfTargetIp?.value?.trim();
+  const port = parseInt(bfPort?.value, 10);
+  const protocol = bfProtocol?.value;
+  const username = bfUsername?.value?.trim();
+  const wordlistPath = bfWordlistPath?.value?.trim();
+  const threads = parseInt(bfThreads?.value, 10) || 4;
+  const delay = parseInt(bfDelay?.value, 10) || 0;
+  const maxAttempts = parseInt(bfMaxAttempts?.value, 10) || 10000;
+
+  // Client-side validation
+  if (!targetIp) { showBfError('Target IP is required'); return; }
+  if (!port || port < 1 || port > 65535) { showBfError('Invalid port (1-65535)'); return; }
+  if (!username) { showBfError('Username is required'); return; }
+  if (!wordlistPath) { showBfError('Wordlist path is required'); return; }
+
+  hideBfError();
+  bfAttemptCount = 0;
+  isBfRunning = true;
+
+  // Update UI state
+  btnBfStart.disabled = true;
+  btnBfStart.classList.add('pulsing');
+  btnBfStop.disabled = false;
+  bfProgressContainer.style.display = 'block';
+  bfProgressFill.style.width = '0%';
+  bfProgressText.textContent = 'Starting...';
+  bfResultsBody.innerHTML = '';
+
+  try {
+    await api.startBruteForce({
+      targetIp,
+      port,
+      protocol,
+      username,
+      wordlistPath,
+      threads,
+      delay,
+      maxAttempts,
+    });
+  } catch (err) {
+    showBfError(`Failed to start: ${err.message}`);
+    resetBfState();
+  }
+});
+
+// Stop Attack
+btnBfStop?.addEventListener('click', async () => {
+  try {
+    await api.stopBruteForce();
+  } catch (_) { /* ignore */ }
+  resetBfState();
+});
+
+function resetBfState() {
+  isBfRunning = false;
+  if (btnBfStart) { btnBfStart.disabled = false; btnBfStart.classList.remove('pulsing'); }
+  if (btnBfStop) btnBfStop.disabled = true;
+}
+
+function showBfError(msg) {
+  if (bfErrorDisplay) {
+    bfErrorDisplay.textContent = msg;
+    bfErrorDisplay.style.display = 'block';
+  }
+}
+
+function hideBfError() {
+  if (bfErrorDisplay) {
+    bfErrorDisplay.textContent = '';
+    bfErrorDisplay.style.display = 'none';
+  }
+}
+
+function formatBfTime(isoString) {
+  try {
+    const d = new Date(isoString);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch { return '--:--:--'; }
+}
+
+// --- Brute-Force IPC Event Listeners ---
+
+window.electronAPI.onBruteForceAttempt((data) => {
+  bfAttemptCount = data.attemptNumber || (bfAttemptCount + 1);
+  if (bfProgressText) {
+    bfProgressText.textContent = `${bfAttemptCount} attempts`;
+  }
+  // Only show every 10th attempt to avoid flooding the DOM
+  if (bfAttemptCount % 10 === 0 || bfAttemptCount <= 5) {
+    const row = document.createElement('tr');
+    row.className = 'bf-attempt-row';
+    row.innerHTML = `<td>${formatBfTime(data.timestamp)}</td><td colspan="2" style="font-family: monospace; font-size: 10px;">${escapeHtml(data.line?.substring(0, 80) || '...')}</td><td style="color: var(--text-muted);">⏳</td>`;
+    bfResultsBody?.appendChild(row);
+    // Auto-scroll
+    const container = document.getElementById('bf-results-container');
+    if (container) container.scrollTop = container.scrollHeight;
+  }
+});
+
+window.electronAPI.onBruteForceResult((data) => {
+  const row = document.createElement('tr');
+  row.className = 'bf-credential-hit';
+  row.innerHTML = `<td>${formatBfTime(data.timestamp)}</td><td><strong>${escapeHtml(data.user)}</strong></td><td><strong>${escapeHtml(data.password)}</strong> <span class="bf-copy-btn" title="Copy credential">📋</span></td><td style="color: var(--success);">✅</td>`;
+  
+  // Copy-to-clipboard on the copy button
+  const copyBtn = row.querySelector('.bf-copy-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(`${data.user}:${data.password}`);
+      copyBtn.textContent = '✔️';
+      setTimeout(() => { copyBtn.textContent = '📋'; }, 2000);
+    });
+  }
+
+  bfResultsBody?.prepend(row); // Show hits at top
+});
+
+window.electronAPI.onBruteForceProgress((data) => {
+  if (bfProgressText) {
+    bfProgressText.textContent = `${data.attemptCount || bfAttemptCount} attempts | ${data.foundCount || 0} found | ${data.statusText || ''}`;
+  }
+  // Estimate progress (rough — based on attempt count vs max)
+  const max = parseInt(bfMaxAttempts?.value, 10) || 10000;
+  const pct = Math.min(((data.attemptCount || bfAttemptCount) / max) * 100, 100);
+  if (bfProgressFill) bfProgressFill.style.width = `${pct}%`;
+});
+
+window.electronAPI.onBruteForceError((data) => {
+  showBfError(data.message || 'Unknown brute-force error');
+});
+
+window.electronAPI.onBruteForceComplete((data) => {
+  resetBfState();
+  if (bfProgressFill) bfProgressFill.style.width = '100%';
+  
+  const found = data.credentialsFound?.length || 0;
+  const summary = `Complete — ${data.totalAttempts || 0} attempts, ${found} credential${found !== 1 ? 's' : ''} found (exit code ${data.exitCode})`;
+  if (bfProgressText) bfProgressText.textContent = summary;
+
+  if (data.stderr && data.exitCode !== 0) {
+    showBfError(`Hydra stderr: ${data.stderr.substring(0, 200)}`);
+  }
 });

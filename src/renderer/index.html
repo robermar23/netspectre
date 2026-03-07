@@ -734,6 +734,21 @@
           </div>
         </div>
 
+        <!-- Hydra Settings Group -->
+        <div class="settings-group">
+          <div class="settings-group-header">
+            <h3><span class="icon">⚔️</span> Hydra (Brute-Force)</h3>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-hydra-enabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p class="settings-description">Enables credential brute-force attacks using THC-Hydra against target services. <strong>Offensive tool — use only with authorization.</strong></p>
+          <div class="dependency-status" id="status-hydra">
+            <span class="status-dot"></span> <span class="status-text">Checking availability...</span>
+          </div>
+        </div>
+
       </div>
       <div class="modal-footer">
         <button id="btn-settings-done" class="btn primary">Save & Close</button>
@@ -771,6 +786,140 @@
 
   <!-- Render Logic -->
   <script type="module" src="./index.js"></script>
+
+  <!-- Pentest Consent Modal -->
+  <div id="pentest-consent-overlay" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header" style="border-bottom-color: rgba(231, 76, 60, 0.3);">
+        <h2>⚠️ Offensive Tool Warning</h2>
+        <button id="btn-close-pentest-consent" class="btn icon-only modal-close">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 24px;">
+        <div class="pentest-consent-banner">
+          <strong>⚔️ AUTHORIZATION REQUIRED</strong><br>
+          This tool performs active offensive operations against target systems.
+          Only use on networks and systems you are <strong>explicitly authorized</strong> to test.
+          <br><br>
+          Unauthorized use of brute-force tools may violate computer fraud and abuse laws.
+        </div>
+        <div style="margin-top: 16px; display: flex; gap: 12px; justify-content: flex-end;">
+          <button id="btn-pentest-consent-reject" class="btn secondary">Cancel</button>
+          <button id="btn-pentest-consent-accept" class="btn pentest">I Accept — Proceed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Brute-Force Modal -->
+  <div id="bruteforce-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-content bf-modal">
+      <div class="modal-header" style="border-bottom-color: rgba(231, 76, 60, 0.3);">
+        <h2>⚔️ Brute-Force Attack</h2>
+        <button id="btn-close-bf-modal" class="btn icon-only modal-close">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+        <!-- Target Info -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Target IP</label>
+            <input type="text" id="bf-target-ip" class="text-input full-width" placeholder="e.g. 192.168.1.10" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Port</label>
+            <input type="number" id="bf-port" class="text-input full-width" value="22" min="1" max="65535">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Protocol</label>
+          <select id="bf-protocol" class="dropdown-select full-width">
+            <option value="ssh">SSH (22)</option>
+            <option value="ftp">FTP (21)</option>
+            <option value="smb">SMB (445)</option>
+            <option value="rdp">RDP (3389)</option>
+            <option value="http-get">HTTP GET (80)</option>
+            <option value="http-post">HTTP POST (80)</option>
+            <option value="telnet">Telnet (23)</option>
+            <option value="mysql">MySQL (3306)</option>
+            <option value="mssql">MSSQL (1433)</option>
+            <option value="postgres">PostgreSQL (5432)</option>
+            <option value="vnc">VNC (5900)</option>
+          </select>
+        </div>
+
+        <!-- Credentials -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" id="bf-username" class="text-input full-width" placeholder="e.g. admin">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Wordlist</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="bf-wordlist-path" class="text-input" style="flex: 1;" placeholder="Select wordlist..." readonly>
+              <button id="btn-bf-browse-wordlist" class="btn secondary icon-only" title="Browse for wordlist file">📂</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced Options -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Threads <span id="bf-threads-val" style="color: var(--pentest);">4</span></label>
+            <input type="range" id="bf-threads" min="1" max="16" value="4" class="bf-range-slider">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Delay (ms)</label>
+            <input type="number" id="bf-delay" class="text-input full-width" value="0" min="0" max="10000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Max Attempts</label>
+            <input type="number" id="bf-max-attempts" class="text-input full-width" value="10000" min="1" max="50000">
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-bf-start" class="btn pentest full-width">
+            <span class="icon">⚔️</span> Start Attack
+          </button>
+          <button id="btn-bf-stop" class="btn danger-outline" style="width: 120px;" disabled>
+            <span class="icon">🛑</span> Stop
+          </button>
+        </div>
+
+        <!-- Progress -->
+        <div id="bf-progress-container" style="display: none;">
+          <div class="bf-progress-bar">
+            <div id="bf-progress-fill" class="bf-progress-fill"></div>
+          </div>
+          <div id="bf-progress-text" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">0 attempts</div>
+        </div>
+
+        <!-- Results Table -->
+        <div id="bf-results-container" style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border-glass); border-radius: 6px; background: rgba(0,0,0,0.3);">
+          <table class="data-table bf-results-table" style="width: 100%; font-size: 11px;">
+            <thead style="position: sticky; top: 0; background: #16161c; z-index: 1;">
+              <tr>
+                <th style="width: 70px;">Time</th>
+                <th>Username</th>
+                <th>Password</th>
+                <th style="width: 60px;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="bf-results-body">
+              <tr>
+                <td colspan="4" style="text-align:center; color: var(--text-muted); padding: 16px;">Configure and start an attack above</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Error Display -->
+        <div id="bf-error-display" style="display: none; color: var(--danger); font-size: 12px; padding: 8px; background: rgba(235,94,94,0.1); border-radius: 4px; border-left: 3px solid var(--danger);"></div>
+      </div>
+    </div>
+  </div>
 </body>
 
 </html>

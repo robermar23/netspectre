@@ -1503,3 +1503,165 @@ body {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
 }
+
+/* ======================================= */
+/* === OFFENSIVE PENTEST: BRUTE-FORCE  === */
+/* ======================================= */
+
+:root {
+  --pentest: #e74c3c;
+  --pentest-hover: #ff6b6b;
+  --pentest-glow: rgba(231, 76, 60, 0.3);
+}
+
+/* Pentest Button (Red Accent) */
+.btn.pentest {
+  background: var(--pentest);
+  color: white;
+  box-shadow: 0 4px 12px var(--pentest-glow);
+  border: 1px solid transparent;
+}
+.btn.pentest:hover {
+  background: var(--pentest-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px var(--pentest-glow);
+}
+.btn.pentest:active {
+  transform: translateY(1px);
+}
+.btn.pentest:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.btn.pentest.pulsing {
+  animation: pentestPulse 1.5s infinite;
+}
+
+@keyframes pentestPulse {
+  0% { box-shadow: 0 0 0 0 var(--pentest-glow); }
+  70% { box-shadow: 0 0 0 8px rgba(231, 76, 60, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+}
+
+/* Pentest Consent Warning Banner */
+.pentest-consent-banner {
+  background: linear-gradient(135deg, rgba(231, 76, 60, 0.15), rgba(243, 156, 18, 0.1));
+  border: 1px solid rgba(231, 76, 60, 0.4);
+  border-left: 4px solid var(--pentest);
+  border-radius: 6px;
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-main);
+}
+
+/* Brute-Force Modal */
+.bf-modal {
+  max-width: 560px;
+  width: 100%;
+}
+
+/* Range Slider (Pentest Accent) */
+.bf-range-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+.bf-range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--pentest);
+  cursor: pointer;
+  box-shadow: 0 0 6px var(--pentest-glow);
+  transition: transform 0.15s ease;
+}
+.bf-range-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+.bf-range-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--pentest);
+  cursor: pointer;
+  border: none;
+}
+
+/* Progress Bar */
+.bf-progress-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.bf-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--pentest), #f39c12);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* Results Table */
+.bf-results-table th {
+  text-align: left;
+  padding: 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-glass);
+}
+.bf-results-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  word-break: break-all;
+}
+
+/* Credential Hit Row */
+.bf-credential-hit td {
+  background: rgba(59, 226, 130, 0.08) !important;
+  color: var(--success) !important;
+  font-weight: 600;
+}
+.bf-credential-hit .bf-copy-btn {
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.bf-credential-hit .bf-copy-btn:hover {
+  opacity: 1;
+}
+
+/* Attempt Row (dim) */
+.bf-attempt-row td {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+/* Visibility Toggle (same pattern as .nmap-only, .tshark-only) */
+.hydra-only {
+  display: none;
+}
+
+/* Pentest Action Button (used in host details panel) */
+.btn-action.pentest-action {
+  background: rgba(231, 76, 60, 0.15);
+  color: var(--pentest);
+  border: 1px solid rgba(231, 76, 60, 0.35);
+}
+.btn-action.pentest-action:hover {
+  background: rgba(231, 76, 60, 0.35);
+  border-color: var(--pentest);
+  color: white;
+}

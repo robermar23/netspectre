@@ -183,3 +183,18 @@ export const SNMP_OID_MAP = {
   '1.3.6.1.2.1.47.1.1.1.1.12': 'entPhysicalMfgName',
   '1.3.6.1.2.1.47.1.1.1.1.13': 'entPhysicalModelName'
 };
+
+// Brute-force target protocols (Hydra service names)
+export const BRUTEFORCE_PROTOCOLS = [
+  'ssh', 'ftp', 'smb', 'rdp', 'http-get', 'http-post',
+  'telnet', 'mysql', 'mssql', 'postgres', 'vnc'
+];
+
+// Default credentials for quick-spray (IoT/lab use)
+export const DEFAULT_CREDENTIALS = [
+  { user: 'admin', pass: 'admin' },
+  { user: 'root', pass: 'root' },
+  { user: 'admin', pass: 'password' },
+  { user: 'root', pass: 'toor' },
+  { user: 'cisco', pass: 'cisco' },
+];

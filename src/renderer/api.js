@@ -47,5 +47,9 @@ export const api = {
   // PCAP Live Capture & Analysis
   startPcapCapture: async (interfaceId, hostIp, options) => window.electronAPI.startPcapCapture(interfaceId, hostIp, options),
   stopPcapCapture: async () => window.electronAPI.stopPcapCapture(),
-  analyzePcapFile: async (filePath) => window.electronAPI.analyzePcapFile(filePath)
+  analyzePcapFile: async (filePath) => window.electronAPI.analyzePcapFile(filePath),
+
+  // Brute-Force
+  startBruteForce: async (opts) => window.electronAPI.startBruteForce(opts),
+  stopBruteForce: async () => window.electronAPI.stopBruteForce(),
 };
