@@ -16,26 +16,8 @@ import http from 'http';
 import https from 'https';
 import fs from 'fs';
 import { URL } from 'url';
+import { COMMON_WEB_PATHS } from '#shared/networkConstants.js';
 
-// Built-in path list used when no custom wordlist is provided
-const COMMON_WEB_PATHS = [
-  '/admin', '/login', '/logout', '/dashboard', '/api', '/api/v1', '/api/v2',
-  '/config', '/configuration', '/setup', '/install', '/backup', '/db',
-  '/database', '/debug', '/test', '/dev', '/staging', '/old', '/archive',
-  '/uploads', '/upload', '/files', '/file', '/documents', '/docs',
-  '/static', '/assets', '/media', '/images', '/img', '/css', '/js',
-  '/robots.txt', '/.env', '/.env.local', '/.env.production', '/.git/HEAD',
-  '/web.config', '/phpinfo.php', '/info.php', '/server-status', '/server-info',
-  '/health', '/healthz', '/status', '/metrics', '/actuator', '/actuator/health',
-  '/swagger', '/swagger-ui', '/swagger-ui.html', '/openapi.json', '/api-docs',
-  '/wp-admin', '/wp-login.php', '/wp-content', '/wp-includes',
-  '/administrator', '/admin.php', '/admin.html', '/adminer.php',
-  '/phpmyadmin', '/pma', '/myadmin', '/mysql', '/cpanel',
-  '/console', '/manager', '/management', '/monitoring',
-  '/user', '/users', '/profile', '/account', '/accounts',
-  '/register', '/signup', '/forgot-password', '/reset-password',
-  '/search', '/sitemap.xml', '/crossdomain.xml', '/security.txt',
-];
 
 // ---- state ----------------------------------------------------------------
 

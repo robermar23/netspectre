@@ -21,15 +21,9 @@ export async function startListener(options, onConnection, onData, onError) {
 
   const { port = 4444, mode = 'native' } = options;
 
-  if (port < 1 || port > 65535) {
-    if (onError) onError({ message: 'Invalid port. Must be between 1 and 65535.' });
+  if (port < 1024 || port > 65535) {
+    if (onError) onError({ message: `Invalid port ${port}. Must be between 1024 and 65535.` });
     return;
-  }
-
-  if (port < 1024 && process.platform !== 'win32') {
-    // On non-Windows platforms, we often need root for low ports. 
-    // On Windows, it's more about whether the port is occupied by a service.
-    console.log(`[RevShell] Warning: Attempting to bind to privileged port ${port}`);
   }
 
   if (mode === 'native') {

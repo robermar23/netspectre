@@ -120,7 +120,7 @@ describe('revShellListener', () => {
   it('should reject invalid ports', () => {
     const onError = vi.fn();
     startListener({ port: 80, mode: 'native' }, null, null, onError);
-    expect(onError).toHaveBeenCalledWith(expect.stringContaining('Invalid port'));
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('Invalid port') }));
     expect(isListenerActive()).toBe(false);
   });
 
@@ -128,7 +128,7 @@ describe('revShellListener', () => {
     const onError = vi.fn();
     startListener({ port: 4444, mode: 'native' }, null, null, null);
     startListener({ port: 4445, mode: 'ncat' }, null, null, onError);
-    expect(onError).toHaveBeenCalledWith(expect.stringContaining('already active'));
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('already active') }));
   });
 
   it('should stop listener successfully', () => {
