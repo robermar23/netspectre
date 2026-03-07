@@ -36,6 +36,11 @@ import { exportPcap } from './pcapExporter.js';
 import { stopAll as stopAllPassive } from './passiveCapture.js';
 import { startLiveCapture, stopLiveCapture, analyzePcapFile } from './pcapAnalyzer.js';
 import { startRogueDnsDetection, stopRogueDnsDetection } from './rogueDnsDetector.js';
+import { startBruteForce, stopBruteForce, cleanupBruteForce } from './bruteForce.js';
+import { msfConnect, msfDisconnect, msfListExploits, msfRunExploit, msfGetSessions, cleanupMsf } from './metasploitRpc.js';
+import { startListener as startRevShell, stopListener as stopRevShell, sendToShell as sendRevShell } from './revShellListener.js';
+import { enumerateShares, browseShare, downloadFile as downloadShareFile, cleanupShares } from './shareEnumerator.js';
+import { startDirFuzz, stopDirFuzz, cleanupDirFuzz } from './dirFuzzer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -88,6 +93,11 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', function () {
+  cleanupBruteForce();
+  cleanupMsf();
+  stopRevShell();
+  cleanupShares();
+  cleanupDirFuzz();
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -409,6 +419,235 @@ ipcMain.handle(IPC_CHANNELS.ANALYZE_PCAP_FILE, async (event, filePath) => {
     (msg) => mainWindow?.webContents.send(IPC_CHANNELS.PCAP_CAPTURE_COMPLETE, msg)
   );
   return { status: 'started' };
+});
+
+// --- Offensive Pentest: Brute-Force ---
+
+ipcMain.handle(IPC_CHANNELS.BRUTEFORCE_START, async (event, options) => {
+  console.log(`Brute-force requested on ${options?.targetIp}:${options?.port} (${options?.protocol})`);
+
+  // Validate basic input structure
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid options payload' };
+  }
+
+  startBruteForce(options,
+    (attempt)  => mainWindow?.webContents.send(IPC_CHANNELS.BRUTEFORCE_ATTEMPT, attempt),
+    (result)   => mainWindow?.webContents.send(IPC_CHANNELS.BRUTEFORCE_RESULT, result),
+    (progress) => mainWindow?.webContents.send(IPC_CHANNELS.BRUTEFORCE_PROGRESS, progress),
+    (err)      => mainWindow?.webContents.send(IPC_CHANNELS.BRUTEFORCE_ERROR, err),
+    (msg)      => mainWindow?.webContents.send(IPC_CHANNELS.BRUTEFORCE_COMPLETE, msg)
+  );
+  return { status: 'started' };
+});
+
+ipcMain.handle(IPC_CHANNELS.BRUTEFORCE_STOP, async () => {
+  console.log('Brute-force stop requested');
+  stopBruteForce();
+  return { status: 'stopped' };
+});
+
+// --- Offensive Pentest: Reverse Shell Listener ---
+
+ipcMain.handle(IPC_CHANNELS.REVSHELL_START, async (event, options) => {
+  console.log(`Reverse shell listener requested on port ${options?.port} using ${options?.mode}`);
+  
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid options payload' };
+  }
+
+  startRevShell(options,
+    (conn) => mainWindow?.webContents.send(IPC_CHANNELS.REVSHELL_CONNECTION, conn),
+    (data) => mainWindow?.webContents.send(IPC_CHANNELS.REVSHELL_DATA, data),
+    (err)  => mainWindow?.webContents.send(IPC_CHANNELS.REVSHELL_ERROR, err)
+  );
+  return { status: 'started' };
+});
+
+ipcMain.handle(IPC_CHANNELS.REVSHELL_STOP, async () => {
+  console.log('Reverse shell listener stop requested');
+  stopRevShell();
+  return { status: 'stopped' };
+});
+
+ipcMain.handle(IPC_CHANNELS.REVSHELL_SEND, async (event, data) => {
+  const success = sendRevShell(data);
+  return { status: success ? 'sent' : 'failed' };
+});
+
+// --- Generic File Dialog ---
+
+ipcMain.handle(IPC_CHANNELS.BROWSE_FILE, async (event, options) => {
+  const opts = options || {};
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: opts.title || 'Select File',
+    properties: ['openFile'],
+    filters: opts.filters || [{ name: 'All Files', extensions: ['*'] }],
+    defaultPath: opts.defaultPath || undefined,
+  });
+  if (canceled || filePaths.length === 0) return { status: 'cancelled' };
+  return { status: 'selected', path: filePaths[0] };
+});
+
+// --- Offensive Pentest: Metasploit RPC ---
+
+ipcMain.handle(IPC_CHANNELS.MSF_CONNECT, async (event, options) => {
+  console.log(`MSF connect requested to ${options?.host}:${options?.port}`);
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid options payload' };
+  }
+  try {
+    const result = await msfConnect(options);
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_STATUS, { state: 'connected', ...result });
+    return result;
+  } catch (err) {
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
+    return { status: 'error', error: err.message };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.MSF_DISCONNECT, async () => {
+  console.log('MSF disconnect requested');
+  try {
+    const result = await msfDisconnect();
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_STATUS, { state: 'disconnected' });
+    return result;
+  } catch (err) {
+    return { status: 'error', error: err.message };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.MSF_LIST_EXPLOITS, async (event, query) => {
+  console.log(`MSF exploit search: ${query}`);
+  try {
+    const exploits = await msfListExploits(query);
+    return { status: 'success', exploits };
+  } catch (err) {
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
+    return { status: 'error', error: err.message };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.MSF_RUN_EXPLOIT, async (event, options) => {
+  console.log(`MSF run exploit: ${options?.modulePath} against ${options?.targetIp}`);
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid exploit options' };
+  }
+  try {
+    const result = await msfRunExploit(options);
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_RESULT, result);
+    return { status: 'started', ...result };
+  } catch (err) {
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
+    return { status: 'error', error: err.message };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.MSF_SESSION_LIST, async () => {
+  try {
+    const sessions = await msfGetSessions();
+    return { status: 'success', sessions };
+  } catch (err) {
+    mainWindow?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
+    return { status: 'error', error: err.message };
+  }
+});
+
+// --- Offensive Pentest: Share Enumeration (4D) ---
+
+ipcMain.handle(IPC_CHANNELS.SHARE_ENUMERATE, async (event, options) => {
+  const { targetIp, credentials } = options || {};
+  console.log(`Share enumeration requested on ${targetIp}`);
+
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid options payload' };
+  }
+
+  enumerateShares(
+    targetIp,
+    credentials || null,
+    (result) => mainWindow?.webContents.send(IPC_CHANNELS.SHARE_RESULT, result),
+    (err)    => mainWindow?.webContents.send(IPC_CHANNELS.SHARE_ERROR, err)
+  );
+  return { status: 'started' };
+});
+
+ipcMain.handle(IPC_CHANNELS.SHARE_BROWSE, async (event, options) => {
+  const { targetIp, shareName, remotePath, credentials } = options || {};
+  console.log(`Share browse requested: //${targetIp}/${shareName}${remotePath || '/'}`);
+
+  if (!options || !targetIp || !shareName) {
+    return { status: 'error', error: 'targetIp and shareName are required' };
+  }
+
+  await browseShare(
+    targetIp,
+    shareName,
+    remotePath || '',
+    credentials || null,
+    (result) => mainWindow?.webContents.send(IPC_CHANNELS.SHARE_RESULT, { type: 'browse', ...result }),
+    (err)    => mainWindow?.webContents.send(IPC_CHANNELS.SHARE_ERROR, err)
+  );
+  return { status: 'done' };
+});
+
+ipcMain.handle(IPC_CHANNELS.SHARE_DOWNLOAD, async (event, options) => {
+  const { targetIp, shareName, remoteFile, credentials } = options || {};
+  console.log(`Share download requested: //${targetIp}/${shareName}/${remoteFile}`);
+
+  if (!targetIp || !shareName || !remoteFile) {
+    return { status: 'error', error: 'targetIp, shareName, and remoteFile are required' };
+  }
+
+  // Prompt user to choose save location
+  const filename = remoteFile.split(/[\\/]/).filter(Boolean).pop() || 'download';
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save Downloaded File',
+    defaultPath: path.join(app.getPath('downloads'), filename),
+  });
+
+  if (canceled || !filePath) return { status: 'cancelled' };
+
+  const ok = await downloadShareFile(
+    targetIp,
+    shareName,
+    remoteFile,
+    filePath,
+    credentials || null,
+    (err) => mainWindow?.webContents.send(IPC_CHANNELS.SHARE_ERROR, err)
+  );
+
+  if (ok) {
+    return { status: 'downloaded', localPath: filePath };
+  }
+  return { status: 'error', error: 'Download failed — check share error stream' };
+});
+
+// --- Offensive Pentest: Web Directory Fuzzing (4E) ---
+
+ipcMain.handle(IPC_CHANNELS.DIRFUZZ_START, async (event, options) => {
+  console.log(`Dir fuzz requested on ${options?.targetUrl}`);
+
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid options payload' };
+  }
+
+  // startDirFuzz is async and streams results; fire and don't await
+  startDirFuzz(
+    options,
+    (hit)      => mainWindow?.webContents.send(IPC_CHANNELS.DIRFUZZ_HIT, hit),
+    (progress) => mainWindow?.webContents.send(IPC_CHANNELS.DIRFUZZ_PROGRESS, progress),
+    (complete) => mainWindow?.webContents.send(IPC_CHANNELS.DIRFUZZ_COMPLETE, complete),
+    (err)      => mainWindow?.webContents.send(IPC_CHANNELS.DIRFUZZ_ERROR, err)
+  );
+
+  return { status: 'started' };
+});
+
+ipcMain.handle(IPC_CHANNELS.DIRFUZZ_STOP, async () => {
+  console.log('Dir fuzz stop requested');
+  stopDirFuzz();
+  return { status: 'stopped' };
 });
 
 // --- Results Management ---

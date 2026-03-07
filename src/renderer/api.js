@@ -47,5 +47,31 @@ export const api = {
   // PCAP Live Capture & Analysis
   startPcapCapture: async (interfaceId, hostIp, options) => window.electronAPI.startPcapCapture(interfaceId, hostIp, options),
   stopPcapCapture: async () => window.electronAPI.stopPcapCapture(),
-  analyzePcapFile: async (filePath) => window.electronAPI.analyzePcapFile(filePath)
+  analyzePcapFile: async (filePath) => window.electronAPI.analyzePcapFile(filePath),
+
+  // Brute-Force
+  startBruteForce: async (opts) => window.electronAPI.startBruteForce(opts),
+  stopBruteForce: async () => window.electronAPI.stopBruteForce(),
+  browseFile: async (opts) => window.electronAPI.browseFile(opts),
+
+  // Metasploit RPC
+  msfConnect: async (opts) => window.electronAPI.msfConnect(opts),
+  msfDisconnect: async () => window.electronAPI.msfDisconnect(),
+  msfRunExploit: async (opts) => window.electronAPI.msfRunExploit(opts),
+  msfListExploits: async (query) => window.electronAPI.msfListExploits(query),
+  msfSessionList: async () => window.electronAPI.msfSessionList(),
+
+  // Reverse Shell
+  startRevShell: async (opts) => window.electronAPI.startRevShell(opts),
+  stopRevShell: async () => window.electronAPI.stopRevShell(),
+  sendRevShell: async (data) => window.electronAPI.sendRevShell(data),
+
+  // Share Enumeration (4D)
+  enumerateShares: async (opts) => window.electronAPI.enumerateShares(opts),
+  browseShare: async (opts) => window.electronAPI.browseShare(opts),
+  downloadShareFile: async (opts) => window.electronAPI.downloadShareFile(opts),
+
+  // Web Directory Fuzzing (4E)
+  startDirFuzz: async (opts) => window.electronAPI.startDirFuzz(opts),
+  stopDirFuzz: async () => window.electronAPI.stopDirFuzz(),
 };

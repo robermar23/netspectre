@@ -183,3 +183,37 @@ export const SNMP_OID_MAP = {
   '1.3.6.1.2.1.47.1.1.1.1.12': 'entPhysicalMfgName',
   '1.3.6.1.2.1.47.1.1.1.1.13': 'entPhysicalModelName'
 };
+
+// Brute-force target protocols (Hydra service names)
+export const BRUTEFORCE_PROTOCOLS = [
+  'ssh', 'ftp', 'smb', 'smb2', 'rdp', 'http-get', 'http-post',
+  'telnet', 'mysql', 'mssql', 'postgres', 'vnc'
+];
+
+// Default credentials for quick-spray (IoT/lab use)
+export const DEFAULT_CREDENTIALS = [
+  { user: 'admin', pass: 'admin' },
+  { user: 'root', pass: 'root' },
+  { user: 'admin', pass: 'password' },
+  { user: 'root', pass: 'toor' },
+  { user: 'cisco', pass: 'cisco' },
+];
+
+export const COMMON_WEB_PATHS = [
+  '/admin', '/login', '/logout', '/dashboard', '/api', '/api/v1', '/api/v2',
+  '/config', '/configuration', '/setup', '/install', '/backup', '/db',
+  '/database', '/debug', '/test', '/dev', '/staging', '/old', '/archive',
+  '/uploads', '/upload', '/files', '/file', '/documents', '/docs',
+  '/static', '/assets', '/media', '/images', '/img', '/css', '/js',
+  '/robots.txt', '/.env', '/.env.local', '/.env.production', '/.git/HEAD',
+  '/web.config', '/phpinfo.php', '/info.php', '/server-status', '/server-info',
+  '/health', '/healthz', '/status', '/metrics', '/actuator', '/actuator/health',
+  '/swagger', '/swagger-ui', '/swagger-ui.html', '/openapi.json', '/api-docs',
+  '/wp-admin', '/wp-login.php', '/wp-content', '/wp-includes',
+  '/administrator', '/admin.php', '/admin.html', '/adminer.php',
+  '/phpmyadmin', '/pma', '/myadmin', '/mysql', '/cpanel',
+  '/console', '/manager', '/management', '/monitoring',
+  '/user', '/users', '/profile', '/account', '/accounts',
+  '/register', '/signup', '/forgot-password', '/reset-password',
+  '/search', '/sitemap.xml', '/crossdomain.xml', '/security.txt',
+];

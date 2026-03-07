@@ -88,7 +88,46 @@ var IPC_CHANNELS = {
   PCAP_PACKET_SUMMARY: "pcap-packet-summary",
   PCAP_STATS_UPDATE: "pcap-stats-update",
   PCAP_CAPTURE_ERROR: "pcap-capture-error",
-  PCAP_CAPTURE_COMPLETE: "pcap-capture-complete"
+  PCAP_CAPTURE_COMPLETE: "pcap-capture-complete",
+  // Offensive Pentest: Brute-Force
+  BRUTEFORCE_START: "bruteforce-start",
+  BRUTEFORCE_STOP: "bruteforce-stop",
+  BRUTEFORCE_ATTEMPT: "bruteforce-attempt",
+  BRUTEFORCE_RESULT: "bruteforce-result",
+  BRUTEFORCE_PROGRESS: "bruteforce-progress",
+  BRUTEFORCE_ERROR: "bruteforce-error",
+  BRUTEFORCE_COMPLETE: "bruteforce-complete",
+  // Generic file dialog
+  BROWSE_FILE: "browse-file",
+  // Offensive Pentest: Metasploit RPC
+  MSF_CONNECT: "msf-connect",
+  MSF_DISCONNECT: "msf-disconnect",
+  MSF_RUN_EXPLOIT: "msf-run-exploit",
+  MSF_LIST_EXPLOITS: "msf-list-exploits",
+  MSF_SESSION_LIST: "msf-session-list",
+  MSF_STATUS: "msf-status",
+  MSF_RESULT: "msf-result",
+  MSF_ERROR: "msf-error",
+  // Offensive Pentest: Reverse Shell Listener
+  REVSHELL_START: "revshell-start",
+  REVSHELL_STOP: "revshell-stop",
+  REVSHELL_DATA: "revshell-data",
+  REVSHELL_SEND: "revshell-send",
+  REVSHELL_CONNECTION: "revshell-connection",
+  REVSHELL_ERROR: "revshell-error",
+  // Offensive Pentest: Share Enumeration (4D)
+  SHARE_ENUMERATE: "share-enumerate",
+  SHARE_BROWSE: "share-browse",
+  SHARE_DOWNLOAD: "share-download",
+  SHARE_RESULT: "share-result",
+  SHARE_ERROR: "share-error",
+  // Offensive Pentest: Web Directory Fuzzing (4E)
+  DIRFUZZ_START: "dirfuzz-start",
+  DIRFUZZ_STOP: "dirfuzz-stop",
+  DIRFUZZ_HIT: "dirfuzz-hit",
+  DIRFUZZ_PROGRESS: "dirfuzz-progress",
+  DIRFUZZ_COMPLETE: "dirfuzz-complete",
+  DIRFUZZ_ERROR: "dirfuzz-error"
 };
 
 // src/main/preload.js
@@ -180,6 +219,45 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   onPcapStatsUpdate: (callback) => import_electron.ipcRenderer.on(IPC_CHANNELS.PCAP_STATS_UPDATE, (_event, value) => callback(value)),
   onPcapCaptureError: (callback) => import_electron.ipcRenderer.on(IPC_CHANNELS.PCAP_CAPTURE_ERROR, (_event, value) => callback(value)),
   onPcapCaptureComplete: (callback) => import_electron.ipcRenderer.on(IPC_CHANNELS.PCAP_CAPTURE_COMPLETE, (_event, value) => callback(value)),
+  // Offensive Pentest: Brute-Force
+  startBruteForce: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.BRUTEFORCE_START, opts),
+  stopBruteForce: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.BRUTEFORCE_STOP),
+  onBruteForceAttempt: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_ATTEMPT, (_e, v) => cb(v)),
+  onBruteForceResult: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_RESULT, (_e, v) => cb(v)),
+  onBruteForceProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_PROGRESS, (_e, v) => cb(v)),
+  onBruteForceError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_ERROR, (_e, v) => cb(v)),
+  onBruteForceComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.BRUTEFORCE_COMPLETE, (_e, v) => cb(v)),
+  // Generic file dialog
+  browseFile: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.BROWSE_FILE, opts),
+  // Offensive Pentest: Metasploit RPC
+  msfConnect: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.MSF_CONNECT, opts),
+  msfDisconnect: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.MSF_DISCONNECT),
+  msfRunExploit: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.MSF_RUN_EXPLOIT, opts),
+  msfListExploits: (query) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.MSF_LIST_EXPLOITS, query),
+  msfSessionList: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.MSF_SESSION_LIST),
+  onMsfStatus: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.MSF_STATUS, (_e, v) => cb(v)),
+  onMsfResult: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.MSF_RESULT, (_e, v) => cb(v)),
+  onMsfError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.MSF_ERROR, (_e, v) => cb(v)),
+  // Offensive Pentest: Reverse Shell Listener
+  startRevShell: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.REVSHELL_START, opts),
+  stopRevShell: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.REVSHELL_STOP),
+  sendRevShell: (data) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.REVSHELL_SEND, data),
+  onRevShellData: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.REVSHELL_DATA, (_e, v) => cb(v)),
+  onRevShellConnection: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.REVSHELL_CONNECTION, (_e, v) => cb(v)),
+  onRevShellError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.REVSHELL_ERROR, (_e, v) => cb(v)),
+  // Offensive Pentest: Share Enumeration (4D)
+  enumerateShares: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SHARE_ENUMERATE, opts),
+  browseShare: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SHARE_BROWSE, opts),
+  downloadShareFile: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SHARE_DOWNLOAD, opts),
+  onShareResult: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SHARE_RESULT, (_e, v) => cb(v)),
+  onShareError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SHARE_ERROR, (_e, v) => cb(v)),
+  // Offensive Pentest: Web Directory Fuzzing (4E)
+  startDirFuzz: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.DIRFUZZ_START, opts),
+  stopDirFuzz: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.DIRFUZZ_STOP),
+  onDirFuzzHit: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_HIT, (_e, v) => cb(v)),
+  onDirFuzzProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_PROGRESS, (_e, v) => cb(v)),
+  onDirFuzzComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_COMPLETE, (_e, v) => cb(v)),
+  onDirFuzzError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_ERROR, (_e, v) => cb(v)),
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -218,5 +296,22 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PCAP_STATS_UPDATE);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PCAP_CAPTURE_ERROR);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PCAP_CAPTURE_COMPLETE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_ATTEMPT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_RESULT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_PROGRESS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.BRUTEFORCE_COMPLETE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_STATUS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_RESULT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.MSF_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_DATA);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_CONNECTION);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.REVSHELL_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SHARE_RESULT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SHARE_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_HIT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_PROGRESS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_COMPLETE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_ERROR);
   }
 });

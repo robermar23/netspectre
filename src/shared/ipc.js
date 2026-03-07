@@ -106,4 +106,49 @@ export const IPC_CHANNELS = {
   PCAP_STATS_UPDATE: 'pcap-stats-update',
   PCAP_CAPTURE_ERROR: 'pcap-capture-error',
   PCAP_CAPTURE_COMPLETE: 'pcap-capture-complete',
+
+  // Offensive Pentest: Brute-Force
+  BRUTEFORCE_START: 'bruteforce-start',
+  BRUTEFORCE_STOP: 'bruteforce-stop',
+  BRUTEFORCE_ATTEMPT: 'bruteforce-attempt',
+  BRUTEFORCE_RESULT: 'bruteforce-result',
+  BRUTEFORCE_PROGRESS: 'bruteforce-progress',
+  BRUTEFORCE_ERROR: 'bruteforce-error',
+  BRUTEFORCE_COMPLETE: 'bruteforce-complete',
+
+  // Generic file dialog
+  BROWSE_FILE: 'browse-file',
+
+  // Offensive Pentest: Metasploit RPC
+  MSF_CONNECT: 'msf-connect',
+  MSF_DISCONNECT: 'msf-disconnect',
+  MSF_RUN_EXPLOIT: 'msf-run-exploit',
+  MSF_LIST_EXPLOITS: 'msf-list-exploits',
+  MSF_SESSION_LIST: 'msf-session-list',
+  MSF_STATUS: 'msf-status',
+  MSF_RESULT: 'msf-result',
+  MSF_ERROR: 'msf-error',
+
+  // Offensive Pentest: Reverse Shell Listener
+  REVSHELL_START: 'revshell-start',
+  REVSHELL_STOP: 'revshell-stop',
+  REVSHELL_DATA: 'revshell-data',
+  REVSHELL_SEND: 'revshell-send',
+  REVSHELL_CONNECTION: 'revshell-connection',
+  REVSHELL_ERROR: 'revshell-error',
+
+  // Offensive Pentest: Share Enumeration (4D)
+  SHARE_ENUMERATE: 'share-enumerate',
+  SHARE_BROWSE: 'share-browse',
+  SHARE_DOWNLOAD: 'share-download',
+  SHARE_RESULT: 'share-result',
+  SHARE_ERROR: 'share-error',
+
+  // Offensive Pentest: Web Directory Fuzzing (4E)
+  DIRFUZZ_START: 'dirfuzz-start',
+  DIRFUZZ_STOP: 'dirfuzz-stop',
+  DIRFUZZ_HIT: 'dirfuzz-hit',
+  DIRFUZZ_PROGRESS: 'dirfuzz-progress',
+  DIRFUZZ_COMPLETE: 'dirfuzz-complete',
+  DIRFUZZ_ERROR: 'dirfuzz-error',
 };
