@@ -49,7 +49,7 @@ const CIDR_RE = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
  * @param {string} subnet
  * @returns {string} the validated subnet string
  */
-function validateCidr(subnet) {
+export function validateCidr(subnet) {
   if (typeof subnet !== 'string' || !CIDR_RE.test(subnet)) {
     throw new Error(`Invalid CIDR notation: "${subnet}"`);
   }
@@ -67,7 +67,7 @@ function validateCidr(subnet) {
  * @param {string} ip
  * @returns {Promise<{alive: boolean, time: number|null}>}
  */
-async function pingHost(ip) {
+export async function pingHost(ip) {
   try {
     const res = await ping.promise.probe(ip, { timeout: 1 });
     return {
@@ -86,11 +86,9 @@ async function pingHost(ip) {
  * @param {AbortSignal} [signal]
  * @returns {Promise<string[]>}
  */
-async function sweepSubnet(cidr, signal) {
+export async function sweepSubnet(cidr, signal) {
   let ips = expandCIDR(cidr);
-  // Skip network address and broadcast
-  if (ips.length > 2) ips = ips.slice(1, -1);
-
+  
   const CONCURRENCY = 25;
   const alive = [];
 
@@ -408,12 +406,15 @@ export function startMonitor(subnet, options, mainWindow) {
     60 * 1000 // enforce minimum 1-minute interval
   );
 
+  // Normalize options for storage/display
+  const effectiveOptions = { ...options, intervalMs };
+
   const entry = {
     intervalId: null,
     running: false,
     lastRun: null,
     nextRun: Date.now() + intervalMs,
-    options,
+    options: effectiveOptions,
   };
   activeMonitors.set(subnet, entry);
 
@@ -425,10 +426,10 @@ export function startMonitor(subnet, options, mainWindow) {
   });
 
   // Run immediately, then on each interval
-  runMonitorCycle(subnet, options, mainWindow);
+  runMonitorCycle(subnet, effectiveOptions, mainWindow);
 
   entry.intervalId = setInterval(() => {
-    runMonitorCycle(subnet, options, mainWindow);
+    runMonitorCycle(subnet, effectiveOptions, mainWindow);
     if (activeMonitors.has(subnet)) {
       activeMonitors.get(subnet).nextRun = Date.now() + intervalMs;
     }
@@ -494,6 +495,7 @@ export function getActiveMonitors() {
       running:  entry.running,
       lastRun:  entry.lastRun,
       nextRun:  entry.nextRun,
+      options:  entry.options,
     };
   }
   return result;
