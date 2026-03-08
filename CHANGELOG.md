@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/robermar23/netspectre/compare/v1.11.0...v1.12.0) (2026-03-08)
+
+
+### Features
+
+* update docs ([cba866e](https://github.com/robermar23/netspectre/commit/cba866eb92235c5284b486f85405cea4e6e9ca77))
+
 ## [1.11.0](https://github.com/robermar23/netspectre/compare/v1.10.1...v1.11.0) (2026-03-07)
 
 
