@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.13.0](https://github.com/robermar23/netspectre/compare/v1.12.0...v1.13.0) (2026-03-08)
+
+
+### Features
+
+* **credspray:** implement default credential spraying ([e91552b](https://github.com/robermar23/netspectre/commit/e91552bf73ca6782acad633d6734ef51d1b453ac))
+* **credspray:** implement default credential spraying ([e56c6cc](https://github.com/robermar23/netspectre/commit/e56c6ccdfe2d47d363f9cda2d19b48c4041a5bee))
+
+
+### Bug Fixes
+
+* resolving broken tests ([e953e2b](https://github.com/robermar23/netspectre/commit/e953e2ba7951cb013dffd8889b4a6419bb453a4e))
+
 ## [1.12.0](https://github.com/robermar23/netspectre/compare/v1.11.0...v1.12.0) (2026-03-08)
 
 
