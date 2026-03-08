@@ -313,6 +313,17 @@ function buildAlertCard(delta, alertId) {
     if (report?.currentHosts) {
       await api.hardeningMonitor.setBaseline(subnet, report.currentHosts);
       refreshBaselineSummary();
+
+      // HM-05: sync status immediately for existing state.hosts
+      for (const bHost of report.currentHosts) {
+        const idx = state.hosts.findIndex(h => h.ip === bHost.ip);
+        if (idx >= 0) {
+          state.hosts[idx].monitorStatus = state.hosts[idx].monitorStatus || 'monitored';
+          state.hosts[idx].monitorLastSeen = state.hosts[idx].monitorLastSeen || Date.now();
+        }
+      }
+      if (_debouncedRenderAllHosts) _debouncedRenderAllHosts();
+
       btnPromote.textContent = '✓ Promoted';
       btnPromote.disabled = true;
     }
@@ -405,6 +416,47 @@ export function init({ debouncedRenderAllHosts, updateSecurityBadgeDOM, updateMo
   }
 
   // --- Button event handlers ---
+  const btnHardeningAddAll = document.getElementById('btn-hardening-add-all');
+
+  btnHardeningAddAll?.addEventListener('click', async () => {
+    const subnet = hardeningSubnetInput?.value.trim();
+    if (!subnet) { showHardeningError('Enter a subnet first.'); return; }
+
+    const prefix = subnet.split('/')[0].split('.').slice(0, 3).join('.');
+    const matchingHosts = state.hosts
+      .filter(h => h.ip.startsWith(prefix + '.'))
+      .map(h => ({
+        ip: h.ip, mac: h.mac || '', hostname: h.hostname || '',
+        ports: h.ports?.map(p => p.port || p) || [],
+        firstSeen: h.firstSeen || Date.now(), lastSeen: h.lastSeen || Date.now(),
+      }));
+
+    if (matchingHosts.length === 0) {
+      showHardeningError('No discovered hosts match this subnet.');
+      return;
+    }
+
+    try {
+      await api.hardeningMonitor.setBaseline(subnet, matchingHosts);
+      clearHardeningError();
+      refreshBaselineSummary();
+      // Also mark hosts as monitored in state
+      for (const mh of matchingHosts) {
+        const idx = state.hosts.findIndex(h => h.ip === mh.ip);
+        if (idx >= 0) state.hosts[idx].monitorStatus = state.hosts[idx].monitorStatus || 'monitored';
+      }
+      if (_debouncedRenderAllHosts) _debouncedRenderAllHosts();
+      btnHardeningAddAll.textContent = `✓ Imported ${matchingHosts.length}`;
+      btnHardeningAddAll.disabled = true;
+      setTimeout(() => {
+        btnHardeningAddAll.textContent = '📋 Import Hosts';
+        btnHardeningAddAll.disabled = false;
+      }, 2000);
+    } catch (err) {
+      showHardeningError(`Failed to import: ${err.message}`);
+    }
+  });
+
   btnHardeningOpen?.addEventListener('click', () => {
     if (hardeningPanel?.style.display !== 'none') {
       closeHardeningPanel();
@@ -479,6 +531,17 @@ export function init({ debouncedRenderAllHosts, updateSecurityBadgeDOM, updateMo
       await api.hardeningMonitor.setBaseline(subnet, hosts);
       clearHardeningError();
       refreshBaselineSummary();
+
+      // HM-05: sync status immediately for existing state.hosts
+      for (const bHost of hosts) {
+        const idx = state.hosts.findIndex(h => h.ip === bHost.ip);
+        if (idx >= 0) {
+          state.hosts[idx].monitorStatus = state.hosts[idx].monitorStatus || 'monitored';
+          state.hosts[idx].monitorLastSeen = state.hosts[idx].monitorLastSeen || Date.now();
+        }
+      }
+      if (_debouncedRenderAllHosts) _debouncedRenderAllHosts();
+
       if (btnSetBaseline) {
         const orig = btnSetBaseline.textContent;
         btnSetBaseline.textContent = '✓ Baseline Saved';

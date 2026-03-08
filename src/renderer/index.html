@@ -239,7 +239,8 @@
           </div>
 
           <!-- Active Progress Area -->
-          <div id="credspray-progress-container" style="display: none; flex-direction: column; gap: 8px; margin-top: 8px;">
+          <div id="credspray-progress-container"
+            style="display: none; flex-direction: column; gap: 8px; margin-top: 8px;">
             <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
               <span id="credspray-progress-text">Initializing...</span>
               <span id="credspray-progress-pct">0%</span>
@@ -288,7 +289,8 @@
           </div>
 
           <!-- Panel Footer Actions -->
-          <div class="panel-footer" style="display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-glass);">
+          <div class="panel-footer"
+            style="display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-glass);">
             <button id="btn-credspray-clear" class="btn secondary full-width">Clear</button>
             <button id="btn-credspray-export" class="btn info full-width" disabled>Export CSV</button>
           </div>
@@ -1137,6 +1139,11 @@
               </label>
             </div>
             <div style="flex:1;"></div>
+            <button id="btn-hardening-add-all" class="btn secondary"
+              style="font-size:11px; padding:5px 10px; white-space:nowrap;"
+              title="Import all discovered hosts matching this subnet as the baseline">
+              📋 Import Hosts
+            </button>
             <button id="btn-hardening-set-baseline" class="btn secondary"
               style="font-size:11px; padding:5px 10px; white-space:nowrap;"
               title="Snapshot current scan results as the new baseline">
