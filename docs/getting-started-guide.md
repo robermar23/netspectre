@@ -30,45 +30,75 @@ chmod +x Netspectre-*.AppImage
 
 > **💡 Tip:** NetSpecter detects if you are running as root on Linux and automatically applies the `--no-sandbox` flag internally. For the `.deb` and `.rpm` packages, this is handled seamlessly.
 
-### Optional: Nmap & Wireshark (Tshark)
-For advanced scanning features, it is highly recommended to install [Nmap](https://nmap.org/download.html) and [Wireshark](https://www.wireshark.org/download.html) (which includes `tshark`).
+### Optional: Offensive Tools (Hydra, Metasploit, etc.)
+To leverage NetSpecter's red-team capabilities, we recommend installing the following:
 
-**Nmap Installation:**
+**Hydra Installation (Multi-protocol Brute-Force):**
 ```bash
 # Debian/Ubuntu
-sudo apt install nmap
-
-# Fedora/RHEL
-sudo dnf install nmap
+sudo apt install hydra
 
 # macOS (Homebrew)
-brew install nmap
+brew install hydra
 
-# Windows — download from nmap.org and ensure it's in your PATH.
+# Windows — download THC-Hydra from GitHub and add to PATH.
 ```
 
-**Wireshark (Tshark) Installation:**
+**Metasploit Framework (Exploitation Engine):**
+Follow the official [Metasploit Installation Guide](https://docs.metasploit.com/docs/using-metasploit/getting-started/nightly-installers.html). After installation, ensure `msfrpcd` is accessible.
+
+**SMB/NFS Clients:**
 ```bash
 # Debian/Ubuntu
-sudo apt install tshark
-
-# Fedora/RHEL
-sudo dnf install wireshark-cli
+sudo apt install smbclient nfs-common
 
 # macOS (Homebrew)
-brew install wireshark
-
-# Windows — download Wireshark from wireshark.org. Ensure you install Npcap and check the box to add Wireshark to the system PATH.
+brew install samba
 ```
 
-## 1. Initial Setup and Scanning
+## 1. Target Acquisition and Scope
 
-1. **Launch the Application**: Run the executable or `npm run dev` if you're developing locally. You will be greeted by the Dashboard.
-2. **Review Settings ⚙️**: Click the **Settings** button in the top right. Here you can verify if NetSpecter has successfully detected your Nmap and Tshark installations in the system PATH. You can toggle these engines on or off at any time using the switches.
-3. **Select an Interface**: At the top left, a dropdown menu populates with all detected physical network interfaces on your system (Wi-Fi, Ethernet). Select the network segment you want to scan.
-4. **Scan Network**: Click the "Scan Network" button. NetSpecter will instantly sweep the `/24` subnet boundaries of your selected interface using lightweight asynchronous ICMP pings and fallback ARP resolution.
+NetSpecter uses a **Target Scope** model, where you define exactly which hosts you are authorized to test before they appear on your dashboard. Click the **＋ Add Hosts** button to open the acquisition modal.
 
-## 2. Navigating the Dashboard
+### The Add Hosts Modal
+The modal is divided into four powerful ingestion methods:
+
+1. **🔍 Discover**: 
+   - Select a network interface (e.g., `eth0`, `Wi-Fi`) and click **Scan Network**.
+   - NetSpecter performs a lightweight ICMP/ARP sweep of the `/24` subnet.
+   - Discovered hosts are added to the **Staging List** below.
+
+2. **✏️ Manual**: 
+   - Manually enter an **IP Address**, **Hostname**, or **MAC Address**.
+   - **CIDR Expansion**: You can enter a range like `192.168.1.0/24`. NetSpecter will automatically expand this into 254 individual target entries in your staging list.
+
+3. **📄 Import File**: 
+   - Load a `.txt` or `.csv` file containing target identifiers (IPs, CIDRs, or hostnames), one per line.
+   - Ideal for large-scale enterprise audits with predefined scopes.
+
+4. **📥 Import Nmap XML**: 
+   - Restore a previous session by importing an Nmap XML output file (`-oX`). This loads hosts along with any previously discovered ports, OS versions, and service metadata.
+
+### The Staging Workflow
+Before hosts are added to your live dashboard, they sit in the **Staging List**. This allow you to:
+- **Review**: See exactly what you are about to add.
+- **Deduplicate**: NetSpecter automatically prevents duplicate IP entries.
+- **Filter**: Click the **✕** next to any staged host to remove it from the scope before committing.
+
+Once satisfied, click **✅ Add to Dashboard**. 
+
+> [!NOTE]
+> **Background Probing**: When you manually add or import hosts, NetSpecter automatically triggers a background "enrichment probe" to check if the host is alive and pull basic metadata (MAC/Vendor) without requiring a full Deep Scan.
+
+## 2. Out-of-Scope Blacklist 🛡️
+
+Use the **Blacklist** button in the top toolbar to define a global exclusion list. 
+
+- Add specific IPs, MAC addresses, or CIDR ranges.
+- **Critical Safety**: Blacklisted hosts are **hidden** from the dashboard and **strictly ignored** by all active scanning engines (Native, Nmap, and Pentest Suite).
+- If a discovery scan finds a blacklisted host, it is discarded immediately.
+
+## 3. Navigating the Dashboard
 
 Once the scan completes, a grid of "Host Cards" will populate containing newly discovered IPs on your network.
 
@@ -77,7 +107,7 @@ Once the scan completes, a grid of "Host Cards" will populate containing newly d
 * **View Modes**: At the top right, use the view toggles to seamlessly switch between **Grid Card View**, **Slim List View**, or the **Detailed Table View**.
 * **Filtering and Sorting**: Use the search inputs above the hosts list to filter by IP, OS, or Vendor. Sort the discovered hosts by `IP` (default), `Vendor`, `OS`, or `Open Ports`.
 
-## 3. Deep Sweeping and Native Discovery
+## 4. Deep Sweeping and Native Discovery
 
 If you see an interesting host, click its Host Card to open the **Details Lateral Panel**.
 
@@ -88,7 +118,7 @@ If you see an interesting host, click its Host Card to open the **Details Latera
 5. **Action Shortcuts**: Any exposed standard services (HTTP, SSH, RDP) can be instantly triggered by clicking the native "Connect" buttons next to the respective ports in the Details pane.
 6. **Deep Scan All**: You can proactively run a Deep Scan on all discovered targets by clicking the **"☢️ Deep Scan All"** button near the search filters! You can stop the bulk scan instantly via the same button.
 
-## 4. Advanced: The Nmap Orchestration Engine
+## 5. Advanced: The Nmap Orchestration Engine
 
 While NetSpecter's native engine is blazingly fast, network auditors might want greater depth. We have engineered a zero-modification native wrapper around **Nmap**.
 
@@ -105,7 +135,7 @@ You now have access to four hyper-advanced features:
 3. **Targeted Port Analysis**: Hover over any previously discovered Open Port blue tag in the UI and click it. NetSpecter spins up a targeted Nmap Service Scan (`-sV -sC`) directly against that specific listening socket to scrape exactly what process is running behind it.
 4. **Nmap Vuln Scan (Scripts)**: Executes the aggressive `--script vuln` map against the host. 
 
-## 5. Vulnerability Discovery (CVE Mapping)
+## 6. Vulnerability Discovery (CVE Mapping)
 
 When using the **Nmap Vuln Scan**, NetSpecter intercepts the raw terminal output buffer directly.
 
@@ -114,7 +144,7 @@ When using the **Nmap Vuln Scan**, NetSpecter intercepts the raw terminal output
 * All discovered vulnerabilities are cleanly mapped to a red "Vulnerabilities Discovered" list inside the Details panel. 
 * The primary Dashboard Host Card security badge handles state propagation, flipping to a blazing red flag quantifying exactly how many Critical CVEs are bound to the specific host. If no vulnerabilities are found, it receives a glowing green `Audited Secure` badge.
 
-## 6. Nmap Scripting Engine (NSE) Explorer
+## 7. Nmap Scripting Engine (NSE) Explorer
 
 At the bottom of the Nmap actions list is the powerful **NSE Explorer Dropdown**.
 
@@ -125,7 +155,7 @@ When NetSpecter starts, it hunts your file system to discover your native Nmap i
 * You can append optional script arguments (e.g. `--script-args user=admin`) into the secondary box. 
 * Click "Run Custom Script" and the execution outputs natively into the dashboard terminal blocks.
 
-## 7. Interactive Ncat Sockets
+## 8. Interactive Ncat Sockets
 
 Behind the Nmap Engine toggle is the localized **Ncat** Engine. This allows for raw TCP/UDP socket connectivity directly from the GUI.
 
@@ -134,7 +164,7 @@ Behind the Nmap Engine toggle is the localized **Ncat** Engine. This allows for 
 3. Fill out the `Payload` field (e.g. `GET / HTTP/1.0\r\n\r\n` or raw byte drops).
 4. Click Connect & Send. The UI will keep the stream open to visualize bidirectional byte-drops mimicking raw native network connectivity.
 
-## 8. VLAN Tag Discovery (Tshark)
+## 9. VLAN Tag Discovery (Tshark)
 
 NetSpecter natively integrates with Wireshark's CLI tool (`tshark`) to passively hunt for 802.1Q tags on your network interfaces, useful for uncovering misconfigured Trunk ports or preventing VLAN Hopping attacks.
 
@@ -144,7 +174,7 @@ NetSpecter natively integrates with Wireshark's CLI tool (`tshark`) to passively
 4. Click **Start Capture**. NetSpecter will transparently orchestrate a Wireshark capture filtered strictly to `vlan` packets.
 5. As tagged frames are intercepted traversing the wire, the UI will extract the `VLAN ID` and the source/destination MAC addresses, appending them securely to the streaming dashboard widget in real-time.
 
-## 9. Passive Network Intelligence (Tshark)
+## 10. Passive Network Intelligence (Tshark)
 
 NetSpecter also features a powerful **Passive Intelligence** suite backed by Tshark. This allows you to silently monitor the network for configuration issues, security threats, and hidden hosts.
 
@@ -157,7 +187,7 @@ NetSpecter also features a powerful **Passive Intelligence** suite backed by Tsh
    * **ARP Spoofing Detection**: Monitors ARP replies to instantly detect Man-in-the-Middle (MitM) ARP poisoning attacks and gratuitous ARP announcements.
 4. **PCAP Export**: Need raw packet data? Click the **📥 Export PCAP...** button to spawn a targeted packet capture saved directly to your hard drive, ready for Wireshark analysis.
 
-## 10. SNMP Device Walking
+## 11. SNMP Device Walking
 
 NetSpecter supports SNMPv1, v2c, and v3 walking to extract detailed operational metrics from routers, switches, and local servers.
 
@@ -167,7 +197,7 @@ NetSpecter supports SNMPv1, v2c, and v3 walking to extract detailed operational 
 4. Configure the SNMP Version and Community String (for v1/v2c) or Security/Auth parameters (for v3).
 5. Click **Start Walk**. NetSpecter will concurrently pull Interface Statistics, System Descriptions, Routing Tables, and ARP caches.
 
-## 11. Network Topology Map
+## 12. Network Topology Map
 
 Transform your flat host grid into an interactive visual graph to understand network topology at a glance.
 
@@ -176,7 +206,7 @@ Transform your flat host grid into an interactive visual graph to understand net
 3. Your network will be automatically rendered using Cytoscape.js. Subnets are clustered, and hosts are linked to their respective detected gateways.
 4. Interact with the graph: Click nodes to open their Host Details, use the toolbar to switch layouts (Force-directed, Hierarchical), or export the graph via the **Camera** icon.
 
-## 12. Live Packet Capture & Analysis
+## 13. Live Packet Capture & Analysis
 
 Need deeper forensic visibility into a specific machine? NetSpecter integrates live `tshark` capture capabilities directly into the UI.
 
@@ -185,7 +215,7 @@ Need deeper forensic visibility into a specific machine? NetSpecter integrates l
 3. Click **Start Capture**.
 4. The panel will stream packets in real-time. The **Stats Dashboard** instantly categorizes protocol distributions (TCP, UDP, ICMP), identifies Top Talkers, and alerts you to any Cleartext Protocols (like HTTP or FTP) detected on the wire.
 
-## 13. Rogue DNS Detection
+## 14. Rogue DNS Detection
 
 Similar to Rogue DHCP, the Rogue DNS module passively hunts for unauthorized name servers or DNS spoofing.
 
@@ -193,9 +223,58 @@ Similar to Rogue DHCP, the Rogue DNS module passively hunts for unauthorized nam
 2. Toggle on the **🌐 Rogue DNS** module.
 3. NetSpecter will establish a baseline of trusted DNS responders. If an unexpected server responds, or if conflicting A records are offered within a short window, a high-severity alert card is injected into the dashboard natively.
 
-## 14. Persisting Data (Saving and Loading)
+## 15. Offensive Pentest Suite (NEW)
+NetSpecter now includes a powerful suite of offensive tools designed for authorized penetration testing and red-teaming. These tools are accessible via the **⚔️ Pentest** tab or the host context menu.
 
-Any Nmap Scans, NSE Explorations, and Native Port Banners queried in the current application state session are saved in the DOM.
+> [!CAUTION]
+> These tools perform active offensive operations. Only use them on networks and systems you are explicitly authorized to test.
+
+### 16. Multi-Protocol Brute-Force (Hydra)
+Automate credential discovery across multiple services using the integrated THC-Hydra engine.
+
+1. Right-click a target host and select **Pentest** → **Brute-Force Attack...**
+2. **Select Protocol**: Choose from SSH, FTP, Telnet, HTTP, SMB, RDP, and more.
+3. **Configure Settings**:
+   * **Username**: Enter a single username or toggle "Load User List" to pick a `.txt` file.
+   * **Wordlist**: Select your custom password wordlist via the native file browser.
+   * **Threads/Delay**: Adjust the concurrency (default 4) and timing to avoid service lockouts.
+4. **Start Attack**: Click **Start Brute-Force**. Credential hits will appear in real-time in the results table.
+
+### 17. Metasploit RPC Control Plane
+Orchestrate the Metasploit Framework directly from NetSpecter. This requires a running `msfrpcd` daemon.
+
+1. **Start Metasploit RPC**: Open a terminal and run `msfrpcd -P <password> -S -f`.
+2. **Connect**: In NetSpecter, go to the **Pentest** tab → **Metasploit Manager**. Enter your RPC credentials and click **Connect**.
+3. **Exploit Search**: Use the searchable module database to find relevant exploits.
+4. **Launch & Manage**: Configure exploit options (Target, RPORT, Payload) and click **Run**. Successful exploits will populate the **Active Sessions** list, where you can interact with shells or kill sessions.
+
+### 18. Interactive Reverse Shell Hub
+A dedicated listener for incoming reverse shell connections with built-in payload generation.
+
+1. Go to the **Pentest** tab → **Reverse Shell Listener**.
+2. **Generate Payload**: Select your target shell (Bash, Python, PowerShell, PHP, or Netcat). The UI automatically populates your local IP (`LHOST`) and a default port (`4444`).
+3. **Copy & Execute**: Click **Copy to Clipboard** and execute the payload on your target machine.
+4. **Listen**: Click **Start Listener**. When a connection is received, a terminal session will open directly in the dashboard, allowing for live interaction.
+
+### 19. SMB/NFS Share Explorer
+Expose misconfigured network shares and sensitive file storage.
+
+1. Right-click a host → **Pentest** → **Enumerate Shares**.
+2. NetSpecter will attempt null sessions and credentialed checks for SMB and NFS exports.
+3. **Browse Files**: If shares are found, they will appear in the explorer. Click a share to browse its directory structure.
+4. **Download**: Right-click any file to download it to your local machine for analysis.
+
+### 20. Web Directory Fuzzer
+Discover hidden files and directories on web servers.
+
+1. Right-click a host → **Pentest** → **Fuzz Web Directories**.
+2. **Configure Wordlist**: Use the built-in "Common Paths" list or load your own large-scale wordlist.
+3. **Filters**: Specify which status codes to report (e.g., 200, 301, 302, 403).
+4. **Start Fuzzing**: NetSpecter will execute parallel HTTP requests, streaming hits (like `/.git/config` or `/admin/`) back to the UI results table.
+
+## 21. Persisting Data (Saving and Loading)
+
+Any Nmap Scans, Pentest results, and Native Port Banners queried in the current application state session are saved in the DOM.
 
 * Click **Save Results** in the top control bar to serialize the exact state to `scan_results.json` locally.
 * You can safely close the application, open it, and click **Load Results** to re-instantiate your layout perfectly, saving hours of rescanning downtime.

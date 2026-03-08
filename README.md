@@ -4,33 +4,35 @@
 
 # NetSpecter: Network Host Detection & Forensic Scanner
 
-A modern, cross-platform desktop application built with Electron, Node.js, and Vanilla JS that provides deep network visibility, OS fingerprinting, and forensic-level port scanning functionalities.
+A modern, cross-platform desktop application built with Electron, Node.js, and Vanilla JS that provides deep network visibility, OS fingerprinting, and forensic-level port scanning functionalities. Now featuring a comprehensive **Offensive Penetration Testing** suite for red team operations.
 
-![App Dashboard Preview](https://via.placeholder.com/800x450.png?text=NetSpecter+Dashboard)
+![App Dashboard Preview](resources/dashboard-preview.png)
 
 ## Features
 
 - **Blazing Fast Subnet Sweeping**: Utilizes heavily concurrent asynchronous ICMP Ping sweeps followed by localized ARP table inspection to instantly discover all physical devices on your local network.
 - **Advanced Hardware Identification**: Actively intercepts discovered MAC Addresses and resolves them via a local memory cache backed by a rate-limited, dynamic lookup to the live `macvendors.com` API to provide highly accurate Manufacturer readings (e.g., *Raspberry Pi Foundation*, *Sony Interactive Entertainment*, *Apple, Inc.*).
 - **Heuristic OS Fingerprinting**: Intelligently guesses the underlying Operating System (Windows, macOS, Linux, iOS, Android) by analyzing the hardware vendor combined with unique port signatures (e.g., `445` + `135` vs `22` + `548`).
+
+### ⚔️ Offensive Pentest Suite (NEW)
+- **Multi-Protocol Brute-Force Engine**: Integrated [Hydra](https://github.com/vanhauser-thc/thc-hydra) for high-speed multi-protocol credential stuffing (SSH, FTP, Telnet, HTTP, SMB, RDP, etc.). Supports custom wordlists and protocol-specific targeting.
+- **Metasploit RPC Control Plane**: Full orchestration of [Metasploit Framework](https://www.metasploit.com/) via MSFRPC. Launch exploits, manage sessions, and interact with the Metasploit database directly from the NetSpecter UI.
+- **Interactive Reverse Shell Hub**: Multi-handler shell listener supporting Bash, Python, PowerShell, and Netcat reverse shells. Feature-rich terminal emulation with auto-reconnect capabilities.
+- **Web Directory Fuzzer**: Fast, concurrent web path discovery to locate hidden `admin`, `config`, and backup files without external dependencies.
+- **SMB/NFS Share Explorer**: Deep inspection of network shares to identify broad permissions and sensitive data exposure. Browse and download files directly within the dashboard.
+
+### 🕵️ Network Intelligence & Discovery
 - **Forensic Deep Scans**: Click on any discovered host to trigger a visually engaging, cancellable Deep Scan. The backend chunks a raw socket sweep across all **65,535 TCP ports** to bypass operating system networking limits.
-- **Live Banner & Certificate Grabbing**: As the Deep Scan iterates, it automatically executes basic `GET / HTTP/1.0` and TLS Handshakes on open sockets to extract server software versions (e.g., `nginx`, `OpenSSH_8.2p1`), TLS Certificate Issuers, and Expiration Dates.
-- **Native Forensic Auditing**: Triggers active vulnerability probes (such as Anonymous FTP login attempts and `/.env` or `/.git/config` web fuzzing) against discovered services. Automatically calculates a surface-level Security Posture Score (🛡️ Protected, ⚠️ Warning, 🛑 Vulnerable) for every host on the subnet.
-- **Actionable Connect Bridges**: The UI intelligently parses discovered services and injects native workflow buttons. Instantly launch your OS's native SSH Terminal, RDP Client, or Default Web Browser directly against the target host with a single click.
-- **Data Persistence**: Offline session persistence allows saving all network scan states, deep scan vulnerabilities, banners, and TLS traits to a local JSON file (`scan_results.json`) and instantly load it back.
-- **Dashboard Filtering & Sorting**: Powerful client-side search indexing allows users to seamlessly filter discovered hosts by IP address, detected Operating System, or Hardware Vendor map. Easily sort the dashboard ascending/descending by numerical IP, Alphabetical vendor/OS, or by the mathematical total of open ports discovered to quickly bubble the most porous devices to the top of your review queue.
-- **Deep Scan All**: Efficiently queue automated deep port sweeps across your entire discovered subnet via a single click. Processes iteratively execute against every discovered device asynchronously while live-streaming results directly into the UI.
-- **Optional Nmap Engine Integration**: Extends native scanning functionalities by gracefully hooking into an existing system installation of [Nmap](https://nmap.org). NetSpecter acts as an independent orchestration wrapper to harness Nmap's OS fingerprinting and Vulnerability Scripting (`--script vuln`) without modifying Nmap's source code. You can target `-A` Deep Scans or singular open ports directly, streaming execution output live to the dashboard terminal.
-- **CVE Discovery & Badge Injection**: NetSpecter automatically parses incoming Nmap `vuln` terminal outputs asynchronously in real-time. Matches against CVE vulnerabilities automatically map to the host's `deepAudit` cache, injecting stylized vulnerability definitions and dynamic links into the Details panel while inherently incrementing that specific server's Security Posture Badge natively on the dashboard GUI.
-- **Nmap Scripting Engine (NSE) Explorer**: Contains a customized native OS file discovery module to dynamically locate and index your system's `scripts/` directory. Loads over `600+` `.nse` Lua payloads instantly into a searchable Autocomplete dropdown wrapper. Features dynamic color tags categorizing payloads by `safe`, `discovery`, `intrusive`, etc, allowing for granular `--script-args` payload executions directly against target servers with the raw TCP streams printing cleanly to the dashboard.
-- **Interactive Ncat Sockets**: Embeds an active raw TCP/UDP orchestration tab backed by Netcat (`ncat`) for raw, live network exploitation and connection testing directly in the GUI.
 - **VLAN Hopping & Tag Detection**: Integrates with Wireshark's `tshark` CLI to passively listen for 802.1Q tagged frames on your network interfaces, exposing misconfigured trunk ports and VLAN hopping vulnerabilities.
 - **Passive Network Intelligence**: Advanced raw packet capture capabilities utilizing the `tshark` backend. Detect rogue DHCP servers, sniff cleartext credentials (FTP, HTTP Basic, POP3, IMAP), passively harvest DNS/mDNS queries to discover stealth hosts, detect ARP spoofing attacks in real-time, and seamlessly export live traffic to `.pcap` files.
-- **Persistent Settings UI**: A unified modal to manage backend orchestration tool dependencies. Automatically detects Nmap and Tshark availability in your system's PATH and lets you enable/disable integrations on the fly.
-- **SNMP Walking & MIB Parsing**: Walk SNMPv1/v2c/v3 devices to pull routing tables, interface stats, and firmware versions.
+- **SNMP Walking & MIB Parsing**: Walk SNMPv1/v2c/v3 devices to pull routing tables, interface stats, and firmware versions with intelligent OID parsing and caching.
 - **Interactive Topology Map**: Visual network graph powered by Cytoscape.js showing hosts, subnets, and gateway relationships.
-- **Live PCAP Capture & Analysis**: Right-click any host for real-time packet capture with protocol breakdown and cleartext detection.
-- **Rogue DNS Detection**: Passive detection of unauthorized DNS servers and DNS spoofing attacks.
+- **CVE Discovery & Badge Injection**: NetSpecter automatically parses incoming Nmap `vuln` terminal outputs asynchronously in real-time. Matches against CVE vulnerabilities automatically map to the host's `deepAudit` cache, injecting stylized vulnerability definitions and dynamic links into the Details panel.
+
+### 🧳 General Management
+- **Dashboard Filtering & Sorting**: Powerful client-side search indexing allows users to seamlessly filter discovered hosts by IP address, detected Operating System, or Hardware Vendor map. 
+- **Data Persistence**: Offline session persistence allows saving all network scan states, deep scan vulnerabilities, banners, and TLS traits to a local JSON file.
+- **Persistent Settings UI**: A unified modal to manage backend orchestration tool dependencies. Automatically detects Nmap, Tshark, Hydra, and Smbclient availability in your system's PATH.
 
 ---
 
@@ -43,7 +45,7 @@ Download the latest `.exe` (NSIS installer) or `.exe` (portable) from the [Relea
 Download the `.dmg` from the [Releases](https://github.com/robermar23/netspectre/releases) page, open it, and drag NetSpecter to your Applications folder.
 
 ### Linux (Recommended: `.deb`)
-The **`.deb` package** is the recommended way to install on Debian/Ubuntu-based distributions. It automatically handles all system dependencies and provides full desktop integration (menu entry, icons, etc.)
+The **`.deb` package** is the recommended way to install on Debian/Ubuntu-based distributions. It automatically handles all system dependencies and provides full desktop integration.
 
 ```bash
 # Download the latest .deb from Releases, then:
@@ -52,44 +54,6 @@ sudo dpkg -i netspectre_*.deb
 # If there are missing dependencies, fix them with:
 sudo apt-get install -f
 ```
-
-To uninstall:
-```bash
-sudo apt remove netspectre
-```
-
-### Linux (Alternative: `.rpm`)
-For Fedora, RHEL, CentOS, or openSUSE:
-
-```bash
-sudo rpm -i netspectre-*.rpm
-# or on Fedora:
-sudo dnf install ./netspectre-*.rpm
-```
-
-### Linux (Alternative: AppImage)
-> ⚠️ **Note:** We recommend the `.deb` or `.rpm` packages for the smoothest experience. AppImage requires extra setup on modern distros.
-
-```bash
-# 1. Make it executable
-chmod +x Netspectre-*.AppImage
-
-# 2. Install FUSE2 (required on Ubuntu 22.04+)
-sudo apt install libfuse2
-
-# 3. Run (as a normal user, NOT with sudo)
-./Netspectre-*.AppImage
-
-# If you must run as root (e.g., for raw socket scanning):
-./Netspectre-*.AppImage --no-sandbox
-```
-
-**Common AppImage issues:**
-| Error | Solution |
-|---|---|
-| `dlopen(): error loading libfuse.so.2` | Install FUSE2: `sudo apt install libfuse2` |
-| `running as root without --no-sandbox` | Run without `sudo`, or add `--no-sandbox` flag |
-| `create mount dir error: Permission Denied` | Ensure `/tmp` is not mounted `noexec`. Try `TMPDIR=$HOME/.cache ./Netspectre-*.AppImage` |
 
 ---
 
@@ -106,7 +70,8 @@ This project uses a split-process architecture standard for modern Electron appl
 
 - **Container**: [Electron](https://www.electronjs.org/) (Strict `contextIsolation` enabled)
 - **Frontend / Bundler**: [Vite](https://vitejs.dev/) + Vanilla HTML/CSS/JS (Zero framework bloat)
-- **Backend**: Node.js (`net`, `tls`, `child_process`, `os`)
+- **Backend / OS Bridge**: Node.js (`net`, `tls`, `child_process`, `os`)
+- **Testing**: Vitest (Targeting ~80% coverage across Main and Renderer)
 
 ### Prerequisites
 
@@ -134,17 +99,13 @@ To spin up the application in a local development environment with Hot Reloading
 npm run dev
 ```
 
-This command simultaneously boots the Vite frontend server on `localhost:5173` while compiling and launching the Electron Main process wrapper. **Note:** Edits to files located in `src/renderer/` will hot-reload instantly in the application window. Edits to the backend Node environment (`src/main/*.js` or `preload.js`) will require restarting the `npm run dev` script to take effect.
-
 ### 3. Production Build
 
-To bundle the application into a standalone, distributable executable tailored to your current operating system, run:
+To bundle the application into a standalone, distributable executable, run:
 
 ```bash
 npm run build
 ```
-
-The compiled binaries will be output into the `dist/` and `release/` directories depending on your electron-builder configuration.
 
 ---
 
@@ -152,10 +113,10 @@ The compiled binaries will be output into the `dist/` and `release/` directories
 
 The codebase is strictly separated to adhere to Electron's security model:
 
-* **`src/main/main.js`**: The privileged Node.js backend environment. This thread executes the actual network sockets, ping commands, file system writes, and child process spawns.
-* **`src/main/preload.js`**: The secure IPC (Inter-Process Communication) Bridge. This script selectively exposes specific backend functionalities to the frontend `window.electronAPI` namespace, preventing the renderer from executing arbitrary Node code.
-* **`src/main/scanner.js` / `deepScanner.js`**: Reusable modules containing the core port sweeping, OS fingerprinting, and API-fetching business logic.
-* **`src/renderer/*`**: The unprivileged UI presentation layer. This directory contains the raw HTML structure, glassmorphic CSS styling, and the Vanilla JS dashboard controllers that react to incoming IPC event streams.
+* **`src/main/`**: The privileged Node.js backend environment. Executes network sockets, file system writes, and child process spawns.
+* **`src/main/preload.js`**: The secure IPC Bridge. Selectively exposes specific backend functionalities to the frontend `window.electronAPI` namespace.
+* **`src/renderer/`**: The unprivileged UI presentation layer. Glassmorphic CSS styling and Vanilla JS dashboard controllers.
+* **`src/shared/`**: Common IPC channels, network constants, and utility types shared across all processes.
 
 ---
 
@@ -164,6 +125,8 @@ The codebase is strictly separated to adhere to Electron's security model:
 This project is open-sourced software licensed under the [MIT license](LICENSE).
 
 ### Third-Party Software Disclosures
-- **Nmap**: This application can optionally interact with [Nmap](https://nmap.org) if the user has independently installed it on their system. NetSpecter is merely a graphical front-end that executes Nmap via standard command-line interfaces. NetSpecter does **not** distribute, incorporate, or statically link Nmap's source code, binary executables, or libraries. Nmap is a registered trademark of Insecure.Com LLC and is distributed under its own proprietary license (NPSL). NetSpecter is not affiliated with, endorsed by, or sponsored by the Nmap Project.
-- **Wireshark/Tshark**: NetSpecter can optionally utilize `tshark` (part of [Wireshark](https://www.wireshark.org/)) for passive VLAN tag discovery if installed independently. Wireshark and the "fin" logo are registered trademarks of the Wireshark Foundation. NetSpecter is not affiliated with, endorsed by, or sponsored by the Wireshark Foundation.
-- **Net-SNMP & Cytoscape**: NetSpecter bundles [net-snmp](https://www.npmjs.com/package/net-snmp) for JavaScript SNMP communication and [cytoscape](https://js.cytoscape.org/) for graph visualization. Both are open-source and MIT-licensed.
+- **Nmap**: This application can optionally interact with [Nmap](https://nmap.org) if the user has independently installed it on their system. NetSpecter acts as a graphical front-end for Nmap functionalities.
+- **Wireshark/Tshark**: NetSpecter can optionally utilize `tshark` (part of [Wireshark](https://www.wireshark.org/)) for passive VLAN tag discovery and packet capture.
+- **Hydra**: NetSpecter integrates [Hydra](https://github.com/vanhauser-thc/thc-hydra) for multi-protocol brute-forcing. 
+- **Metasploit**: NetSpecter can optionally connect to the [Metasploit Framework](https://www.metasploit.com/) via MSFRPC for advanced exploitation workflows.
+- **Net-SNMP & Cytoscape**: NetSpecter bundles [net-snmp](https://www.npmjs.com/package/net-snmp) for JavaScript SNMP communication and [cytoscape](https://js.cytoscape.org/) for graph visualization.
