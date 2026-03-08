@@ -54,8 +54,8 @@ export function validateCidr(subnet) {
     throw new Error(`Invalid CIDR notation: "${subnet}"`);
   }
   const prefix = parseInt(subnet.split('/')[1], 10);
-  if (prefix < 16 || prefix > 32) {
-    throw new Error(`Prefix /${prefix} out of safe range (16–32)`);
+  if (prefix < 20 || prefix > 32) {
+    throw new Error(`Prefix /${prefix} out of safe range (20–32)`);
   }
   return subnet;
 }

@@ -15,6 +15,11 @@ function escapeHtml(unsafe) {
        .replace(/'/g, "&#039;");
 }
 
+function fmtTime(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleTimeString();
+}
+
 // --- Initialization ---
 Promise.all([
   api.checkNmap(),
@@ -143,6 +148,137 @@ async function syncDependencyToggle({
   }
 
   return { installed, enabled };
+}
+
+function formatHostMonitorAlert(latestAlert, host) {
+  const parts = [];
+  const myNew    = latestAlert.changedHosts?.find(c => c.ip === host.ip);
+  const myRemove = latestAlert.removedHosts?.find(r => r.ip === host.ip);
+  const myNew2   = latestAlert.newHosts?.find(n => n.ip === host.ip);
+
+  if (myNew2)   parts.push('New host detected');
+  if (myRemove) parts.push('Host disappeared');
+  if (myNew?.newPorts?.length)    parts.push(`+ports ${myNew.newPorts.join(', ')}`);
+  if (myNew?.closedPorts?.length) parts.push(`-ports ${myNew.closedPorts.join(', ')}`);
+  if (myNew?.hostnameChanged) {
+    parts.push(
+      `Hostname: ${escapeHtml(myNew.prevHostname)} → ${escapeHtml(myNew.currHostname)}`
+    );
+  }
+  return parts.join(' · ') || 'Change detected';
+}
+
+function buildHostMonitorAlertSummary(host) {
+  if (!host.monitorAlerts?.length) return null;
+  const latestAlert = host.monitorAlerts[host.monitorAlerts.length - 1];
+
+  const text = formatHostMonitorAlert(latestAlert, host);
+  const alertDiv = document.createElement('div');
+  alertDiv.className = `dp-monitor-alert alert-${latestAlert.severity || 'info'}`;
+  alertDiv.textContent = text;
+  return alertDiv;
+}
+
+function buildHostMonitorActions(host, monSection, subnetGuess) {
+  const actionRow = document.createElement('div');
+  actionRow.style.cssText = 'display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;';
+
+  const btnOpenMonitor = document.createElement('button');
+  btnOpenMonitor.className = 'btn-action';
+  btnOpenMonitor.style.cssText = 'font-size:10px; padding:3px 8px; border-color:var(--hardening); color:var(--hardening);';
+  btnOpenMonitor.textContent = '🛡 Open Monitor Panel';
+  btnOpenMonitor.addEventListener('click', () => {
+    if (window.__openHardeningPanel) window.__openHardeningPanel(subnetGuess);
+  });
+  actionRow.appendChild(btnOpenMonitor);
+
+  const btnMonitorSubnet = document.createElement('button');
+  btnMonitorSubnet.className = 'btn-action';
+  btnMonitorSubnet.style.cssText = 'font-size:10px; padding:3px 8px;';
+  btnMonitorSubnet.textContent = `▶ Monitor ${subnetGuess}`;
+  btnMonitorSubnet.addEventListener('click', async () => {
+    if (window.__openHardeningPanel) window.__openHardeningPanel(subnetGuess);
+    // Auto-start if not already running
+    try {
+      await api.hardeningMonitor.start(subnetGuess, { intervalMs: 15 * 60 * 1000, deepScan: true });
+    } catch { /* ignore */ }
+  });
+  actionRow.appendChild(btnMonitorSubnet);
+
+  if (host.monitorAlerts?.length > 0) {
+    const btnClear = document.createElement('button');
+    btnClear.className = 'btn-action';
+    btnClear.style.cssText = 'font-size:10px; padding:3px 8px;';
+    btnClear.textContent = '✓ Clear Alerts';
+    btnClear.addEventListener('click', () => {
+      const idx = state.hosts.findIndex(h => h.ip === host.ip);
+      if (idx >= 0) {
+        state.hosts[idx].monitorAlerts = [];
+        host.monitorAlerts = [];
+      }
+      monSection.querySelector('.dp-monitor-alert')?.remove();
+      const badgeContainer = document.getElementById(`host-${host.ip.replace(/\./g, '-')}`)?.querySelector('.security-badge-container');
+      if (badgeContainer) {
+        badgeContainer.innerHTML = '';
+        updateSecurityBadgeDOM(host, badgeContainer);
+      }
+      btnClear.remove();
+    });
+    actionRow.appendChild(btnClear);
+  }
+
+  return actionRow;
+}
+
+function renderHardeningMonitorSection(host, portsParent) {
+  const monSection = document.createElement('div');
+  monSection.className = 'dp-monitor-section';
+
+  const statusText = host.monitorStatus === 'online'  ? '🟢 Online'
+                   : host.monitorStatus === 'offline' ? '💀 Offline'
+                   : host.monitorStatus === 'changed' ? '🟡 Changed'
+                   : '⚪ Not monitored';
+
+  const lastSeenText = host.monitorLastSeen ? fmtTime(host.monitorLastSeen) : '—';
+  const monPorts = host.ports?.length > 0 && host.monitorStatus
+    ? host.ports.join(', ')
+    : '—';
+
+  const subnetGuess = host.ip.split('.').slice(0, 3).join('.') + '.0/24';
+
+  const labelDiv = document.createElement('div');
+  labelDiv.className = 'dp-section-label';
+  labelDiv.textContent = '🛡 Hardening Monitor';
+  monSection.appendChild(labelDiv);
+  
+  const gridDiv = document.createElement('div');
+  gridDiv.className = 'dp-monitor-grid';
+  
+  const addRow = (label, val, monospace=false) => {
+    const lSpan = document.createElement('span');
+    lSpan.className = 'label';
+    lSpan.textContent = label;
+    gridDiv.appendChild(lSpan);
+    
+    const vSpan = document.createElement('span');
+    vSpan.className = 'value';
+    if (monospace) vSpan.style.fontFamily = 'monospace';
+    vSpan.textContent = val;
+    gridDiv.appendChild(vSpan);
+  };
+  addRow('Status:', statusText);
+  addRow('Last seen:', lastSeenText);
+  addRow('Ports (monitor):', monPorts, true);
+  
+  monSection.appendChild(gridDiv);
+
+  const alertDiv = buildHostMonitorAlertSummary(host);
+  if (alertDiv) monSection.appendChild(alertDiv);
+
+  const actionRow = buildHostMonitorActions(host, monSection, subnetGuess);
+  monSection.appendChild(actionRow);
+
+  portsParent.appendChild(monSection);
 }
 
 function openPanel(panelEl, sidebarResizerEl) {
@@ -1487,98 +1623,7 @@ function openDetailsPanel(host) {
   // --- Hardening Monitor Section ---
   {
     const portsParent = portsList.parentElement;
-    const monSection = document.createElement('div');
-    monSection.className = 'dp-monitor-section';
-
-    const statusText = host.monitorStatus === 'online'  ? '🟢 Online'
-                     : host.monitorStatus === 'offline' ? '💀 Offline'
-                     : host.monitorStatus === 'changed' ? '🟡 Changed'
-                     : '⚪ Not monitored';
-    const lastSeenText = host.monitorLastSeen ? fmtTime(host.monitorLastSeen) : '—';
-    const monPorts = host.ports?.length > 0 && host.monitorStatus
-      ? host.ports.join(', ')
-      : '—';
-
-    // Derive a /24 subnet from the host IP for the "Monitor Subnet" shortcut
-    const subnetGuess = host.ip.split('.').slice(0, 3).join('.') + '.0/24';
-
-    monSection.innerHTML = `
-      <div class="dp-section-label">🛡 Hardening Monitor</div>
-      <div class="dp-monitor-grid">
-        <span class="label">Status:</span>  <span class="value">${statusText}</span>
-        <span class="label">Last seen:</span><span class="value">${lastSeenText}</span>
-        <span class="label">Ports (monitor):</span><span class="value" style="font-family:monospace;">${escapeHtml(monPorts)}</span>
-      </div>
-    `;
-
-    // Alert summary for this specific host
-    if (host.monitorAlerts?.length > 0) {
-      const latestAlert = host.monitorAlerts[host.monitorAlerts.length - 1];
-      const alertDiv = document.createElement('div');
-      alertDiv.className = `dp-monitor-alert alert-${latestAlert.severity || 'info'}`;
-      const parts = [];
-      const myNew    = latestAlert.changedHosts?.find(c => c.ip === host.ip);
-      const myRemove = latestAlert.removedHosts?.find(r => r.ip === host.ip);
-      const myNew2   = latestAlert.newHosts?.find(n => n.ip === host.ip);
-      if (myNew2)    parts.push(`New host detected`);
-      if (myRemove)  parts.push(`Host disappeared`);
-      if (myNew?.newPorts?.length)    parts.push(`+ports ${myNew.newPorts.join(', ')}`);
-      if (myNew?.closedPorts?.length) parts.push(`-ports ${myNew.closedPorts.join(', ')}`);
-      if (myNew?.hostnameChanged)     parts.push(`Hostname: ${escapeHtml(myNew.prevHostname)} → ${escapeHtml(myNew.currHostname)}`);
-      alertDiv.textContent = parts.join(' · ') || 'Change detected';
-      monSection.appendChild(alertDiv);
-    }
-
-    // Action buttons
-    const actionRow = document.createElement('div');
-    actionRow.style.cssText = 'display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;';
-
-    const btnOpenMonitor = document.createElement('button');
-    btnOpenMonitor.className = 'btn-action';
-    btnOpenMonitor.style.cssText = 'font-size:10px; padding:3px 8px; border-color:var(--hardening); color:var(--hardening);';
-    btnOpenMonitor.textContent = '🛡 Open Monitor Panel';
-    btnOpenMonitor.addEventListener('click', () => {
-      if (window.__openHardeningPanel) window.__openHardeningPanel(subnetGuess);
-    });
-    actionRow.appendChild(btnOpenMonitor);
-
-    const btnMonitorSubnet = document.createElement('button');
-    btnMonitorSubnet.className = 'btn-action';
-    btnMonitorSubnet.style.cssText = 'font-size:10px; padding:3px 8px;';
-    btnMonitorSubnet.textContent = `▶ Monitor ${subnetGuess}`;
-    btnMonitorSubnet.addEventListener('click', async () => {
-      if (window.__openHardeningPanel) window.__openHardeningPanel(subnetGuess);
-      // Auto-start if not already running
-      try {
-        await api.hardeningMonitor.start(subnetGuess, { intervalMs: 15 * 60 * 1000, deepScan: true });
-      } catch { /* ignore */ }
-    });
-    actionRow.appendChild(btnMonitorSubnet);
-
-    if (host.monitorAlerts?.length > 0) {
-      const btnClear = document.createElement('button');
-      btnClear.className = 'btn-action';
-      btnClear.style.cssText = 'font-size:10px; padding:3px 8px;';
-      btnClear.textContent = '✓ Clear Alerts';
-      btnClear.addEventListener('click', () => {
-        const idx = state.hosts.findIndex(h => h.ip === host.ip);
-        if (idx >= 0) {
-          state.hosts[idx].monitorAlerts = [];
-          host.monitorAlerts = [];
-        }
-        monSection.querySelector('.dp-monitor-alert')?.remove();
-        const badgeContainer = document.getElementById(`host-${host.ip.replace(/\./g, '-')}`)?.querySelector('.security-badge-container');
-        if (badgeContainer) {
-          badgeContainer.innerHTML = '';
-          updateSecurityBadgeDOM(host, badgeContainer);
-        }
-        btnClear.remove();
-      });
-      actionRow.appendChild(btnClear);
-    }
-
-    monSection.appendChild(actionRow);
-    portsParent.appendChild(monSection);
+    renderHardeningMonitorSection(host, portsParent);
   }
 
   renderSavedHistory(host);
@@ -2279,25 +2324,26 @@ elements.btnDeepScanAll.addEventListener('click', () => {
   scanAll.start();
 });
 
-/**
- * Update the monitor status dot on a host card element.
- * Creates it if absent, updates class if present.
- * @param {object} host
- * @param {HTMLElement} card
- */
+const MONITOR_STATUS_MAP = {
+  online:  { className: 'mon-online',  title: lastSeen => `Monitor: online · ${fmtTime(lastSeen)}` },
+  offline: { className: 'mon-offline', title: lastSeen => `Monitor: offline · last seen ${fmtTime(lastSeen)}` },
+  changed: { className: 'mon-changed', title: lastSeen => `Monitor: state changed · ${fmtTime(lastSeen)}` },
+};
+
 function updateMonitorDotDOM(host, card) {
   if (!host.monitorStatus || !card) return;
   let dot = card.querySelector('.host-monitor-dot');
   if (!dot) {
     dot = document.createElement('span');
     dot.className = 'host-monitor-dot';
-    const header = card.querySelector('.host-header');
-    if (header) header.appendChild(dot);
+    card.querySelector('.host-header')?.appendChild(dot);
   }
   dot.className = 'host-monitor-dot';
-  if (host.monitorStatus === 'online')  { dot.classList.add('mon-online');  dot.title = `Monitor: online · ${fmtTime(host.monitorLastSeen)}`; }
-  if (host.monitorStatus === 'offline') { dot.classList.add('mon-offline'); dot.title = `Monitor: offline · last seen ${fmtTime(host.monitorLastSeen)}`; }
-  if (host.monitorStatus === 'changed') { dot.classList.add('mon-changed'); dot.title = `Monitor: state changed · ${fmtTime(host.monitorLastSeen)}`; }
+  const cfg = MONITOR_STATUS_MAP[host.monitorStatus];
+  if (cfg) {
+    dot.classList.add(cfg.className);
+    dot.title = cfg.title(host.monitorLastSeen);
+  }
 }
 
 function buildHostCard(host) {
@@ -5538,8 +5584,7 @@ const hardeningFooterText    = document.getElementById('hardening-footer-text');
 let hardeningMonitorActive = false;    // true while a monitor is scheduled
 let hardeningNextRunTs     = null;     // epoch ms for next scan
 let hardeningCountdownId   = null;     // setInterval id for countdown display
-let hardeningAlerts        = [];       // accumulated alert objects
-let hardeningReports       = [];       // full delta reports for export
+let hardeningEvents        = [];       // [{ delta, report, alertId }]
 
 // --- Helpers ---
 
@@ -5622,7 +5667,7 @@ function stopHardeningCountdown() {
 }
 
 function updateAlertBadge() {
-  const count = hardeningAlerts.length;
+  const count = hardeningEvents.length;
   if (hardeningAlertBadge) {
     hardeningAlertBadge.textContent = count;
     hardeningAlertBadge.style.display = count > 0 ? 'inline-block' : 'none';
@@ -5649,14 +5694,27 @@ function fmtTime(ts) {
 }
 
 /** Build an alert card DOM element for a delta object */
-function buildAlertCard(delta, index) {
+function buildAlertCard(delta, alertId) {
   const card = document.createElement('div');
   const sev = delta.severity || 'info';
   card.className = `hardening-alert-card alert-${sev}`;
-  card.dataset.alertIndex = index;
 
   const icon = sev === 'critical' ? '🔴' : sev === 'warning' ? '🟡' : '🔵';
-  const sevLabel = `<span class="severity-pill severity-${sev}">${sev.toUpperCase()}</span>`;
+  const sevLabelSpan = document.createElement('span');
+  sevLabelSpan.className = `severity-pill severity-${sev}`;
+  sevLabelSpan.textContent = sev.toUpperCase();
+
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'hardening-alert-title';
+  titleDiv.innerHTML = `${icon} `;
+  titleDiv.appendChild(sevLabelSpan);
+  titleDiv.insertAdjacentHTML('beforeend', `
+    <span style="flex:1;"></span>
+    <span style="color:var(--text-muted); font-size:10px; font-weight:400;">${fmtTime(delta.timestamp)}</span>
+  `);
+
+  const detailDiv = document.createElement('div');
+  detailDiv.className = 'hardening-alert-detail';
 
   // Summarise what changed
   const lines = [];
@@ -5677,41 +5735,57 @@ function buildAlertCard(delta, index) {
     }
   }
 
-  const detailHtml = lines.map(l => `<div>${l}</div>`).join('');
+  detailDiv.innerHTML = lines.map(l => `<div>${l}</div>`).join('') || 'Network state change detected.';
 
-  card.innerHTML = `
-    <div class="hardening-alert-title">
-      ${icon} ${sevLabel}
-      <span style="flex:1;"></span>
-      <span style="color:var(--text-muted); font-size:10px; font-weight:400;">${fmtTime(delta.timestamp)}</span>
-    </div>
-    <div class="hardening-alert-detail">${detailHtml || 'Network state change detected.'}</div>
-    <div class="hardening-alert-actions">
-      ${delta.newHosts?.length ? `<button class="btn secondary btn-investigate" data-ip="${escapeHtml(delta.newHosts[0].ip)}">🔍 Investigate</button>` : ''}
-      ${delta.newHosts?.length ? `<button class="btn secondary btn-add-scope">➕ Add to Scope</button>` : ''}
-      <button class="btn secondary btn-promote-baseline">📌 Promote to Baseline</button>
-      <button class="btn secondary btn-acknowledge">✓ Dismiss</button>
-    </div>
-  `;
+  const actionDiv = document.createElement('div');
+  actionDiv.className = 'hardening-alert-actions';
+
+  if (delta.newHosts?.length) {
+    const btnInvestigate = document.createElement('button');
+    btnInvestigate.className = 'btn secondary btn-investigate';
+    btnInvestigate.dataset.ip = delta.newHosts[0].ip;
+    btnInvestigate.textContent = '🔍 Investigate';
+    actionDiv.appendChild(btnInvestigate);
+
+    const btnAddScope = document.createElement('button');
+    btnAddScope.className = 'btn secondary btn-add-scope';
+    btnAddScope.textContent = '➕ Add to Scope';
+    actionDiv.appendChild(btnAddScope);
+  }
+
+  const btnPromote = document.createElement('button');
+  btnPromote.className = 'btn secondary btn-promote-baseline';
+  btnPromote.textContent = '📌 Promote to Baseline';
+  actionDiv.appendChild(btnPromote);
+
+  const btnDismiss = document.createElement('button');
+  btnDismiss.className = 'btn secondary btn-acknowledge';
+  btnDismiss.textContent = '✓ Dismiss';
+  actionDiv.appendChild(btnDismiss);
+
+  card.appendChild(titleDiv);
+  card.appendChild(detailDiv);
+  card.appendChild(actionDiv);
 
   // Wire action buttons
-  card.querySelector('.btn-acknowledge')?.addEventListener('click', () => {
+  btnDismiss.addEventListener('click', () => {
     card.style.opacity = '0';
     card.style.transition = 'opacity 0.3s';
     setTimeout(() => card.remove(), 300);
-    hardeningAlerts.splice(index, 1);
+    const eventIdx = hardeningEvents.findIndex(e => e.alertId === alertId);
+    if (eventIdx !== -1) hardeningEvents.splice(eventIdx, 1);
     updateAlertBadge();
     if (hardeningAlertsList && hardeningAlertsList.querySelectorAll('.hardening-alert-card').length === 0) {
       if (hardeningNoAlerts) hardeningNoAlerts.style.display = 'block';
     }
   });
 
-  card.querySelector('.btn-investigate')?.addEventListener('click', (e) => {
+  actionDiv.querySelector('.btn-investigate')?.addEventListener('click', (e) => {
     const ip = e.currentTarget.dataset.ip;
     if (ip && typeof showHostDetails !== 'undefined') showHostDetails(ip);
   });
 
-  card.querySelector('.btn-add-scope')?.addEventListener('click', (btn => () => {
+  actionDiv.querySelector('.btn-add-scope')?.addEventListener('click', (btn => () => {
     const newHosts = delta.newHosts || [];
     let added = 0;
     for (const h of newHosts) {
@@ -5742,18 +5816,18 @@ function buildAlertCard(delta, index) {
       btn.textContent = '✓ Already in scope';
       btn.disabled = true;
     }
-  })(card.querySelector('.btn-add-scope')));
+  })(actionDiv.querySelector('.btn-add-scope')));
 
-  card.querySelector('.btn-promote-baseline')?.addEventListener('click', async () => {
+  btnPromote.addEventListener('click', async () => {
     const subnet = hardeningSubnetInput?.value.trim();
     if (!subnet) return;
-    // Promote: set baseline using the current scan's hosts from the report
-    const report = hardeningReports.find(r => r.delta === delta);
+    const event = hardeningEvents.find(e => e.alertId === alertId);
+    const report = event?.report;
     if (report?.currentHosts) {
       await api.hardeningMonitor.setBaseline(subnet, report.currentHosts);
       refreshBaselineSummary();
-      card.querySelector('.btn-promote-baseline').textContent = '✓ Promoted';
-      card.querySelector('.btn-promote-baseline').disabled = true;
+      btnPromote.textContent = '✓ Promoted';
+      btnPromote.disabled = true;
     }
   });
 
@@ -5761,15 +5835,16 @@ function buildAlertCard(delta, index) {
 }
 
 function appendAlert(delta, report) {
-  hardeningAlerts.push(delta);
-  hardeningReports.push(report || { delta });
+  const alertId = (delta && delta.timestamp) || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  
+  hardeningEvents.push({ delta, report: report || null, alertId });
   updateAlertBadge();
 
   // Hide the "no alerts" placeholder
   if (hardeningNoAlerts) hardeningNoAlerts.style.display = 'none';
 
   if (hardeningAlertsList) {
-    const card = buildAlertCard(delta, hardeningAlerts.length - 1);
+    const card = buildAlertCard(delta, alertId);
     hardeningAlertsList.prepend(card); // newest at top
   }
 }
@@ -5782,15 +5857,27 @@ async function refreshBaselineSummary() {
     const result = await api.hardeningMonitor.getBaseline(subnet);
     if (result?.hosts?.length > 0) {
       const setAt = result.setAt ? new Date(result.setAt).toLocaleString() : '—';
-      hardeningBaselineSummary.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:4px;">
-          <div style="color:var(--text-main);">Subnet: <b>${escapeHtml(subnet)}</b></div>
-          <div><b>${result.hosts.length}</b> hosts · Set: ${setAt}</div>
-          <div style="font-size:10px; color:var(--text-muted);">
-            ${result.hosts.slice(0, 5).map(h => escapeHtml(h.ip)).join(', ')}${result.hosts.length > 5 ? ` +${result.hosts.length - 5} more` : ''}
-          </div>
-        </div>
-      `;
+      hardeningBaselineSummary.innerHTML = '';
+      
+      const containerDiv = document.createElement('div');
+      containerDiv.style.cssText = 'display:flex; flex-direction:column; gap:4px;';
+      
+      const subnetDiv = document.createElement('div');
+      subnetDiv.style.color = 'var(--text-main)';
+      subnetDiv.innerHTML = `Subnet: <b>${escapeHtml(subnet)}</b>`;
+      
+      const countDiv = document.createElement('div');
+      countDiv.innerHTML = `<b>${result.hosts.length}</b> hosts · Set: ${escapeHtml(setAt)}`;
+      
+      const listDiv = document.createElement('div');
+      listDiv.style.cssText = 'font-size:10px; color:var(--text-muted);';
+      listDiv.textContent = result.hosts.slice(0, 5).map(h => h.ip).join(', ') + (result.hosts.length > 5 ? ` +${result.hosts.length - 5} more` : '');
+      
+      containerDiv.appendChild(subnetDiv);
+      containerDiv.appendChild(countDiv);
+      containerDiv.appendChild(listDiv);
+      
+      hardeningBaselineSummary.appendChild(containerDiv);
     } else {
       hardeningBaselineSummary.textContent = 'No baseline set. Click "Set Baseline" after a scan to establish the reference state.';
     }
@@ -5857,8 +5944,8 @@ btnSetBaseline?.addEventListener('click', async () => {
     return;
   }
   // Use the hosts from the most recent report if available, otherwise current state.hosts
-  const lastReport = hardeningReports[hardeningReports.length - 1];
-  const hosts = lastReport?.currentHosts || state.hosts?.map(h => ({
+  const lastEvent = hardeningEvents[hardeningEvents.length - 1];
+  const hosts = lastEvent?.report?.currentHosts || state.hosts?.map(h => ({
     ip: h.ip,
     mac: h.mac || '',
     hostname: h.hostname || '',
@@ -5886,8 +5973,7 @@ btnSetBaseline?.addEventListener('click', async () => {
 });
 
 btnClearAlerts?.addEventListener('click', () => {
-  hardeningAlerts = [];
-  hardeningReports = [];
+  hardeningEvents = [];
   updateAlertBadge();
   if (hardeningAlertsList) hardeningAlertsList.innerHTML = '';
   if (hardeningNoAlerts) {
@@ -5898,8 +5984,9 @@ btnClearAlerts?.addEventListener('click', () => {
 });
 
 btnHardeningExport?.addEventListener('click', () => {
-  if (hardeningReports.length === 0) return;
-  const data = JSON.stringify(hardeningReports, null, 2);
+  const exportData = hardeningEvents.map(e => e.report).filter(r => r);
+  if (exportData.length === 0) return;
+  const data = JSON.stringify(exportData, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -5997,8 +6084,8 @@ window.electronAPI.hardeningMonitor?.onDeltaAlert((delta) => {
 
 window.electronAPI.hardeningMonitor?.onDeltaReport((report) => {
   // Patch the last alert entry with the full report data
-  if (hardeningReports.length > 0) {
-    hardeningReports[hardeningReports.length - 1] = report;
+  if (hardeningEvents.length > 0) {
+    hardeningEvents[hardeningEvents.length - 1].report = report;
   }
   if (btnHardeningExport) btnHardeningExport.disabled = false;
 });

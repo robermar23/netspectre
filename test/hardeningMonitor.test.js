@@ -72,14 +72,14 @@ describe('Hardening Monitor Module', () => {
   describe('validateCidr', () => {
     it('should validate correct CIDR notations', () => {
       expect(monitor.validateCidr('192.168.1.0/24')).toBe('192.168.1.0/24');
-      expect(monitor.validateCidr('10.0.0.0/16')).toBe('10.0.0.0/16'); // Safe range is 16-32
+      expect(monitor.validateCidr('10.0.0.0/20')).toBe('10.0.0.0/20'); // Safe range is 20-32
     });
 
     it('should throw on invalid CIDR notations', () => {
       expect(() => monitor.validateCidr('invalid')).toThrow();
       expect(() => monitor.validateCidr('192.168.1.1')).toThrow(); // missing prefix
       expect(() => monitor.validateCidr('192.168.1.0/33')).toThrow(); // invalid prefix
-      expect(() => monitor.validateCidr('10.0.0.0/8')).toThrow(); // out of safe range
+      expect(() => monitor.validateCidr('10.0.0.0/19')).toThrow(); // out of safe range
     });
   });
 
