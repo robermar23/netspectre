@@ -15,12 +15,12 @@
  * - Baselines stored in a dedicated electron-store namespace (no overlap with app settings)
  */
 
-import net from 'net';
 import ping from 'ping';
 import Store from 'electron-store';
 import { Notification } from 'electron';
-import { expandCIDR, COMMON_PORTS } from '#shared/networkConstants.js';
+import { expandCIDR } from '#shared/networkConstants.js';
 import { IPC_CHANNELS } from '#shared/ipc.js';
+import { enrichHost, getArpTable } from './scanner.js';
 
 // ---- Store ----------------------------------------------------------------
 
@@ -60,12 +60,6 @@ function validateCidr(subnet) {
   return subnet;
 }
 
-// ---- Ports to probe on new/changed hosts ----------------------------------
-
-// A focused subset of COMMON_PORTS most likely to be security-relevant
-const MONITOR_PORTS = [21, 22, 23, 25, 53, 80, 110, 135, 139, 443, 445,
-                       3306, 3389, 5900, 8080, 8443, 8888];
-
 // ---- Lightweight probing --------------------------------------------------
 
 /**
@@ -83,35 +77,6 @@ async function pingHost(ip) {
   } catch {
     return { alive: false, time: null };
   }
-}
-
-/**
- * Quick TCP connect to check if a port is open.
- * Returns true if the connection is established within timeoutMs.
- * @param {string} ip
- * @param {number} port
- * @param {number} [timeoutMs=800]
- * @returns {Promise<boolean>}
- */
-function checkPort(ip, port, timeoutMs = 800) {
-  return new Promise(resolve => {
-    const socket = net.createConnection({ host: ip, port, timeout: timeoutMs });
-    socket.once('connect', () => { socket.destroy(); resolve(true); });
-    socket.once('timeout', () => { socket.destroy(); resolve(false); });
-    socket.once('error', () => resolve(false));
-  });
-}
-
-/**
- * Scan MONITOR_PORTS for a given IP. Returns array of open port numbers.
- * @param {string} ip
- * @returns {Promise<number[]>}
- */
-async function scanPorts(ip) {
-  const results = await Promise.all(
-    MONITOR_PORTS.map(p => checkPort(ip, p).then(open => open ? p : null))
-  );
-  return results.filter(p => p !== null);
 }
 
 /**
@@ -290,27 +255,50 @@ async function runMonitorCycle(subnet, options, mainWindow) {
     const controller = new AbortController();
     const aliveIps = await sweepSubnet(subnet, controller.signal);
 
-    // Step 2: retrieve baseline; port-scan new / changed hosts
-    const baseline = getBaseline(subnet) || [];
+    // Step 2: retrieve baseline; fetch ARP table once for the whole cycle
+    const baselineEntry = getBaseline(subnet);
+    const baseline = baselineEntry?.hosts || [];
     const baseMap  = new Map(baseline.map(h => [h.ip, h]));
     const deepScan = options?.deepScan !== false;
 
+    // Single ARP fetch shared across all host enrichments this cycle
+    const arpTable = await getArpTable().catch(() => ({}));
+
     const currentHosts = await Promise.all(
       aliveIps.map(async (ip) => {
-        // Only port-scan if deep mode is on, or this is a new host
         const isKnown = baseMap.has(ip);
-        const ports = (deepScan || !isKnown)
-          ? await scanPorts(ip)
-          : (baseMap.get(ip)?.ports || []);
 
-        return {
+        // Always enrich for fresh hostname / MAC / vendor / OS.
+        // For known hosts with deepScan disabled, reuse baseline ports to
+        // avoid a full TCP scan on every cycle.
+        const enriched = await enrichHost(ip, {
+          arpTable,
+          skipPorts: !deepScan && isKnown,
+        });
+
+        const ports = (!deepScan && isKnown)
+          ? (baseMap.get(ip)?.ports || enriched.ports || [])
+          : (enriched.ports || []);
+
+        const hostRecord = {
           ip,
-          mac:       baseMap.get(ip)?.mac      || '',
-          hostname:  baseMap.get(ip)?.hostname  || '',
+          mac:             enriched.mac      || baseMap.get(ip)?.mac      || '',
+          hostname:        enriched.hostname  || baseMap.get(ip)?.hostname  || '',
+          vendor:          enriched.vendor    || baseMap.get(ip)?.vendor    || '',
+          os:              enriched.os        || baseMap.get(ip)?.os        || '',
           ports,
-          firstSeen: baseMap.get(ip)?.firstSeen || Date.now(),
-          lastSeen:  Date.now(),
+          source:          'monitor',
+          monitorStatus:   'online',
+          monitorLastSeen: Date.now(),
+          firstSeen:       baseMap.get(ip)?.firstSeen || Date.now(),
+          lastSeen:        Date.now(),
         };
+
+        // Stream this host to the renderer as soon as its scan is done —
+        // mirrors the HOST_FOUND pattern so the grid updates incrementally.
+        send(IPC_CHANNELS.HARDENING_HOST_UPDATE, hostRecord);
+
+        return hostRecord;
       })
     );
 
@@ -319,6 +307,33 @@ async function runMonitorCycle(subnet, options, mainWindow) {
 
     if (delta) {
       delta.subnet = subnet;
+
+      // Mark removed hosts offline and stream each one to the renderer
+      for (const removed of delta.removedHosts) {
+        send(IPC_CHANNELS.HARDENING_HOST_UPDATE, {
+          ip:              removed.ip,
+          mac:             removed.mac  || '',
+          hostname:        removed.hostname || '',
+          ports:           baseMap.get(removed.ip)?.ports || [],
+          source:          'monitor',
+          monitorStatus:   'offline',
+          monitorLastSeen: Date.now(),
+        });
+      }
+
+      // Tag changed hosts with their specific alert data
+      for (const changed of delta.changedHosts) {
+        send(IPC_CHANNELS.HARDENING_HOST_UPDATE, {
+          ip:              changed.ip,
+          mac:             changed.mac  || '',
+          hostname:        changed.hostname || '',
+          ports:           changed.ports || [],
+          source:          'monitor',
+          monitorStatus:   'changed',
+          monitorLastSeen: Date.now(),
+          monitorAlerts:   [delta],
+        });
+      }
 
       send(IPC_CHANNELS.HARDENING_DELTA_ALERT, delta);
       send(IPC_CHANNELS.HARDENING_DELTA_REPORT, {

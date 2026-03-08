@@ -157,6 +157,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onDeltaAlert:    (cb) => ipcRenderer.on(IPC_CHANNELS.HARDENING_DELTA_ALERT,    (_e, v) => cb(v)),
     onDeltaReport:   (cb) => ipcRenderer.on(IPC_CHANNELS.HARDENING_DELTA_REPORT,   (_e, v) => cb(v)),
     onStatus:        (cb) => ipcRenderer.on(IPC_CHANNELS.HARDENING_MONITOR_STATUS, (_e, v) => cb(v)),
+    onHostUpdate:    (cb) => ipcRenderer.on(IPC_CHANNELS.HARDENING_HOST_UPDATE,    (_e, v) => cb(v)),
   },
 
   // Cleanup listeners
@@ -217,5 +218,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_DELTA_ALERT);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_DELTA_REPORT);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_MONITOR_STATUS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_HOST_UPDATE);
   }
 });

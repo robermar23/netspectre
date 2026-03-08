@@ -138,8 +138,10 @@ var IPC_CHANNELS = {
   // main -> renderer
   HARDENING_DELTA_REPORT: "hardening-delta-report",
   // main -> renderer (full diff)
-  HARDENING_MONITOR_STATUS: "hardening-monitor-status"
+  HARDENING_MONITOR_STATUS: "hardening-monitor-status",
   // main -> renderer
+  HARDENING_HOST_UPDATE: "hardening-host-update"
+  // main -> renderer, one per host
 };
 
 // src/main/preload.js
@@ -279,7 +281,8 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     getSchedules: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.HARDENING_GET_SCHEDULES),
     onDeltaAlert: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.HARDENING_DELTA_ALERT, (_e, v) => cb(v)),
     onDeltaReport: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.HARDENING_DELTA_REPORT, (_e, v) => cb(v)),
-    onStatus: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.HARDENING_MONITOR_STATUS, (_e, v) => cb(v))
+    onStatus: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.HARDENING_MONITOR_STATUS, (_e, v) => cb(v)),
+    onHostUpdate: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.HARDENING_HOST_UPDATE, (_e, v) => cb(v))
   },
   // Cleanup listeners
   removeListeners: () => {
@@ -339,5 +342,6 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_DELTA_ALERT);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_DELTA_REPORT);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_MONITOR_STATUS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_HOST_UPDATE);
   }
 });

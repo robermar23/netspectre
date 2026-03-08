@@ -161,4 +161,5 @@ export const IPC_CHANNELS = {
   HARDENING_DELTA_ALERT:    'hardening-delta-alert',    // main -> renderer
   HARDENING_DELTA_REPORT:   'hardening-delta-report',   // main -> renderer (full diff)
   HARDENING_MONITOR_STATUS: 'hardening-monitor-status', // main -> renderer
+  HARDENING_HOST_UPDATE:    'hardening-host-update',    // main -> renderer, one per host
 };

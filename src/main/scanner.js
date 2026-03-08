@@ -112,7 +112,7 @@ function getLocalSubnet() {
 /**
  * Parses ARP table for MAC addresses based on OS.
  */
-function getArpTable() {
+export function getArpTable() {
   return new Promise((resolve) => {
     exec('arp -a', (err, stdout) => {
       if (err) {
@@ -334,11 +334,13 @@ export async function enrichHost(ip, options = {}) {
     }
   } catch {}
 
-  // Port scan
-  try {
-    result.ports = await scanPorts(ip);
-  } catch {
-    result.ports = [];
+  // Port scan (skippable for known hosts on lightweight monitor cycles)
+  if (!options.skipPorts) {
+    try {
+      result.ports = await scanPorts(ip);
+    } catch {
+      result.ports = [];
+    }
   }
 
   // OS guess

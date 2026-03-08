@@ -1484,6 +1484,103 @@ function openDetailsPanel(host) {
   document.getElementById('btn-run-pcap').setAttribute('data-ip', host.ip);
   document.getElementById('nse-search-input').placeholder = `Search ${state.nmapScripts?.length || 0} scripts (e.g. smb-)`;
 
+  // --- Hardening Monitor Section ---
+  {
+    const portsParent = portsList.parentElement;
+    const monSection = document.createElement('div');
+    monSection.className = 'dp-monitor-section';
+
+    const statusText = host.monitorStatus === 'online'  ? '🟢 Online'
+                     : host.monitorStatus === 'offline' ? '💀 Offline'
+                     : host.monitorStatus === 'changed' ? '🟡 Changed'
+                     : '⚪ Not monitored';
+    const lastSeenText = host.monitorLastSeen ? fmtTime(host.monitorLastSeen) : '—';
+    const monPorts = host.ports?.length > 0 && host.monitorStatus
+      ? host.ports.join(', ')
+      : '—';
+
+    // Derive a /24 subnet from the host IP for the "Monitor Subnet" shortcut
+    const subnetGuess = host.ip.split('.').slice(0, 3).join('.') + '.0/24';
+
+    monSection.innerHTML = `
+      <div class="dp-section-label">🛡 Hardening Monitor</div>
+      <div class="dp-monitor-grid">
+        <span class="label">Status:</span>  <span class="value">${statusText}</span>
+        <span class="label">Last seen:</span><span class="value">${lastSeenText}</span>
+        <span class="label">Ports (monitor):</span><span class="value" style="font-family:monospace;">${escapeHtml(monPorts)}</span>
+      </div>
+    `;
+
+    // Alert summary for this specific host
+    if (host.monitorAlerts?.length > 0) {
+      const latestAlert = host.monitorAlerts[host.monitorAlerts.length - 1];
+      const alertDiv = document.createElement('div');
+      alertDiv.className = `dp-monitor-alert alert-${latestAlert.severity || 'info'}`;
+      const parts = [];
+      const myNew    = latestAlert.changedHosts?.find(c => c.ip === host.ip);
+      const myRemove = latestAlert.removedHosts?.find(r => r.ip === host.ip);
+      const myNew2   = latestAlert.newHosts?.find(n => n.ip === host.ip);
+      if (myNew2)    parts.push(`New host detected`);
+      if (myRemove)  parts.push(`Host disappeared`);
+      if (myNew?.newPorts?.length)    parts.push(`+ports ${myNew.newPorts.join(', ')}`);
+      if (myNew?.closedPorts?.length) parts.push(`-ports ${myNew.closedPorts.join(', ')}`);
+      if (myNew?.hostnameChanged)     parts.push(`Hostname: ${escapeHtml(myNew.prevHostname)} → ${escapeHtml(myNew.currHostname)}`);
+      alertDiv.textContent = parts.join(' · ') || 'Change detected';
+      monSection.appendChild(alertDiv);
+    }
+
+    // Action buttons
+    const actionRow = document.createElement('div');
+    actionRow.style.cssText = 'display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;';
+
+    const btnOpenMonitor = document.createElement('button');
+    btnOpenMonitor.className = 'btn-action';
+    btnOpenMonitor.style.cssText = 'font-size:10px; padding:3px 8px; border-color:var(--hardening); color:var(--hardening);';
+    btnOpenMonitor.textContent = '🛡 Open Monitor Panel';
+    btnOpenMonitor.addEventListener('click', () => {
+      if (window.__openHardeningPanel) window.__openHardeningPanel(subnetGuess);
+    });
+    actionRow.appendChild(btnOpenMonitor);
+
+    const btnMonitorSubnet = document.createElement('button');
+    btnMonitorSubnet.className = 'btn-action';
+    btnMonitorSubnet.style.cssText = 'font-size:10px; padding:3px 8px;';
+    btnMonitorSubnet.textContent = `▶ Monitor ${subnetGuess}`;
+    btnMonitorSubnet.addEventListener('click', async () => {
+      if (window.__openHardeningPanel) window.__openHardeningPanel(subnetGuess);
+      // Auto-start if not already running
+      try {
+        await api.hardeningMonitor.start(subnetGuess, { intervalMs: 15 * 60 * 1000, deepScan: true });
+      } catch { /* ignore */ }
+    });
+    actionRow.appendChild(btnMonitorSubnet);
+
+    if (host.monitorAlerts?.length > 0) {
+      const btnClear = document.createElement('button');
+      btnClear.className = 'btn-action';
+      btnClear.style.cssText = 'font-size:10px; padding:3px 8px;';
+      btnClear.textContent = '✓ Clear Alerts';
+      btnClear.addEventListener('click', () => {
+        const idx = state.hosts.findIndex(h => h.ip === host.ip);
+        if (idx >= 0) {
+          state.hosts[idx].monitorAlerts = [];
+          host.monitorAlerts = [];
+        }
+        monSection.querySelector('.dp-monitor-alert')?.remove();
+        const badgeContainer = document.getElementById(`host-${host.ip.replace(/\./g, '-')}`)?.querySelector('.security-badge-container');
+        if (badgeContainer) {
+          badgeContainer.innerHTML = '';
+          updateSecurityBadgeDOM(host, badgeContainer);
+        }
+        btnClear.remove();
+      });
+      actionRow.appendChild(btnClear);
+    }
+
+    monSection.appendChild(actionRow);
+    portsParent.appendChild(monSection);
+  }
+
   renderSavedHistory(host);
   elements.detailsPanel.classList.add('open');
   elements.sidebarResizer.style.display = 'block';
@@ -1952,6 +2049,19 @@ function getSecurityBadgeData(host) {
   let badgeClass = 'secondary';
   let icon = '❔';
 
+  // Monitor state takes highest priority in the badge
+  if (host.monitorStatus === 'offline') {
+    return { posture: 'Offline', badgeClass: 'danger', icon: '💀' };
+  }
+  if (host.monitorAlerts?.length > 0) {
+    const hasCritical = host.monitorAlerts.some(a => a.severity === 'critical');
+    return {
+      posture:    hasCritical ? 'Delta: Critical' : 'Delta: Warning',
+      badgeClass: hasCritical ? 'danger' : 'warning',
+      icon:       hasCritical ? '🔴' : '🟡',
+    };
+  }
+
   if (host.deepAudit && host.deepAudit.vulnerabilities > 0) {
       posture = `${host.deepAudit.vulnerabilities} Critical/High CVEs`;
       badgeClass = 'danger';
@@ -2169,11 +2279,33 @@ elements.btnDeepScanAll.addEventListener('click', () => {
   scanAll.start();
 });
 
+/**
+ * Update the monitor status dot on a host card element.
+ * Creates it if absent, updates class if present.
+ * @param {object} host
+ * @param {HTMLElement} card
+ */
+function updateMonitorDotDOM(host, card) {
+  if (!host.monitorStatus || !card) return;
+  let dot = card.querySelector('.host-monitor-dot');
+  if (!dot) {
+    dot = document.createElement('span');
+    dot.className = 'host-monitor-dot';
+    const header = card.querySelector('.host-header');
+    if (header) header.appendChild(dot);
+  }
+  dot.className = 'host-monitor-dot';
+  if (host.monitorStatus === 'online')  { dot.classList.add('mon-online');  dot.title = `Monitor: online · ${fmtTime(host.monitorLastSeen)}`; }
+  if (host.monitorStatus === 'offline') { dot.classList.add('mon-offline'); dot.title = `Monitor: offline · last seen ${fmtTime(host.monitorLastSeen)}`; }
+  if (host.monitorStatus === 'changed') { dot.classList.add('mon-changed'); dot.title = `Monitor: state changed · ${fmtTime(host.monitorLastSeen)}`; }
+}
+
 function buildHostCard(host) {
   const card = document.createElement('div');
   card.className = 'host-card glass-panel';
   card.id = `host-${host.ip.replace(/\\./g, '-')}`;
-  
+  if (host.monitorStatus) card.dataset.monitorStatus = host.monitorStatus;
+
   card.innerHTML = `
     <div class="status-indicator checking" title="Checking connectivity..."></div>
     <button class="btn-remove-host" title="Remove host">✕</button>
@@ -2197,7 +2329,8 @@ function buildHostCard(host) {
   card.querySelector('.host-os-display').textContent = host.os || 'Unknown';
   card.querySelector('.host-vendor-display').textContent = host.vendor || 'Unknown';
   updateSecurityBadgeDOM(host, card.querySelector('.security-badge-container'));
-  
+  updateMonitorDotDOM(host, card);
+
   return card;
 }
 
@@ -5555,6 +5688,7 @@ function buildAlertCard(delta, index) {
     <div class="hardening-alert-detail">${detailHtml || 'Network state change detected.'}</div>
     <div class="hardening-alert-actions">
       ${delta.newHosts?.length ? `<button class="btn secondary btn-investigate" data-ip="${escapeHtml(delta.newHosts[0].ip)}">🔍 Investigate</button>` : ''}
+      ${delta.newHosts?.length ? `<button class="btn secondary btn-add-scope">➕ Add to Scope</button>` : ''}
       <button class="btn secondary btn-promote-baseline">📌 Promote to Baseline</button>
       <button class="btn secondary btn-acknowledge">✓ Dismiss</button>
     </div>
@@ -5576,6 +5710,39 @@ function buildAlertCard(delta, index) {
     const ip = e.currentTarget.dataset.ip;
     if (ip && typeof showHostDetails !== 'undefined') showHostDetails(ip);
   });
+
+  card.querySelector('.btn-add-scope')?.addEventListener('click', (btn => () => {
+    const newHosts = delta.newHosts || [];
+    let added = 0;
+    for (const h of newHosts) {
+      if (!h?.ip) continue;
+      const alreadyKnown = state.hosts.some(x => x.ip === h.ip);
+      if (!alreadyKnown) {
+        state.hosts.push({
+          ip: h.ip,
+          mac: h.mac || '',
+          hostname: h.hostname || '',
+          vendor: '',
+          os: '',
+          ports: h.ports || [],
+          source: 'monitor',
+          routing: [],
+          processes: [],
+          monitorStatus: 'online',
+          monitorLastSeen: h.lastSeen || Date.now(),
+        });
+        added++;
+      }
+    }
+    if (added > 0) {
+      debouncedRenderAllHosts();
+      btn.textContent = `✓ Added ${added}`;
+      btn.disabled = true;
+    } else {
+      btn.textContent = '✓ Already in scope';
+      btn.disabled = true;
+    }
+  })(card.querySelector('.btn-add-scope')));
 
   card.querySelector('.btn-promote-baseline')?.addEventListener('click', async () => {
     const subnet = hardeningSubnetInput?.value.trim();
@@ -5743,6 +5910,61 @@ btnHardeningExport?.addEventListener('click', () => {
 });
 
 // --- IPC event listeners ---
+
+// --- Merge monitor-discovered hosts into the core state.hosts[] ---
+window.electronAPI.hardeningMonitor?.onHostUpdate((hostData) => {
+  const existingIdx = state.hosts.findIndex(h => h.ip === hostData.ip);
+
+  if (existingIdx >= 0) {
+    const existing = state.hosts[existingIdx];
+    state.hosts[existingIdx] = {
+      ...existing,
+      // Promote port data when the monitor found open ports and we have none (or more)
+      ports: (hostData.ports?.length > 0 && hostData.ports.length >= (existing.ports?.length || 0))
+        ? hostData.ports
+        : (existing.ports || []),
+      // Enrich hostname/mac only if we don't already have richer data
+      hostname: (hostData.hostname && !existing.hostname) ? hostData.hostname : existing.hostname,
+      mac:      (hostData.mac      && !existing.mac)      ? hostData.mac      : existing.mac,
+      // Always overwrite monitor-specific fields
+      monitorStatus:   hostData.monitorStatus,
+      monitorLastSeen: hostData.monitorLastSeen,
+      // Accumulate alerts; avoid duplicates (same delta timestamp)
+      monitorAlerts: hostData.monitorAlerts
+        ? [...(existing.monitorAlerts || []).filter(a => a.timestamp !== hostData.monitorAlerts[0]?.timestamp), ...hostData.monitorAlerts]
+        : (existing.monitorAlerts || []),
+    };
+    // Refresh the card in-place (update badge + monitor dot)
+    const card = document.getElementById(`host-${hostData.ip.replace(/\./g, '-')}`);
+    if (card) {
+      const badgeContainer = card.querySelector('.security-badge-container');
+      if (badgeContainer) {
+        badgeContainer.innerHTML = '';
+        updateSecurityBadgeDOM(state.hosts[existingIdx], badgeContainer);
+      }
+      updateMonitorDotDOM(state.hosts[existingIdx], card);
+    }
+  } else if (hostData.monitorStatus === 'online') {
+    // Brand-new host discovered by the monitor — add it to scope
+    state.hosts.push({
+      ip:              hostData.ip,
+      mac:             hostData.mac      || '',
+      hostname:        hostData.hostname  || '',
+      vendor:          '',
+      os:              '',
+      ports:           hostData.ports    || [],
+      source:          'monitor',
+      routing:         [],
+      processes:       [],
+      monitorStatus:   'online',
+      monitorLastSeen: hostData.monitorLastSeen,
+      monitorAlerts:   hostData.monitorAlerts || [],
+      firstSeen:       hostData.firstSeen || Date.now(),
+      lastSeen:        Date.now(),
+    });
+    debouncedRenderAllHosts();
+  }
+});
 
 window.electronAPI.hardeningMonitor?.onStatus((status) => {
   const { subnet, state: monState, lastRun, nextRun, hostCount, error } = status;

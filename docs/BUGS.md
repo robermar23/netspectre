@@ -33,3 +33,5 @@
 - [x] The import .pcap button does nothing  
 - [x] Not necessary to add "host" to the capture filter as it seems to be redundant: "[1] tshark: Invalid capture filter "host host 192.168.1.162" for interface 'Ethernet 2'."
 - [x] No packets are being captured, even no error is shown in the console: "[1] Starting passive capture module: pcap on Ethernet 2"
+- [ ] When smb/nfs shares scanning is enabled, smb or nfs related ports found open for each host, should be able to launch the smb/nfs shared browser right from the host details just like you can with nmap scan and brute force and dir fuzzing.
+
