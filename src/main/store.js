@@ -52,6 +52,13 @@ const schema = {
       path: { type: 'string', default: '' }
     },
     default: { enabled: false, path: '' }
+  },
+  credSpray: {
+    type: 'object',
+    properties: {
+      consentGiven: { type: 'boolean', default: false }
+    },
+    default: { consentGiven: false }
   }
 };
 

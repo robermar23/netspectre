@@ -323,7 +323,7 @@ describe('Deep Scanner Module', () => {
       // Should stop early and not try to scan all 65k
     });
 
-    it.skip('should trigger security audits for FTP and HTTP', async () => {
+    it('should trigger security audits for FTP and HTTP', async () => {
       const { checkAnonymousFtp, checkSensitiveWebDirs } = await import('../src/main/securityAnalyzer.js');
       
       const onPortFound = vi.fn((data) => {

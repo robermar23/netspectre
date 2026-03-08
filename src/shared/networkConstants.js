@@ -199,6 +199,27 @@ export const DEFAULT_CREDENTIALS = [
   { user: 'cisco', pass: 'cisco' },
 ];
 
+// Feature 5B — Default credential spray pairs (IoT / network gear)
+export const IOT_DEFAULT_CREDENTIALS = [
+  { user: 'admin',      pass: 'admin' },
+  { user: 'admin',      pass: 'password' },
+  { user: 'admin',      pass: '1234' },
+  { user: 'admin',      pass: '' },
+  { user: 'root',       pass: 'root' },
+  { user: 'root',       pass: 'toor' },
+  { user: 'root',       pass: '' },
+  { user: 'cisco',      pass: 'cisco' },
+  { user: 'guest',      pass: 'guest' },
+  { user: 'user',       pass: 'user' },
+  { user: 'support',    pass: 'support' },
+  { user: 'service',    pass: 'service' },
+  { user: 'supervisor', pass: 'supervisor' },
+  { user: 'ubnt',       pass: 'ubnt' },     // Ubiquiti
+  { user: 'pi',         pass: 'raspberry' }, // Raspberry Pi
+  { user: 'admin',      pass: 'admin1234' },
+  { user: 'admin',      pass: '123456' },
+];
+
 export const COMMON_WEB_PATHS = [
   '/admin', '/login', '/logout', '/dashboard', '/api', '/api/v1', '/api/v2',
   '/config', '/configuration', '/setup', '/install', '/backup', '/db',

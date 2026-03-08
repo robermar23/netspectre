@@ -128,16 +128,16 @@ export function analyzeService(port, banner, tlsCert) {
       return { serviceName, details, vulnerable, severity };
     }
 
-    // Try SMTP
-    if (banner.startsWith('220 ')) {
-      serviceName = 'SMTP Mail Server';
+    // Try FTP
+    if (banner.match(/FTP|vsFTPd|ProFTPD/i)) {
+      serviceName = 'FTP Server';
       details = banner.split('\r')[0];
       return { serviceName, details, vulnerable, severity };
     }
 
-    // Try FTP
-    if (banner.match(/FTP|vsFTPd|ProFTPD/i)) {
-      serviceName = 'FTP Server';
+    // Try SMTP
+    if (banner.startsWith('220 ')) {
+      serviceName = 'SMTP Mail Server';
       details = banner.split('\r')[0];
       return { serviceName, details, vulnerable, severity };
     }

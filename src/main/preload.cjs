@@ -140,8 +140,19 @@ var IPC_CHANNELS = {
   // main -> renderer (full diff)
   HARDENING_MONITOR_STATUS: "hardening-monitor-status",
   // main -> renderer
-  HARDENING_HOST_UPDATE: "hardening-host-update"
+  HARDENING_HOST_UPDATE: "hardening-host-update",
   // main -> renderer, one per host
+  // Feature 5B: Default Credential Spray
+  CREDSPRAY_START: "credspray-start",
+  CREDSPRAY_STOP: "credspray-stop",
+  CREDSPRAY_HIT: "credspray-hit",
+  // main -> renderer
+  CREDSPRAY_PROGRESS: "credspray-progress",
+  // main -> renderer
+  CREDSPRAY_COMPLETE: "credspray-complete",
+  // main -> renderer
+  CREDSPRAY_ERROR: "credspray-error"
+  // main -> renderer
 };
 
 // src/main/preload.js
@@ -284,6 +295,13 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     onStatus: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.HARDENING_MONITOR_STATUS, (_e, v) => cb(v)),
     onHostUpdate: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.HARDENING_HOST_UPDATE, (_e, v) => cb(v))
   },
+  // Feature 5B: Credential Spray
+  startCredSpray: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.CREDSPRAY_START, opts),
+  stopCredSpray: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.CREDSPRAY_STOP),
+  onCredSprayHit: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_HIT, (_e, v) => cb(v)),
+  onCredSprayProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_PROGRESS, (_e, v) => cb(v)),
+  onCredSprayComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_COMPLETE, (_e, v) => cb(v)),
+  onCredSprayError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_ERROR, (_e, v) => cb(v)),
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -343,5 +361,9 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_DELTA_REPORT);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_MONITOR_STATUS);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_HOST_UPDATE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_HIT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_PROGRESS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_COMPLETE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_ERROR);
   }
 });

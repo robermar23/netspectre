@@ -77,4 +77,8 @@ export const api = {
 
   // Feature 5A: Hardening Monitor
   hardeningMonitor: window.electronAPI.hardeningMonitor,
+
+  // Feature 5B: Credential Spray
+  startCredSpray: async (opts) => window.electronAPI.startCredSpray(opts),
+  stopCredSpray: async () => window.electronAPI.stopCredSpray(),
 };
