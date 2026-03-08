@@ -2145,3 +2145,141 @@ body {
 .btn.pentest.dirfuzz-running {
   animation: pentestPulse 1.5s infinite;
 }
+
+/* =============================================================
+   Feature 5A — Hardening Monitor
+   ============================================================= */
+
+:root {
+  --hardening:       #3be282;  /* same as --success for trusted/defensive tone */
+  --hardening-hover: #5ef09a;
+  --hardening-glow:  rgba(59, 226, 130, 0.3);
+  --hardening-dim:   rgba(59, 226, 130, 0.12);
+}
+
+/* Header button */
+.btn.hardening {
+  background: rgba(59, 226, 130, 0.15);
+  color: var(--hardening);
+  border: 1px solid rgba(59, 226, 130, 0.35);
+  position: relative;
+}
+.btn.hardening:hover {
+  background: rgba(59, 226, 130, 0.25);
+  border-color: var(--hardening);
+  box-shadow: 0 0 12px var(--hardening-glow);
+  transform: translateY(-1px);
+}
+.btn.hardening:active {
+  transform: translateY(1px);
+}
+.btn.hardening:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Active monitoring state — pulse the header button */
+.btn.hardening.hardening-active {
+  background: rgba(59, 226, 130, 0.25);
+  border-color: var(--hardening);
+  animation: hardeningPulse 2s ease-in-out infinite;
+}
+
+@keyframes hardeningPulse {
+  0%   { box-shadow: 0 0 0 0 var(--hardening-glow); }
+  70%  { box-shadow: 0 0 0 8px rgba(59, 226, 130, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 226, 130, 0); }
+}
+
+/* Alert count badge on header button */
+.hardening-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  background: var(--danger);
+  color: white;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  padding: 0 4px;
+  pointer-events: none;
+}
+
+/* Status dot in panel header */
+.hardening-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.hardening-dot-idle     { background: var(--text-muted); }
+.hardening-dot-scanning { background: var(--warning); animation: hardeningDotPulse 0.8s ease-in-out infinite; }
+.hardening-dot-active   { background: var(--hardening); animation: hardeningDotPulse 2s ease-in-out infinite; }
+.hardening-dot-error    { background: var(--danger); }
+
+@keyframes hardeningDotPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* Alert cards */
+.hardening-alert-card {
+  border-radius: 6px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--border-glass);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.hardening-alert-card.alert-critical {
+  border-left-color: var(--danger);
+  background: rgba(235, 94, 94, 0.06);
+}
+.hardening-alert-card.alert-warning {
+  border-left-color: var(--warning);
+  background: rgba(243, 156, 18, 0.06);
+}
+.hardening-alert-card.alert-info {
+  border-left-color: var(--primary);
+}
+
+.hardening-alert-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hardening-alert-detail {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+.hardening-alert-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.hardening-alert-actions .btn {
+  font-size: 10px;
+  padding: 3px 8px;
+}
+
+/* Severity badge pills */
+.severity-pill {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.severity-critical { background: rgba(235,94,94,0.2); color: var(--danger); }
+.severity-warning  { background: rgba(243,156,18,0.2); color: var(--warning); }
+.severity-info     { background: rgba(94,114,235,0.2); color: var(--primary); }

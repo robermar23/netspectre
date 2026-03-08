@@ -5368,3 +5368,421 @@ window.electronAPI.onDirFuzzError?.((err) => {
 
 // Expose for host-card context integration
 window.__openDirFuzzPanel = openDirFuzzPanel;
+
+// =============================================
+// FEATURE 5A — HARDENING MONITOR
+// =============================================
+
+// --- Element references ---
+
+const hardeningPanel         = document.getElementById('hardening-panel');
+const hardeningResizer       = document.getElementById('hardening-resizer');
+const btnHardeningOpen       = document.getElementById('btn-hardening-open');
+const btnCloseHardening      = document.getElementById('btn-close-hardening-panel');
+const btnHardeningStart      = document.getElementById('btn-hardening-start');
+const btnHardeningStop       = document.getElementById('btn-hardening-stop');
+const btnSetBaseline         = document.getElementById('btn-hardening-set-baseline');
+const btnClearAlerts         = document.getElementById('btn-hardening-clear-alerts');
+const btnHardeningExport     = document.getElementById('btn-hardening-export');
+const hardeningSubnetInput   = document.getElementById('hardening-subnet');
+const hardeningIntervalSel   = document.getElementById('hardening-interval');
+const hardeningCustomGroup   = document.getElementById('hardening-custom-interval-group');
+const hardeningCustomMinutes = document.getElementById('hardening-custom-minutes');
+const hardeningDeepScan      = document.getElementById('hardening-deep-scan');
+const hardeningStatusDot     = document.getElementById('hardening-status-dot');
+const hardeningLastScanText  = document.getElementById('hardening-last-scan-text');
+const hardeningNextScanText  = document.getElementById('hardening-next-scan-text');
+const hardeningHostCount     = document.getElementById('hardening-host-count');
+const hardeningErrorBanner   = document.getElementById('hardening-error-banner');
+const hardeningAlertsList    = document.getElementById('hardening-alerts-list');
+const hardeningNoAlerts      = document.getElementById('hardening-no-alerts');
+const hardeningAlertCount    = document.getElementById('hardening-alert-count');
+const hardeningAlertBadge    = document.getElementById('hardening-alert-badge');
+const hardeningBaselineSummary = document.getElementById('hardening-baseline-summary');
+const hardeningFooterText    = document.getElementById('hardening-footer-text');
+
+// --- Internal state ---
+let hardeningMonitorActive = false;    // true while a monitor is scheduled
+let hardeningNextRunTs     = null;     // epoch ms for next scan
+let hardeningCountdownId   = null;     // setInterval id for countdown display
+let hardeningAlerts        = [];       // accumulated alert objects
+let hardeningReports       = [];       // full delta reports for export
+
+// --- Helpers ---
+
+function openHardeningPanel() {
+  if (hardeningPanel && typeof openPanel !== 'undefined') openPanel(hardeningPanel, hardeningResizer);
+  // Refresh baseline summary whenever panel is opened
+  refreshBaselineSummary();
+}
+
+function closeHardeningPanel() {
+  if (hardeningPanel && typeof closePanel !== 'undefined') closePanel(hardeningPanel, hardeningResizer);
+}
+
+function showHardeningError(msg) {
+  if (!hardeningErrorBanner) return;
+  hardeningErrorBanner.textContent = msg;
+  hardeningErrorBanner.style.display = 'block';
+}
+
+function clearHardeningError() {
+  if (hardeningErrorBanner) hardeningErrorBanner.style.display = 'none';
+}
+
+function setHardeningRunning(active) {
+  hardeningMonitorActive = active;
+  if (btnHardeningStart) btnHardeningStart.disabled = active;
+  if (btnHardeningStop)  btnHardeningStop.disabled  = !active;
+  if (btnHardeningOpen) {
+    btnHardeningOpen.classList.toggle('hardening-active', active);
+  }
+  setStatusDot(active ? 'active' : 'idle');
+  if (hardeningFooterText) {
+    hardeningFooterText.textContent = active ? 'Monitoring active…' : 'Idle';
+  }
+  if (!active) {
+    stopHardeningCountdown();
+    if (hardeningNextScanText) hardeningNextScanText.textContent = '';
+  }
+}
+
+function setStatusDot(state) {
+  if (!hardeningStatusDot) return;
+  hardeningStatusDot.className = 'hardening-status-dot';
+  if (state === 'scanning') {
+    hardeningStatusDot.classList.add('hardening-dot-scanning');
+    hardeningStatusDot.title = 'Scanning…';
+  } else if (state === 'active') {
+    hardeningStatusDot.classList.add('hardening-dot-active');
+    hardeningStatusDot.title = 'Monitoring active';
+  } else if (state === 'error') {
+    hardeningStatusDot.classList.add('hardening-dot-error');
+    hardeningStatusDot.title = 'Error';
+  } else {
+    hardeningStatusDot.classList.add('hardening-dot-idle');
+    hardeningStatusDot.title = 'Idle';
+  }
+}
+
+function startHardeningCountdown(nextRunTs) {
+  hardeningNextRunTs = nextRunTs;
+  stopHardeningCountdown();
+  hardeningCountdownId = setInterval(() => {
+    if (!hardeningNextScanText || !hardeningNextRunTs) return;
+    const remaining = Math.max(0, hardeningNextRunTs - Date.now());
+    if (remaining === 0) {
+      hardeningNextScanText.textContent = 'Scanning now…';
+      return;
+    }
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    hardeningNextScanText.textContent = `Next scan in ${mins}m ${secs}s`;
+  }, 1000);
+}
+
+function stopHardeningCountdown() {
+  if (hardeningCountdownId) {
+    clearInterval(hardeningCountdownId);
+    hardeningCountdownId = null;
+  }
+}
+
+function updateAlertBadge() {
+  const count = hardeningAlerts.length;
+  if (hardeningAlertBadge) {
+    hardeningAlertBadge.textContent = count;
+    hardeningAlertBadge.style.display = count > 0 ? 'inline-block' : 'none';
+  }
+  if (hardeningAlertCount) {
+    hardeningAlertCount.textContent = count;
+    hardeningAlertCount.style.display = count > 0 ? 'inline-block' : 'none';
+  }
+}
+
+function getIntervalMs() {
+  const val = hardeningIntervalSel?.value;
+  if (val === 'custom') {
+    const mins = parseInt(hardeningCustomMinutes?.value, 10) || 15;
+    return Math.max(1, mins) * 60 * 1000;
+  }
+  return parseInt(val, 10) || 15 * 60 * 1000;
+}
+
+/** Build a human-readable timestamp string */
+function fmtTime(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleTimeString();
+}
+
+/** Build an alert card DOM element for a delta object */
+function buildAlertCard(delta, index) {
+  const card = document.createElement('div');
+  const sev = delta.severity || 'info';
+  card.className = `hardening-alert-card alert-${sev}`;
+  card.dataset.alertIndex = index;
+
+  const icon = sev === 'critical' ? '🔴' : sev === 'warning' ? '🟡' : '🔵';
+  const sevLabel = `<span class="severity-pill severity-${sev}">${sev.toUpperCase()}</span>`;
+
+  // Summarise what changed
+  const lines = [];
+  if (delta.newHosts?.length) {
+    lines.push(`<b>${delta.newHosts.length}</b> new host${delta.newHosts.length > 1 ? 's' : ''}: ${delta.newHosts.map(h => escapeHtml(h.ip)).join(', ')}`);
+  }
+  if (delta.removedHosts?.length) {
+    lines.push(`<b>${delta.removedHosts.length}</b> host${delta.removedHosts.length > 1 ? 's' : ''} disappeared: ${delta.removedHosts.map(h => escapeHtml(h.ip)).join(', ')}`);
+  }
+  if (delta.changedHosts?.length) {
+    for (const ch of delta.changedHosts) {
+      const parts = [];
+      if (ch.newPorts?.length)    parts.push(`+ports ${ch.newPorts.join(', ')}`);
+      if (ch.closedPorts?.length) parts.push(`-ports ${ch.closedPorts.join(', ')}`);
+      if (ch.hostnameChanged)     parts.push(`hostname: ${escapeHtml(ch.prevHostname)} → ${escapeHtml(ch.currHostname)}`);
+      if (ch.macChanged)          parts.push(`MAC changed`);
+      if (parts.length) lines.push(`<b>${escapeHtml(ch.ip)}</b>: ${parts.join('; ')}`);
+    }
+  }
+
+  const detailHtml = lines.map(l => `<div>${l}</div>`).join('');
+
+  card.innerHTML = `
+    <div class="hardening-alert-title">
+      ${icon} ${sevLabel}
+      <span style="flex:1;"></span>
+      <span style="color:var(--text-muted); font-size:10px; font-weight:400;">${fmtTime(delta.timestamp)}</span>
+    </div>
+    <div class="hardening-alert-detail">${detailHtml || 'Network state change detected.'}</div>
+    <div class="hardening-alert-actions">
+      ${delta.newHosts?.length ? `<button class="btn secondary btn-investigate" data-ip="${escapeHtml(delta.newHosts[0].ip)}">🔍 Investigate</button>` : ''}
+      <button class="btn secondary btn-promote-baseline">📌 Promote to Baseline</button>
+      <button class="btn secondary btn-acknowledge">✓ Dismiss</button>
+    </div>
+  `;
+
+  // Wire action buttons
+  card.querySelector('.btn-acknowledge')?.addEventListener('click', () => {
+    card.style.opacity = '0';
+    card.style.transition = 'opacity 0.3s';
+    setTimeout(() => card.remove(), 300);
+    hardeningAlerts.splice(index, 1);
+    updateAlertBadge();
+    if (hardeningAlertsList && hardeningAlertsList.querySelectorAll('.hardening-alert-card').length === 0) {
+      if (hardeningNoAlerts) hardeningNoAlerts.style.display = 'block';
+    }
+  });
+
+  card.querySelector('.btn-investigate')?.addEventListener('click', (e) => {
+    const ip = e.currentTarget.dataset.ip;
+    if (ip && typeof showHostDetails !== 'undefined') showHostDetails(ip);
+  });
+
+  card.querySelector('.btn-promote-baseline')?.addEventListener('click', async () => {
+    const subnet = hardeningSubnetInput?.value.trim();
+    if (!subnet) return;
+    // Promote: set baseline using the current scan's hosts from the report
+    const report = hardeningReports.find(r => r.delta === delta);
+    if (report?.currentHosts) {
+      await api.hardeningMonitor.setBaseline(subnet, report.currentHosts);
+      refreshBaselineSummary();
+      card.querySelector('.btn-promote-baseline').textContent = '✓ Promoted';
+      card.querySelector('.btn-promote-baseline').disabled = true;
+    }
+  });
+
+  return card;
+}
+
+function appendAlert(delta, report) {
+  hardeningAlerts.push(delta);
+  hardeningReports.push(report || { delta });
+  updateAlertBadge();
+
+  // Hide the "no alerts" placeholder
+  if (hardeningNoAlerts) hardeningNoAlerts.style.display = 'none';
+
+  if (hardeningAlertsList) {
+    const card = buildAlertCard(delta, hardeningAlerts.length - 1);
+    hardeningAlertsList.prepend(card); // newest at top
+  }
+}
+
+async function refreshBaselineSummary() {
+  const subnet = hardeningSubnetInput?.value.trim();
+  if (!subnet || !hardeningBaselineSummary) return;
+
+  try {
+    const result = await api.hardeningMonitor.getBaseline(subnet);
+    if (result?.hosts?.length > 0) {
+      const setAt = result.setAt ? new Date(result.setAt).toLocaleString() : '—';
+      hardeningBaselineSummary.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <div style="color:var(--text-main);">Subnet: <b>${escapeHtml(subnet)}</b></div>
+          <div><b>${result.hosts.length}</b> hosts · Set: ${setAt}</div>
+          <div style="font-size:10px; color:var(--text-muted);">
+            ${result.hosts.slice(0, 5).map(h => escapeHtml(h.ip)).join(', ')}${result.hosts.length > 5 ? ` +${result.hosts.length - 5} more` : ''}
+          </div>
+        </div>
+      `;
+    } else {
+      hardeningBaselineSummary.textContent = 'No baseline set. Click "Set Baseline" after a scan to establish the reference state.';
+    }
+  } catch {
+    // Baseline retrieval failed silently
+  }
+}
+
+// --- Button event handlers ---
+
+btnHardeningOpen?.addEventListener('click', () => {
+  if (hardeningPanel?.style.display !== 'none') {
+    closeHardeningPanel();
+  } else {
+    openHardeningPanel();
+  }
+});
+
+btnCloseHardening?.addEventListener('click', closeHardeningPanel);
+
+// Interval selector — show/hide custom input
+hardeningIntervalSel?.addEventListener('change', () => {
+  if (hardeningCustomGroup) {
+    hardeningCustomGroup.style.display = hardeningIntervalSel.value === 'custom' ? 'block' : 'none';
+  }
+});
+
+btnHardeningStart?.addEventListener('click', async () => {
+  const subnet = hardeningSubnetInput?.value.trim();
+  if (!subnet) {
+    showHardeningError('Please enter a target subnet in CIDR notation (e.g. 192.168.1.0/24).');
+    return;
+  }
+  clearHardeningError();
+  const intervalMs = getIntervalMs();
+  const deepScan   = hardeningDeepScan?.checked !== false;
+  setHardeningRunning(true);
+  setStatusDot('scanning');
+  if (hardeningFooterText) hardeningFooterText.textContent = 'Starting first scan…';
+  try {
+    await api.hardeningMonitor.start(subnet, { intervalMs, deepScan });
+  } catch (err) {
+    showHardeningError(`Failed to start: ${err.message}`);
+    setHardeningRunning(false);
+  }
+});
+
+btnHardeningStop?.addEventListener('click', async () => {
+  const subnet = hardeningSubnetInput?.value.trim();
+  if (!subnet) return;
+  try {
+    await api.hardeningMonitor.stop(subnet);
+  } catch { /* ignore */ }
+  setHardeningRunning(false);
+  stopHardeningCountdown();
+  if (hardeningNextScanText) hardeningNextScanText.textContent = '';
+  if (hardeningFooterText) hardeningFooterText.textContent = 'Stopped';
+});
+
+btnSetBaseline?.addEventListener('click', async () => {
+  const subnet = hardeningSubnetInput?.value.trim();
+  if (!subnet) {
+    showHardeningError('Enter a subnet first.');
+    return;
+  }
+  // Use the hosts from the most recent report if available, otherwise current state.hosts
+  const lastReport = hardeningReports[hardeningReports.length - 1];
+  const hosts = lastReport?.currentHosts || state.hosts?.map(h => ({
+    ip: h.ip,
+    mac: h.mac || '',
+    hostname: h.hostname || '',
+    ports: h.ports?.map(p => p.port || p) || [],
+    firstSeen: Date.now(),
+    lastSeen: Date.now(),
+  })) || [];
+
+  if (hosts.length === 0) {
+    showHardeningError('No hosts to baseline. Run a scan first or add hosts to the scope.');
+    return;
+  }
+  try {
+    await api.hardeningMonitor.setBaseline(subnet, hosts);
+    clearHardeningError();
+    refreshBaselineSummary();
+    if (btnSetBaseline) {
+      const orig = btnSetBaseline.textContent;
+      btnSetBaseline.textContent = '✓ Baseline Saved';
+      setTimeout(() => { if (btnSetBaseline) btnSetBaseline.textContent = orig; }, 2000);
+    }
+  } catch (err) {
+    showHardeningError(`Failed to set baseline: ${err.message}`);
+  }
+});
+
+btnClearAlerts?.addEventListener('click', () => {
+  hardeningAlerts = [];
+  hardeningReports = [];
+  updateAlertBadge();
+  if (hardeningAlertsList) hardeningAlertsList.innerHTML = '';
+  if (hardeningNoAlerts) {
+    hardeningNoAlerts.style.display = 'block';
+    hardeningAlertsList?.appendChild(hardeningNoAlerts);
+  }
+  if (btnHardeningExport) btnHardeningExport.disabled = true;
+});
+
+btnHardeningExport?.addEventListener('click', () => {
+  if (hardeningReports.length === 0) return;
+  const data = JSON.stringify(hardeningReports, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hardening_report_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// --- IPC event listeners ---
+
+window.electronAPI.hardeningMonitor?.onStatus((status) => {
+  const { subnet, state: monState, lastRun, nextRun, hostCount, error } = status;
+
+  if (monState === 'scanning') {
+    setStatusDot('scanning');
+    if (hardeningFooterText) hardeningFooterText.textContent = `Scanning ${escapeHtml(subnet)}…`;
+    if (hardeningLastScanText) hardeningLastScanText.textContent = 'Scanning now…';
+  } else if (monState === 'idle' || monState === 'started') {
+    setStatusDot(hardeningMonitorActive ? 'active' : 'idle');
+    if (lastRun && hardeningLastScanText) {
+      hardeningLastScanText.textContent = `Last scan: ${fmtTime(lastRun)}`;
+    }
+    if (nextRun) startHardeningCountdown(nextRun);
+    if (hostCount != null && hardeningHostCount) {
+      hardeningHostCount.textContent = `${hostCount} host${hostCount !== 1 ? 's' : ''} live`;
+    }
+    if (hardeningFooterText) hardeningFooterText.textContent = 'Monitoring active';
+  } else if (monState === 'error') {
+    setStatusDot('error');
+    showHardeningError(error || 'Monitor error');
+    setHardeningRunning(false);
+  }
+});
+
+window.electronAPI.hardeningMonitor?.onDeltaAlert((delta) => {
+  // Lightweight alert — append card, show badge. Full report comes via onDeltaReport.
+  appendAlert(delta, null);
+});
+
+window.electronAPI.hardeningMonitor?.onDeltaReport((report) => {
+  // Patch the last alert entry with the full report data
+  if (hardeningReports.length > 0) {
+    hardeningReports[hardeningReports.length - 1] = report;
+  }
+  if (btnHardeningExport) btnHardeningExport.disabled = false;
+});
+
+// Expose for external integration (e.g., host card "Monitor Subnet" button)
+window.__openHardeningPanel = (subnet) => {
+  if (subnet && hardeningSubnetInput) hardeningSubnetInput.value = subnet;
+  openHardeningPanel();
+};

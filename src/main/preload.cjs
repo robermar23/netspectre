@@ -127,7 +127,19 @@ var IPC_CHANNELS = {
   DIRFUZZ_HIT: "dirfuzz-hit",
   DIRFUZZ_PROGRESS: "dirfuzz-progress",
   DIRFUZZ_COMPLETE: "dirfuzz-complete",
-  DIRFUZZ_ERROR: "dirfuzz-error"
+  DIRFUZZ_ERROR: "dirfuzz-error",
+  // Feature 5A: Hardening Monitor — Continuous Delta Monitoring
+  HARDENING_START_MONITOR: "hardening-start-monitor",
+  HARDENING_STOP_MONITOR: "hardening-stop-monitor",
+  HARDENING_SET_BASELINE: "hardening-set-baseline",
+  HARDENING_GET_BASELINE: "hardening-get-baseline",
+  HARDENING_GET_SCHEDULES: "hardening-get-schedules",
+  HARDENING_DELTA_ALERT: "hardening-delta-alert",
+  // main -> renderer
+  HARDENING_DELTA_REPORT: "hardening-delta-report",
+  // main -> renderer (full diff)
+  HARDENING_MONITOR_STATUS: "hardening-monitor-status"
+  // main -> renderer
 };
 
 // src/main/preload.js
@@ -258,6 +270,17 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   onDirFuzzProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_PROGRESS, (_e, v) => cb(v)),
   onDirFuzzComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_COMPLETE, (_e, v) => cb(v)),
   onDirFuzzError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_ERROR, (_e, v) => cb(v)),
+  // Feature 5A: Hardening Monitor
+  hardeningMonitor: {
+    start: (subnet, options) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.HARDENING_START_MONITOR, { subnet, options }),
+    stop: (subnet) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.HARDENING_STOP_MONITOR, { subnet }),
+    setBaseline: (subnet, hosts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.HARDENING_SET_BASELINE, { subnet, hosts }),
+    getBaseline: (subnet) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.HARDENING_GET_BASELINE, { subnet }),
+    getSchedules: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.HARDENING_GET_SCHEDULES),
+    onDeltaAlert: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.HARDENING_DELTA_ALERT, (_e, v) => cb(v)),
+    onDeltaReport: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.HARDENING_DELTA_REPORT, (_e, v) => cb(v)),
+    onStatus: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.HARDENING_MONITOR_STATUS, (_e, v) => cb(v))
+  },
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -313,5 +336,8 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_PROGRESS);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_COMPLETE);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_DELTA_ALERT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_DELTA_REPORT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_MONITOR_STATUS);
   }
 });

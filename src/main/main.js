@@ -41,6 +41,14 @@ import { msfConnect, msfDisconnect, msfListExploits, msfRunExploit, msfGetSessio
 import { startListener as startRevShell, stopListener as stopRevShell, sendToShell as sendRevShell } from './revShellListener.js';
 import { enumerateShares, browseShare, downloadFile as downloadShareFile, cleanupShares } from './shareEnumerator.js';
 import { startDirFuzz, stopDirFuzz, cleanupDirFuzz } from './dirFuzzer.js';
+import {
+  startMonitor as startHardeningMonitor,
+  stopMonitor  as stopHardeningMonitor,
+  stopAllMonitors,
+  setBaseline  as setHardeningBaseline,
+  getBaseline  as getHardeningBaseline,
+  getActiveMonitors,
+} from './hardeningMonitor.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,6 +106,7 @@ app.on('window-all-closed', function () {
   stopRevShell();
   cleanupShares();
   cleanupDirFuzz();
+  stopAllMonitors();
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -648,6 +657,37 @@ ipcMain.handle(IPC_CHANNELS.DIRFUZZ_STOP, async () => {
   console.log('Dir fuzz stop requested');
   stopDirFuzz();
   return { status: 'stopped' };
+});
+
+// --- Feature 5A: Hardening Monitor ---
+
+ipcMain.handle(IPC_CHANNELS.HARDENING_START_MONITOR, async (_e, { subnet, options }) => {
+  console.log(`[hardening] Start monitor requested for ${subnet}`);
+  if (typeof subnet !== 'string') return { ok: false, error: 'subnet is required' };
+  startHardeningMonitor(subnet, options || {}, mainWindow);
+  return { ok: true };
+});
+
+ipcMain.handle(IPC_CHANNELS.HARDENING_STOP_MONITOR, async (_e, { subnet }) => {
+  console.log(`[hardening] Stop monitor requested for ${subnet}`);
+  stopHardeningMonitor(subnet);
+  return { ok: true };
+});
+
+ipcMain.handle(IPC_CHANNELS.HARDENING_SET_BASELINE, async (_e, { subnet, hosts }) => {
+  console.log(`[hardening] Set baseline for ${subnet} — ${hosts?.length || 0} hosts`);
+  if (!Array.isArray(hosts)) return { ok: false, error: 'hosts must be an array' };
+  setHardeningBaseline(subnet, hosts);
+  return { ok: true };
+});
+
+ipcMain.handle(IPC_CHANNELS.HARDENING_GET_BASELINE, async (_e, { subnet }) => {
+  const result = getHardeningBaseline(subnet);
+  return result || { hosts: [], setAt: null, subnet };
+});
+
+ipcMain.handle(IPC_CHANNELS.HARDENING_GET_SCHEDULES, async () => {
+  return getActiveMonitors();
 });
 
 // --- Results Management ---
