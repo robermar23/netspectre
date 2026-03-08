@@ -162,4 +162,12 @@ export const IPC_CHANNELS = {
   HARDENING_DELTA_REPORT:   'hardening-delta-report',   // main -> renderer (full diff)
   HARDENING_MONITOR_STATUS: 'hardening-monitor-status', // main -> renderer
   HARDENING_HOST_UPDATE:    'hardening-host-update',    // main -> renderer, one per host
+
+  // Feature 5B: Default Credential Spray
+  CREDSPRAY_START:    'credspray-start',
+  CREDSPRAY_STOP:     'credspray-stop',
+  CREDSPRAY_HIT:      'credspray-hit',        // main -> renderer
+  CREDSPRAY_PROGRESS: 'credspray-progress',   // main -> renderer
+  CREDSPRAY_COMPLETE: 'credspray-complete',   // main -> renderer
+  CREDSPRAY_ERROR:    'credspray-error',      // main -> renderer
 };

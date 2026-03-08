@@ -1560,6 +1560,29 @@ function openDetailsPanel(host) {
 
       portsList.parentElement.appendChild(bfSection);
     }
+
+    // Default Credential Spray quick-action
+    const sprayablePorts = host.ports.filter(p => [23, 80, 8080, 8443, 443].includes(p));
+    if (sprayablePorts.length > 0) {
+      const spraySection = document.createElement('div');
+      spraySection.style.cssText = 'margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
+      const sprayLabel = document.createElement('span');
+      sprayLabel.style.cssText = 'font-size: 11px; color: var(--text-muted);';
+      sprayLabel.textContent = '🔑 Default Creds:';
+      spraySection.appendChild(sprayLabel);
+      
+      const btn = document.createElement('button');
+      btn.className = 'btn-action pentest-action';
+      btn.style.cssText = 'font-size: 10px; padding: 3px 8px;';
+      btn.textContent = 'Spray Known Defaults';
+      btn.title = `Spray common IoT/router default credentials`;
+      btn.addEventListener('click', () => {
+        if (typeof openCredSprayPanel !== 'undefined') openCredSprayPanel(host.ip);
+        else if (window.__openCredSprayPanel) window.__openCredSprayPanel(host.ip);
+      });
+      spraySection.appendChild(btn);
+      portsList.parentElement.appendChild(spraySection);
+    }
   }
 
   if (host.nmapData && host.nmapData.vulnerabilities && host.nmapData.vulnerabilities.length > 0) {
@@ -5687,11 +5710,6 @@ function getIntervalMs() {
   return parseInt(val, 10) || 15 * 60 * 1000;
 }
 
-/** Build a human-readable timestamp string */
-function fmtTime(ts) {
-  if (!ts) return '—';
-  return new Date(ts).toLocaleTimeString();
-}
 
 /** Build an alert card DOM element for a delta object */
 function buildAlertCard(delta, alertId) {
@@ -6095,3 +6113,237 @@ window.__openHardeningPanel = (subnet) => {
   if (subnet && hardeningSubnetInput) hardeningSubnetInput.value = subnet;
   openHardeningPanel();
 };
+// =============================================
+// === CREDENTIAL SPRAY UI MODULE ===
+// =============================================
+
+const credsprayPanel = document.getElementById('credspray-panel');
+const credsprayResizer = document.getElementById('credspray-resizer');
+const btnCredsprayOpen = document.getElementById('btn-credspray-open');
+const btnCloseCredsprayPanel = document.getElementById('btn-close-credspray');
+
+const credsprayTargetMode = document.getElementById('credspray-target-mode');
+const credsprayTargetIpGroup = document.getElementById('credspray-single-ip-group');
+const credsprayTargetIp = document.getElementById('credspray-target-ip');
+const credsprayProtoCbs = document.querySelectorAll('.credspray-proto-cb');
+const credsprayStopOnHit = document.getElementById('credspray-stop-on-hit');
+
+const btnCredsprayStart = document.getElementById('btn-credspray-start');
+const btnCredsprayStop = document.getElementById('btn-credspray-stop');
+const btnCredsprayClear = document.getElementById('btn-credspray-clear');
+const btnCredsprayExport = document.getElementById('btn-credspray-export');
+
+const credsprayProgressContainer = document.getElementById('credspray-progress-container');
+const credsprayProgressBar = document.getElementById('credspray-progress-bar');
+const credsprayProgressText = document.getElementById('credspray-progress-text');
+const credsprayStatsText = document.getElementById('credspray-stats-text');
+
+const credsprayErrorBanner = document.getElementById('credspray-error-banner');
+const credsprayResultsTbody = document.getElementById('credspray-results-tbody');
+const credsprayFooterHits = document.getElementById('credspray-footer-hits');
+
+function openCredSprayPanel(prefilledIp) {
+  if (prefilledIp && credsprayTargetIp) credsprayTargetIp.value = prefilledIp;
+  if (credsprayPanel && typeof openPanel !== 'undefined') openPanel(credsprayPanel, credsprayResizer);
+}
+
+function closeCredSprayPanel() {
+  if (credsprayPanel && typeof closePanel !== 'undefined') closePanel(credsprayPanel, credsprayResizer);
+}
+
+function showCredSprayError(msg) {
+  if (!credsprayErrorBanner) return;
+  credsprayErrorBanner.textContent = msg;
+  credsprayErrorBanner.style.display = 'block';
+}
+
+function clearCredSprayError() {
+  if (credsprayErrorBanner) credsprayErrorBanner.style.display = 'none';
+}
+
+function setCredSprayRunning(running) {
+  state.isCredSprayRunning = running;
+  if (btnCredsprayStart) {
+    btnCredsprayStart.disabled = running;
+    btnCredsprayStart.classList.toggle('credspray-running', running);
+  }
+  if (btnCredsprayStop) btnCredsprayStop.disabled = !running;
+  
+  if (running && credsprayProgressContainer) {
+    credsprayProgressContainer.style.display = 'block';
+  }
+}
+
+function resetCredSprayUI() {
+  state.credSprayHits = [];
+  if (credsprayResultsTbody) {
+    credsprayResultsTbody.innerHTML = '';
+    const empty = document.createElement('tr');
+    empty.id = 'credspray-empty-row';
+    empty.innerHTML = '<td colspan="4" style="text-align:center;color:var(--text-muted);padding:32px;">Configure target and click Start Spray</td>';
+    credsprayResultsTbody.appendChild(empty);
+  }
+  if (credsprayProgressBar) credsprayProgressBar.style.width = '0%';
+  if (credsprayProgressText) credsprayProgressText.textContent = 'Idle';
+}
+
+function appendCredSprayHit(hit) {
+  if (!credsprayResultsTbody) return;
+  
+  const emptyRow = document.getElementById('credspray-empty-row');
+  if (emptyRow) emptyRow.remove();
+
+  state.credSprayHits.push(hit);
+  
+  const row = document.createElement('tr');
+  row.className = 'hit-row animate-in';
+  row.innerHTML = `
+    <td style="color:var(--accent-primary);font-weight:600;">${hit.target}</td>
+    <td><span class="tag-protocol">${hit.protocol}</span></td>
+    <td><code style="color:var(--success);">${hit.user}:${hit.pass}</code></td>
+    <td style="font-size:11px;color:var(--text-muted);">${fmtTime(hit.time)}</td>
+  `;
+  credsprayResultsTbody.prepend(row);
+
+  if (credsprayFooterHits) credsprayFooterHits.textContent = `${state.credSprayHits.length} hit${state.credSprayHits.length !== 1 ? 's' : ''}`;
+  if (btnCredsprayExport) btnCredsprayExport.disabled = false;
+}
+
+// --- Wire up Controls ---
+
+if (credsprayResizer && credsprayPanel) {
+  initResizer(credsprayResizer, credsprayPanel);
+}
+
+btnCredsprayOpen?.addEventListener('click', () => {
+  if (credsprayPanel?.classList.contains('open')) {
+    closeCredSprayPanel();
+  } else {
+    openCredSprayPanel('');
+  }
+});
+
+btnCloseCredsprayPanel?.addEventListener('click', closeCredSprayPanel);
+
+// Target mode toggle
+if (credsprayTargetMode) {
+  credsprayTargetMode.addEventListener('change', () => {
+    if (credsprayTargetIpGroup) {
+      credsprayTargetIpGroup.style.display = credsprayTargetMode.value === 'single' ? 'block' : 'none';
+    }
+  });
+}
+
+btnCredsprayStart?.addEventListener('click', async () => {
+  if (state.isCredSprayRunning) return;
+
+  const mode = credsprayTargetMode?.value || 'all';
+  const targetIp = mode === 'single' ? credsprayTargetIp?.value?.trim() : null;
+  
+  if (mode === 'single' && !targetIp) {
+    showCredSprayError('Target IP is required for single mode.');
+    return;
+  }
+
+  const selectedProtos = [];
+  if (credsprayProtoCbs) {
+    credsprayProtoCbs.forEach(cb => {
+      if (cb.checked) selectedProtos.push(cb.value);
+    });
+  }
+
+  if (selectedProtos.length === 0) {
+    showCredSprayError('Select at least one protocol.');
+    return;
+  }
+
+  // Pentest Consent Check
+  if (!pentestConsentAccepted) {
+    pendingBfConfig = { 
+      _type: 'credspray', 
+      mode, 
+      targetIp, 
+      protocols: selectedProtos,
+      stopOnHit: !!credsprayStopOnHit?.checked
+    };
+    pentestConsentOverlay?.classList.remove('hidden');
+    return;
+  }
+
+  clearCredSprayError();
+  resetCredSprayUI();
+  setCredSprayRunning(true);
+  
+  if (credsprayProgressText) credsprayProgressText.textContent = 'Starting spray...';
+
+  const opts = {
+    targets: mode === 'single' ? [targetIp] : state.hosts.map(h => h.ip),
+    protocols: selectedProtos,
+    stopOnFirstHit: !!credsprayStopOnHit?.checked,
+    delayMs: 200
+  };
+
+  try {
+    await api.startCredSpray(opts);
+  } catch (err) {
+    showCredSprayError(`Failed to start: ${err.message}`);
+    setCredSprayRunning(false);
+  }
+});
+
+btnCredsprayStop?.addEventListener('click', async () => {
+  try {
+    await api.stopCredSpray();
+  } catch { /* ignore */ }
+  setCredSprayRunning(false);
+  if (credsprayProgressText) credsprayProgressText.textContent = 'Stopped';
+});
+
+btnCredsprayClear?.addEventListener('click', () => {
+  if (state.isCredSprayRunning) return;
+  resetCredSprayUI();
+});
+
+btnCredsprayExport?.addEventListener('click', () => {
+  if (state.credSprayHits.length === 0) return;
+  const header = 'Target,Protocol,User,Password,Time\n';
+  const rows = state.credSprayHits.map(h => 
+    `"${h.target}","${h.protocol}","${h.user}","${h.pass}","${h.time || ''}"`
+  ).join('\n');
+  const blob = new Blob([header + rows], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `credspray_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// --- IPC Listeners ---
+
+window.electronAPI.onCredSprayHit?.((hit) => {
+  appendCredSprayHit(hit);
+});
+
+window.electronAPI.onCredSprayProgress?.((data) => {
+  const { tested, total, percent } = data;
+  if (credsprayProgressBar) credsprayProgressBar.style.width = `${percent}%`;
+  if (credsprayProgressText) credsprayProgressText.textContent = `Attempting ${tested} of ${total} defaults`;
+  if (credsprayStatsText) credsprayStatsText.textContent = `${state.credSprayHits.length} hit${state.credSprayHits.length !== 1 ? 's' : ''}`;
+});
+
+window.electronAPI.onCredSprayComplete?.((data) => {
+  setCredSprayRunning(false);
+  if (credsprayProgressBar) credsprayProgressBar.style.width = '100%';
+  const secs = (data.elapsed / 1000).toFixed(1);
+  if (credsprayProgressText) credsprayProgressText.textContent = `Completed spray in ${secs}s`;
+});
+
+window.electronAPI.onCredSprayError?.((data) => {
+  setCredSprayRunning(false);
+  showCredSprayError(data.message || 'Credential spray encountered an error');
+  if (credsprayProgressText) credsprayProgressText.textContent = 'Error';
+});
+
+// Expose for host-card context integration
+window.__openCredSprayPanel = openCredSprayPanel;

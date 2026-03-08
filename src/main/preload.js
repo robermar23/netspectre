@@ -160,6 +160,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onHostUpdate:    (cb) => ipcRenderer.on(IPC_CHANNELS.HARDENING_HOST_UPDATE,    (_e, v) => cb(v)),
   },
 
+  // Feature 5B: Credential Spray
+  startCredSpray: (opts) => ipcRenderer.invoke(IPC_CHANNELS.CREDSPRAY_START, opts),
+  stopCredSpray: () => ipcRenderer.invoke(IPC_CHANNELS.CREDSPRAY_STOP),
+  onCredSprayHit: (cb) => ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_HIT, (_e, v) => cb(v)),
+  onCredSprayProgress: (cb) => ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_PROGRESS, (_e, v) => cb(v)),
+  onCredSprayComplete: (cb) => ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_COMPLETE, (_e, v) => cb(v)),
+  onCredSprayError: (cb) => ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_ERROR, (_e, v) => cb(v)),
+
+
   // Cleanup listeners
   removeListeners: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -219,5 +228,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_DELTA_REPORT);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_MONITOR_STATUS);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_HOST_UPDATE);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_HIT);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_PROGRESS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_COMPLETE);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_ERROR);
   }
 });

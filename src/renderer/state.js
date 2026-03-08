@@ -15,5 +15,9 @@ export const state = {
     arp: { running: false, alerts: [] },
   },
   passiveInterface: '', // Currently selected interface for passive capture
-  pcapExporting: false
+  pcapExporting: false,
+
+  // Feature 5B: Credential Spray
+  isCredSprayRunning: false,
+  credSprayHits: []
 };

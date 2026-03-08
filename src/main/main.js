@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
+import net from 'net';
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import { IPC_CHANNELS } from '#shared/ipc.js';
@@ -49,6 +50,7 @@ import {
   getBaseline  as getHardeningBaseline,
   getActiveMonitors,
 } from './hardeningMonitor.js';
+import { startCredSpray, stopCredSpray, cleanupCredSpray } from './credSpray.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,11 +59,45 @@ const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
 
-function createWindow() {
+function checkPort(port) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(200);
+    socket.on('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.on('error', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.connect(port, '127.0.0.1');
+  });
+}
+
+async function createWindow() {
+  let devPort = process.env.VITE_PORT || '5173';
+  
+  if (isDev) {
+    // Check if 5173 is actually open, if not try 5174
+    const is5173Open = await checkPort(5173);
+    if (!is5173Open) {
+      const is5174Open = await checkPort(5174);
+      if (is5174Open) devPort = '5174';
+    }
+  }
+
+  const devUrl = `http://localhost:${devPort}`;
+  console.log(`[NetSpecter] Dev Mode: Loading ${devUrl}`);
+  
   mainWindow = createMainWindow(
     isDev, 
     (p) => path.join(__dirname, p), 
-    'http://localhost:5173'
+    devUrl
   );
   registerSnmpHandlers(ipcMain, mainWindow);
 }
@@ -107,6 +143,7 @@ app.on('window-all-closed', function () {
   cleanupShares();
   cleanupDirFuzz();
   stopAllMonitors();
+  cleanupCredSpray();
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -688,6 +725,33 @@ ipcMain.handle(IPC_CHANNELS.HARDENING_GET_BASELINE, async (_e, { subnet }) => {
 
 ipcMain.handle(IPC_CHANNELS.HARDENING_GET_SCHEDULES, async () => {
   return getActiveMonitors();
+});
+
+// --- Feature 5B: Credential Spray ---
+
+ipcMain.handle(IPC_CHANNELS.CREDSPRAY_START, async (event, options) => {
+  console.log(`CredSpray requested`);
+
+  if (!options || typeof options !== 'object') {
+    return { status: 'error', error: 'Invalid options payload' };
+  }
+
+  // startCredSpray is async but we don't await the whole loop here
+  startCredSpray(
+    options,
+    (hit)      => mainWindow?.webContents.send(IPC_CHANNELS.CREDSPRAY_HIT, hit),
+    (progress) => mainWindow?.webContents.send(IPC_CHANNELS.CREDSPRAY_PROGRESS, progress),
+    (complete) => mainWindow?.webContents.send(IPC_CHANNELS.CREDSPRAY_COMPLETE, complete),
+    (err)      => mainWindow?.webContents.send(IPC_CHANNELS.CREDSPRAY_ERROR, err)
+  );
+
+  return { status: 'started' };
+});
+
+ipcMain.handle(IPC_CHANNELS.CREDSPRAY_STOP, async () => {
+  console.log('CredSpray stop requested');
+  stopCredSpray();
+  return { status: 'stopped' };
 });
 
 // --- Results Management ---
