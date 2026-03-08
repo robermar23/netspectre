@@ -263,7 +263,13 @@ function buildAlertCard(delta, alertId) {
 
   actionDiv.querySelector('.btn-investigate')?.addEventListener('click', (e) => {
     const ip = e.currentTarget.dataset.ip;
-    if (ip && typeof _openDetailsPanel === 'function') _openDetailsPanel(ip);
+    if (ip && typeof _openDetailsPanel === 'function') {
+      const host = state.hosts.find(h => h.ip === ip) || {
+        ip, mac: '', hostname: '', vendor: '', os: '',
+        ports: [], source: 'monitor', monitorStatus: 'online',
+      };
+      _openDetailsPanel(host);
+    }
   });
 
   actionDiv.querySelector('.btn-add-scope')?.addEventListener('click', (btn => () => {
