@@ -5,15 +5,19 @@ import { enrichHost, getArpTable } from '../src/main/scanner.js';
 import * as scanner from '../src/main/scanner.js';
 
 // Mock electron
-vi.mock('electron', () => ({
-  Notification: vi.fn().mockImplementation(() => ({
+vi.mock('electron', () => {
+  const Notification = vi.fn().mockImplementation(() => ({
     show: vi.fn()
-  })),
-  ipcMain: {
-    handle: vi.fn(),
-    on: vi.fn()
-  }
-}));
+  }));
+  Notification.isSupported = vi.fn().mockReturnValue(true);
+  return {
+    Notification,
+    ipcMain: {
+      handle: vi.fn(),
+      on: vi.fn()
+    }
+  };
+});
 
 // Mock dependencies of hardeningMonitor.js
 vi.mock('electron-store', () => {

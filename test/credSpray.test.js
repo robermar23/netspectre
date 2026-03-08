@@ -85,7 +85,7 @@ describe('Credential Spray Engine Orchestrator', () => {
 
     // Should have reported 1 progress tick
     expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({
-      attempt: 0, total: 1
+      tested: 0, total: 1
     }));
 
     // Should have finished with no hits
