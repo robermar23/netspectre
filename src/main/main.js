@@ -134,6 +134,8 @@ app.whenReady().then(() => {
       }
     });
   });
+}).catch((error) => {
+  console.error('Failed to initialize application in app.whenReady():', error);
 });
 
 app.on('window-all-closed', function () {

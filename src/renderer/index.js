@@ -17,7 +17,8 @@ function escapeHtml(unsafe) {
 
 function fmtTime(ts) {
   if (!ts) return '—';
-  return new Date(ts).toLocaleTimeString();
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 // --- Initialization ---
@@ -1564,23 +1565,7 @@ function openDetailsPanel(host) {
     // Default Credential Spray quick-action
     const sprayablePorts = host.ports.filter(p => [23, 80, 8080, 8443, 443].includes(p));
     if (sprayablePorts.length > 0) {
-      const spraySection = document.createElement('div');
-      spraySection.style.cssText = 'margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
-      const sprayLabel = document.createElement('span');
-      sprayLabel.style.cssText = 'font-size: 11px; color: var(--text-muted);';
-      sprayLabel.textContent = '🔑 Default Creds:';
-      spraySection.appendChild(sprayLabel);
-      
-      const btn = document.createElement('button');
-      btn.className = 'btn-action pentest-action';
-      btn.style.cssText = 'font-size: 10px; padding: 3px 8px;';
-      btn.textContent = 'Spray Known Defaults';
-      btn.title = `Spray common IoT/router default credentials`;
-      btn.addEventListener('click', () => {
-        if (typeof openCredSprayPanel !== 'undefined') openCredSprayPanel(host.ip);
-        else if (window.__openCredSprayPanel) window.__openCredSprayPanel(host.ip);
-      });
-      spraySection.appendChild(btn);
+      const spraySection = createCredSprayQuickAction(host.ip);
       portsList.parentElement.appendChild(spraySection);
     }
   }
@@ -6117,143 +6102,195 @@ window.__openHardeningPanel = (subnet) => {
 // === CREDENTIAL SPRAY UI MODULE ===
 // =============================================
 
-const credsprayPanel = document.getElementById('credspray-panel');
-const credsprayResizer = document.getElementById('credspray-resizer');
-const btnCredsprayOpen = document.getElementById('btn-credspray-open');
-const btnCloseCredsprayPanel = document.getElementById('btn-close-credspray');
 
-const credsprayTargetMode = document.getElementById('credspray-target-mode');
-const credsprayTargetIpGroup = document.getElementById('credspray-single-ip-group');
-const credsprayTargetIp = document.getElementById('credspray-target-ip');
-const credsprayProtoCbs = document.querySelectorAll('.credspray-proto-cb');
-const credsprayStopOnHit = document.getElementById('credspray-stop-on-hit');
+// UI Elements
+const ui = {
+  panel: document.getElementById('credspray-panel'),
+  resizer: document.getElementById('credspray-resizer'),
+  btnOpen: document.getElementById('btn-credspray-open'),
+  btnClose: document.getElementById('btn-close-credspray'),
+  targetMode: document.getElementById('credspray-target-mode'),
+  targetIp: document.getElementById('credspray-target-ip'),
+  targetIpGroup: document.getElementById('credspray-single-ip-group'),
+  protoCbs: document.querySelectorAll('.credspray-proto-cb'),
+  stopOnHitCb: document.getElementById('credspray-stop-on-hit'),
+  btnStart: document.getElementById('btn-credspray-start'),
+  btnStop: document.getElementById('btn-credspray-stop'),
+  btnClear: document.getElementById('btn-credspray-clear'),
+  btnExport: document.getElementById('btn-credspray-export'),
+  progressContainer: document.getElementById('credspray-progress-container'),
+  progressBar: document.getElementById('credspray-progress-bar'),
+  progressText: document.getElementById('credspray-progress-text'),
+  progressPct: document.getElementById('credspray-progress-pct'),
+  currentTargetDisplay: document.getElementById('credspray-current-target'),
+  errorBanner: document.getElementById('credspray-error-banner'),
+  resultsTbody: document.getElementById('credspray-results-tbody'),
+  statsText: document.getElementById('credspray-stats-text'),
+  footerHits: document.getElementById('credspray-footer-hits'),
+};
 
-const btnCredsprayStart = document.getElementById('btn-credspray-start');
-const btnCredsprayStop = document.getElementById('btn-credspray-stop');
-const btnCredsprayClear = document.getElementById('btn-credspray-clear');
-const btnCredsprayExport = document.getElementById('btn-credspray-export');
+/**
+ * Centralized Cred Spray View-Model
+ */
+const credSprayView = {
+  setRunning(isRunning) {
+    state.isCredSprayRunning = isRunning;
+    if (ui.btnStart) {
+      ui.btnStart.disabled = isRunning;
+      ui.btnStart.classList.toggle('credspray-running', isRunning);
+    }
+    if (ui.btnStop) ui.btnStop.disabled = !isRunning;
+    if (ui.progressContainer) ui.progressContainer.style.display = isRunning ? 'flex' : 'none';
+    if (!isRunning && ui.currentTargetDisplay) ui.currentTargetDisplay.style.display = 'none';
+  },
 
-const credsprayProgressContainer = document.getElementById('credspray-progress-container');
-const credsprayProgressBar = document.getElementById('credspray-progress-bar');
-const credsprayProgressText = document.getElementById('credspray-progress-text');
-const credsprayStatsText = document.getElementById('credspray-stats-text');
+  updateProgress(data) {
+    const { tested, total, percent, currentIp, currentProtocol, currentPort } = data;
+    if (ui.progressBar) ui.progressBar.style.width = `${percent}%`;
+    if (ui.progressPct) ui.progressPct.textContent = `${percent}%`;
+    if (ui.progressText) ui.progressText.textContent = `Testing ${tested} / ${total}...`;
+    
+    if (currentIp && ui.currentTargetDisplay) {
+      ui.currentTargetDisplay.textContent = `[${currentProtocol.toUpperCase()}] ${currentIp}:${currentPort}`;
+      ui.currentTargetDisplay.style.display = 'block';
+    }
+  },
 
-const credsprayErrorBanner = document.getElementById('credspray-error-banner');
-const credsprayResultsTbody = document.getElementById('credspray-results-tbody');
-const credsprayFooterHits = document.getElementById('credspray-footer-hits');
+  showError(msg) {
+    if (!ui.errorBanner) return;
+    ui.errorBanner.textContent = msg;
+    ui.errorBanner.style.display = msg ? 'block' : 'none';
+  },
+
+  clearResults() {
+    state.credSprayHits = [];
+    if (ui.resultsTbody) {
+      ui.resultsTbody.innerHTML = '';
+      const empty = document.createElement('tr');
+      empty.id = 'credspray-empty-row';
+      empty.innerHTML = '<td colspan="4" style="text-align:center;color:var(--text-muted);padding:32px;">No findings recorded.</td>';
+      ui.resultsTbody.appendChild(empty);
+    }
+    this.updateStats();
+    if (ui.btnExport) ui.btnExport.disabled = true;
+  },
+
+  updateStats() {
+    const hitsCount = state.credSprayHits.length;
+    if (ui.statsText) ui.statsText.textContent = `${hitsCount} hit${hitsCount !== 1 ? 's' : ''}`;
+    if (ui.footerHits) ui.footerHits.textContent = `${hitsCount} hits`;
+  },
+
+  appendHit(hit) {
+    const emptyRow = document.getElementById('credspray-empty-row');
+    if (emptyRow) emptyRow.remove();
+
+    state.credSprayHits.push(hit);
+    this.updateStats();
+
+    const row = document.createElement('tr');
+    row.className = 'hit-row animate-in';
+
+    // XSS-Safe DOM Manipulation
+    const tdTarget = document.createElement('td');
+    tdTarget.style.cssText = 'color:var(--accent-primary);font-weight:600;';
+    tdTarget.textContent = hit.target;
+
+    const tdProto = document.createElement('td');
+    const protoSpan = document.createElement('span');
+    protoSpan.className = 'tag-protocol';
+    protoSpan.textContent = hit.protocol.toUpperCase();
+    tdProto.appendChild(protoSpan);
+
+    const tdCreds = document.createElement('td');
+    const credsCode = document.createElement('code');
+    credsCode.style.color = 'var(--success)';
+    credsCode.textContent = `${hit.user}:${hit.pass}`;
+    tdCreds.appendChild(credsCode);
+
+    const tdTime = document.createElement('td');
+    tdTime.style.cssText = 'font-size:11px;color:var(--text-muted);';
+    tdTime.textContent = fmtTime(hit.time);
+
+    row.append(tdTarget, tdProto, tdCreds, tdTime);
+    ui.resultsTbody?.prepend(row);
+
+    if (ui.btnExport) ui.btnExport.disabled = false;
+  }
+};
+
+/**
+ * Creates a quick-action block for host cards.
+ */
+function createCredSprayQuickAction(ip) {
+  const container = document.createElement('div');
+  container.style.cssText = 'margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
+  
+  const label = document.createElement('span');
+  label.style.cssText = 'font-size: 11px; color: var(--text-muted);';
+  label.textContent = '🔑 Default Creds:';
+  
+  const btn = document.createElement('button');
+  btn.className = 'btn-action pentest-action';
+  btn.style.cssText = 'font-size: 10px; padding: 3px 8px;';
+  btn.textContent = 'Spray Known Defaults';
+  btn.title = `Launch credential spray against ${ip}`;
+  btn.addEventListener('click', () => {
+    openCredSprayPanel(ip);
+  });
+
+  container.append(label, btn);
+  return container;
+}
 
 function openCredSprayPanel(prefilledIp) {
-  if (prefilledIp && credsprayTargetIp) credsprayTargetIp.value = prefilledIp;
-  if (credsprayPanel && typeof openPanel !== 'undefined') openPanel(credsprayPanel, credsprayResizer);
+  if (prefilledIp && ui.targetIp) {
+    ui.targetIp.value = prefilledIp;
+    if (ui.targetMode) ui.targetMode.value = 'single';
+    if (ui.targetIpGroup) ui.targetIpGroup.style.display = 'block';
+  }
+  if (ui.panel && typeof openPanel !== 'undefined') openPanel(ui.panel, ui.resizer);
 }
 
 function closeCredSprayPanel() {
-  if (credsprayPanel && typeof closePanel !== 'undefined') closePanel(credsprayPanel, credsprayResizer);
-}
-
-function showCredSprayError(msg) {
-  if (!credsprayErrorBanner) return;
-  credsprayErrorBanner.textContent = msg;
-  credsprayErrorBanner.style.display = 'block';
-}
-
-function clearCredSprayError() {
-  if (credsprayErrorBanner) credsprayErrorBanner.style.display = 'none';
-}
-
-function setCredSprayRunning(running) {
-  state.isCredSprayRunning = running;
-  if (btnCredsprayStart) {
-    btnCredsprayStart.disabled = running;
-    btnCredsprayStart.classList.toggle('credspray-running', running);
-  }
-  if (btnCredsprayStop) btnCredsprayStop.disabled = !running;
-  
-  if (running && credsprayProgressContainer) {
-    credsprayProgressContainer.style.display = 'block';
-  }
-}
-
-function resetCredSprayUI() {
-  state.credSprayHits = [];
-  if (credsprayResultsTbody) {
-    credsprayResultsTbody.innerHTML = '';
-    const empty = document.createElement('tr');
-    empty.id = 'credspray-empty-row';
-    empty.innerHTML = '<td colspan="4" style="text-align:center;color:var(--text-muted);padding:32px;">Configure target and click Start Spray</td>';
-    credsprayResultsTbody.appendChild(empty);
-  }
-  if (credsprayProgressBar) credsprayProgressBar.style.width = '0%';
-  if (credsprayProgressText) credsprayProgressText.textContent = 'Idle';
-}
-
-function appendCredSprayHit(hit) {
-  if (!credsprayResultsTbody) return;
-  
-  const emptyRow = document.getElementById('credspray-empty-row');
-  if (emptyRow) emptyRow.remove();
-
-  state.credSprayHits.push(hit);
-  
-  const row = document.createElement('tr');
-  row.className = 'hit-row animate-in';
-  row.innerHTML = `
-    <td style="color:var(--accent-primary);font-weight:600;">${hit.target}</td>
-    <td><span class="tag-protocol">${hit.protocol}</span></td>
-    <td><code style="color:var(--success);">${hit.user}:${hit.pass}</code></td>
-    <td style="font-size:11px;color:var(--text-muted);">${fmtTime(hit.time)}</td>
-  `;
-  credsprayResultsTbody.prepend(row);
-
-  if (credsprayFooterHits) credsprayFooterHits.textContent = `${state.credSprayHits.length} hit${state.credSprayHits.length !== 1 ? 's' : ''}`;
-  if (btnCredsprayExport) btnCredsprayExport.disabled = false;
+  if (ui.panel && typeof closePanel !== 'undefined') closePanel(ui.panel, ui.resizer);
 }
 
 // --- Wire up Controls ---
 
-if (credsprayResizer && credsprayPanel) {
-  initResizer(credsprayResizer, credsprayPanel);
+if (ui.resizer && ui.panel) {
+  initResizer(ui.resizer, ui.panel);
 }
 
-btnCredsprayOpen?.addEventListener('click', () => {
-  if (credsprayPanel?.classList.contains('open')) {
-    closeCredSprayPanel();
-  } else {
-    openCredSprayPanel('');
+ui.btnOpen?.addEventListener('click', () => {
+  if (ui.panel?.classList.contains('open')) closeCredSprayPanel();
+  else openCredSprayPanel('');
+});
+
+ui.btnClose?.addEventListener('click', closeCredSprayPanel);
+
+ui.targetMode?.addEventListener('change', () => {
+  if (ui.targetIpGroup) {
+    ui.targetIpGroup.style.display = ui.targetMode.value === 'single' ? 'block' : 'none';
   }
 });
 
-btnCloseCredsprayPanel?.addEventListener('click', closeCredSprayPanel);
-
-// Target mode toggle
-if (credsprayTargetMode) {
-  credsprayTargetMode.addEventListener('change', () => {
-    if (credsprayTargetIpGroup) {
-      credsprayTargetIpGroup.style.display = credsprayTargetMode.value === 'single' ? 'block' : 'none';
-    }
-  });
-}
-
-btnCredsprayStart?.addEventListener('click', async () => {
+ui.btnStart?.addEventListener('click', async () => {
   if (state.isCredSprayRunning) return;
 
-  const mode = credsprayTargetMode?.value || 'all';
-  const targetIp = mode === 'single' ? credsprayTargetIp?.value?.trim() : null;
+  const mode = ui.targetMode?.value || 'all';
+  const targetIp = mode === 'single' ? ui.targetIp?.value?.trim() : null;
   
   if (mode === 'single' && !targetIp) {
-    showCredSprayError('Target IP is required for single mode.');
+    credSprayView.showError('Target IP is required for single mode.');
     return;
   }
 
   const selectedProtos = [];
-  if (credsprayProtoCbs) {
-    credsprayProtoCbs.forEach(cb => {
-      if (cb.checked) selectedProtos.push(cb.value);
-    });
-  }
+  ui.protoCbs.forEach(cb => { if (cb.checked) selectedProtos.push(cb.value); });
 
   if (selectedProtos.length === 0) {
-    showCredSprayError('Select at least one protocol.');
+    credSprayView.showError('Select at least one protocol.');
     return;
   }
 
@@ -6264,57 +6301,57 @@ btnCredsprayStart?.addEventListener('click', async () => {
       mode, 
       targetIp, 
       protocols: selectedProtos,
-      stopOnHit: !!credsprayStopOnHit?.checked
+      stopOnHit: !!ui.stopOnHitCb?.checked
     };
     pentestConsentOverlay?.classList.remove('hidden');
     return;
   }
 
-  clearCredSprayError();
-  resetCredSprayUI();
-  setCredSprayRunning(true);
+  credSprayView.showError(null);
+  credSprayView.setRunning(true);
   
-  if (credsprayProgressText) credsprayProgressText.textContent = 'Starting spray...';
+  if (ui.progressText) ui.progressText.textContent = 'Starting...';
 
   const opts = {
     targets: mode === 'single' ? [targetIp] : state.hosts.map(h => h.ip),
     protocols: selectedProtos,
-    stopOnFirstHit: !!credsprayStopOnHit?.checked,
+    stopOnFirstHit: !!ui.stopOnHitCb?.checked,
     delayMs: 200
   };
 
   try {
     await api.startCredSpray(opts);
   } catch (err) {
-    showCredSprayError(`Failed to start: ${err.message}`);
-    setCredSprayRunning(false);
+    credSprayView.showError(`Failed to start: ${err.message}`);
+    credSprayView.setRunning(false);
   }
 });
 
-btnCredsprayStop?.addEventListener('click', async () => {
+ui.btnStop?.addEventListener('click', async () => {
   try {
     await api.stopCredSpray();
   } catch { /* ignore */ }
-  setCredSprayRunning(false);
-  if (credsprayProgressText) credsprayProgressText.textContent = 'Stopped';
+  credSprayView.setRunning(false);
+  if (ui.progressText) ui.progressText.textContent = 'Stopped';
 });
 
-btnCredsprayClear?.addEventListener('click', () => {
+ui.btnClear?.addEventListener('click', () => {
   if (state.isCredSprayRunning) return;
-  resetCredSprayUI();
+  credSprayView.clearResults();
 });
 
-btnCredsprayExport?.addEventListener('click', () => {
+ui.btnExport?.addEventListener('click', () => {
   if (state.credSprayHits.length === 0) return;
   const header = 'Target,Protocol,User,Password,Time\n';
-  const rows = state.credSprayHits.map(h => 
-    `"${h.target}","${h.protocol}","${h.user}","${h.pass}","${h.time || ''}"`
+  const csvRows = state.credSprayHits.map(h => 
+    `"${h.target}","${h.protocol}","${h.user}","${h.pass}","${fmtTime(h.time)}"`
   ).join('\n');
-  const blob = new Blob([header + rows], { type: 'text/csv' });
+  
+  const blob = new Blob([header + csvRows], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `credspray_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+  a.download = `credspray_hits_${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 });
@@ -6322,28 +6359,25 @@ btnCredsprayExport?.addEventListener('click', () => {
 // --- IPC Listeners ---
 
 window.electronAPI.onCredSprayHit?.((hit) => {
-  appendCredSprayHit(hit);
+  credSprayView.appendHit(hit);
 });
 
 window.electronAPI.onCredSprayProgress?.((data) => {
-  const { tested, total, percent } = data;
-  if (credsprayProgressBar) credsprayProgressBar.style.width = `${percent}%`;
-  if (credsprayProgressText) credsprayProgressText.textContent = `Attempting ${tested} of ${total} defaults`;
-  if (credsprayStatsText) credsprayStatsText.textContent = `${state.credSprayHits.length} hit${state.credSprayHits.length !== 1 ? 's' : ''}`;
+  credSprayView.updateProgress(data);
 });
 
 window.electronAPI.onCredSprayComplete?.((data) => {
-  setCredSprayRunning(false);
-  if (credsprayProgressBar) credsprayProgressBar.style.width = '100%';
+  credSprayView.setRunning(false);
+  if (ui.progressBar) ui.progressBar.style.width = '100%';
+  if (ui.progressPct) ui.progressPct.textContent = '100%';
   const secs = (data.elapsed / 1000).toFixed(1);
-  if (credsprayProgressText) credsprayProgressText.textContent = `Completed spray in ${secs}s`;
+  if (ui.progressText) ui.progressText.textContent = `Finished in ${secs}s (${data.hits} hits)`;
 });
 
 window.electronAPI.onCredSprayError?.((data) => {
-  setCredSprayRunning(false);
-  showCredSprayError(data.message || 'Credential spray encountered an error');
-  if (credsprayProgressText) credsprayProgressText.textContent = 'Error';
+  credSprayView.setRunning(false);
+  credSprayView.showError(data.message || 'Spray error occurred');
 });
 
-// Expose for host-card context integration
+// Expose internal helpers
 window.__openCredSprayPanel = openCredSprayPanel;

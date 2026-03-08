@@ -237,52 +237,60 @@
           </div>
 
           <!-- Active Progress Area -->
-          <div id="credspray-progress-area" style="display: none; flex-direction: column; gap: 8px; margin-top: 8px;">
+          <div id="credspray-progress-container" style="display: none; flex-direction: column; gap: 8px; margin-top: 8px;">
             <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
               <span id="credspray-progress-text">Initializing...</span>
               <span id="credspray-progress-pct">0%</span>
             </div>
             <div class="progress-bar-container"
               style="height: 6px; background: rgba(0,0,0,0.4); border-radius: 3px; overflow: hidden;">
-              <div id="credspray-progress-fill"
+              <div id="credspray-progress-bar"
                 style="height: 100%; width: 0%; background: var(--pentest); transition: width 0.2s ease;"></div>
             </div>
             <div
-              style="font-size: 11px; font-family: monospace; color: var(--text-muted); background: rgba(0,0,0,0.3); padding: 4px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+              style="font-size: 11px; font-family: monospace; color: var(--text-muted); background: rgba(0,0,0,0.3); padding: 4px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: none;"
               id="credspray-current-target">...</div>
           </div>
 
           <!-- Error Banner -->
-          <div id="credspray-error"
+          <div id="credspray-error-banner"
             style="display: none; background: rgba(235,94,94,0.1); border-left: 3px solid var(--danger); color: var(--danger); font-size: 11px; padding: 8px; border-radius: 4px;">
           </div>
 
           <!-- Results Table -->
           <div style="flex-grow: 1; display: flex; flex-direction: column; min-height: 200px; margin-top: 8px;">
             <div
-              style="font-size: 12px; font-weight: 500; margin-bottom: 8px; display: flex; justify-content: space-between;">
+              style="font-size: 11px; font-weight: 500; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
               <span>Findings</span>
-              <span id="credspray-hit-count" style="color: var(--pentest); font-weight: 600;">0 Valid</span>
+              <span id="credspray-stats-text" style="color: var(--pentest); font-weight: 600;">0 hits</span>
             </div>
             <div class="table-container"
-              style="flex-grow: 1; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); border-radius: 6px; overflow: auto;">
+              style="flex-grow: 1; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); border-radius: 6px; overflow: auto; min-height: 150px;">
               <table class="data-table" style="width: 100%; font-size: 11px;">
                 <thead style="position: sticky; top: 0; background: #1a1a24; z-index: 1;">
                   <tr>
-                    <th>Host / Port</th>
-                    <th>Creds</th>
-                    <th>Module</th>
+                    <th>Target</th>
+                    <th>Proto</th>
+                    <th>Credentials</th>
+                    <th>Time</th>
                   </tr>
                 </thead>
                 <tbody id="credspray-results-tbody">
-                  <tr>
-                    <td colspan="3" style="text-align:center; padding: 16px; color: var(--text-muted);">No findings yet
+                  <tr id="credspray-empty-row">
+                    <td colspan="4" style="text-align:center; padding: 16px; color: var(--text-muted);">No findings yet
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
+
+          <!-- Panel Footer Actions -->
+          <div class="panel-footer" style="display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-glass);">
+            <button id="btn-credspray-clear" class="btn secondary full-width">Clear</button>
+            <button id="btn-credspray-export" class="btn info full-width" disabled>Export CSV</button>
+          </div>
+          <div id="credspray-footer-hits" style="display:none;"></div>
 
         </div>
         <div id="credspray-resizer" class="panel-resizer" style="left: 0;"></div>
