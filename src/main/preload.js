@@ -147,6 +147,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDirFuzzComplete: (cb) => ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_COMPLETE, (_e, v) => cb(v)),
   onDirFuzzError: (cb) => ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_ERROR, (_e, v) => cb(v)),
 
+  // Feature 5A: Hardening Monitor
+  hardeningMonitor: {
+    start:        (subnet, options) => ipcRenderer.invoke(IPC_CHANNELS.HARDENING_START_MONITOR,  { subnet, options }),
+    stop:         (subnet)         => ipcRenderer.invoke(IPC_CHANNELS.HARDENING_STOP_MONITOR,    { subnet }),
+    setBaseline:  (subnet, hosts)  => ipcRenderer.invoke(IPC_CHANNELS.HARDENING_SET_BASELINE,   { subnet, hosts }),
+    getBaseline:  (subnet)         => ipcRenderer.invoke(IPC_CHANNELS.HARDENING_GET_BASELINE,   { subnet }),
+    getSchedules: ()               => ipcRenderer.invoke(IPC_CHANNELS.HARDENING_GET_SCHEDULES),
+    onDeltaAlert:    (cb) => ipcRenderer.on(IPC_CHANNELS.HARDENING_DELTA_ALERT,    (_e, v) => cb(v)),
+    onDeltaReport:   (cb) => ipcRenderer.on(IPC_CHANNELS.HARDENING_DELTA_REPORT,   (_e, v) => cb(v)),
+    onStatus:        (cb) => ipcRenderer.on(IPC_CHANNELS.HARDENING_MONITOR_STATUS, (_e, v) => cb(v)),
+    onHostUpdate:    (cb) => ipcRenderer.on(IPC_CHANNELS.HARDENING_HOST_UPDATE,    (_e, v) => cb(v)),
+  },
+
   // Cleanup listeners
   removeListeners: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -202,5 +215,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_PROGRESS);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_COMPLETE);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_ERROR);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_DELTA_ALERT);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_DELTA_REPORT);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_MONITOR_STATUS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_HOST_UPDATE);
   }
 });

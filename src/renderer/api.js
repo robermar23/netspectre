@@ -74,4 +74,7 @@ export const api = {
   // Web Directory Fuzzing (4E)
   startDirFuzz: async (opts) => window.electronAPI.startDirFuzz(opts),
   stopDirFuzz: async () => window.electronAPI.stopDirFuzz(),
+
+  // Feature 5A: Hardening Monitor
+  hardeningMonitor: window.electronAPI.hardeningMonitor,
 };
