@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.11.0](https://github.com/robermar23/netspectre/compare/v1.10.1...v1.11.0) (2026-03-07)
+
+
+### Features
+
+* **dir-fuzzer:** implement web directory fuzzer feature ([87d3394](https://github.com/robermar23/netspectre/commit/87d33945f62ab9a7b05a62beb48f0594a1ec2da2))
+* Implement a comprehensive Electron application for network detection, scanning, analysis, and offensive security operations. ([6d3d478](https://github.com/robermar23/netspectre/commit/6d3d47845a1a074a34cae68abb9752a38cec5a31))
+* **offense:** implement network share enumeration and browsing ([278b27a](https://github.com/robermar23/netspectre/commit/278b27a6c212f046c991d4b1de247d181e8e16ff))
+* **pentest:** add Metasploit RPC integration (Phase 4B) ([cc90be6](https://github.com/robermar23/netspectre/commit/cc90be6b616400b5690cb69cc591ea2168cdf28a))
+* **revshell:** implement automated reverse shell listener ([61522a7](https://github.com/robermar23/netspectre/commit/61522a7f751834a1038b89b07bba656b6d84585d))
+
+
+### Bug Fixes
+
+* fix tests from recent changes ([5d9cf9d](https://github.com/robermar23/netspectre/commit/5d9cf9d28740a06b40f1c3918a1a844b4c34e82c))
+
 ## [1.10.1](https://github.com/robermar23/netspectre/compare/v1.10.0...v1.10.1) (2026-02-28)
 
 
