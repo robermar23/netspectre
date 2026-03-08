@@ -114,7 +114,8 @@ vi.mock('../src/main/store.js', () => ({
 vi.mock('../src/main/bruteForce.js', () => ({
   startBruteForce: vi.fn(),
   stopBruteForce: vi.fn(),
-  cleanupBruteForce: vi.fn()
+  cleanupBruteForce: vi.fn(),
+  registerIpcHandlers: vi.fn()
 }));
 vi.mock('../src/main/metasploitRpc.js', () => ({
   msfConnect: vi.fn().mockResolvedValue({ status: 'success' }),
@@ -122,7 +123,8 @@ vi.mock('../src/main/metasploitRpc.js', () => ({
   msfListExploits: vi.fn().mockResolvedValue([]),
   msfRunExploit: vi.fn().mockResolvedValue({ job_id: 1 }),
   msfGetSessions: vi.fn().mockResolvedValue({}),
-  cleanupMsf: vi.fn()
+  cleanupMsf: vi.fn(),
+  registerIpcHandlers: vi.fn()
 }));
 vi.mock('../src/main/hardeningMonitor.js', () => ({
   startMonitor: vi.fn(),
@@ -130,24 +132,39 @@ vi.mock('../src/main/hardeningMonitor.js', () => ({
   stopAllMonitors: vi.fn(),
   setBaseline: vi.fn(),
   getBaseline: vi.fn(),
-  getActiveMonitors: vi.fn().mockReturnValue([])
+  getActiveMonitors: vi.fn().mockReturnValue([]),
+  registerIpcHandlers: vi.fn()
 }));
 vi.mock('../src/main/revShellListener.js', () => ({
   startListener: vi.fn(),
   stopListener: vi.fn(),
-  sendToShell: vi.fn().mockReturnValue(true)
+  sendToShell: vi.fn().mockReturnValue(true),
+  registerIpcHandlers: vi.fn()
 }));
 vi.mock('../src/main/shareEnumerator.js', () => ({
   enumerateShares: vi.fn(),
   browseShare: vi.fn(),
   downloadFile: vi.fn().mockResolvedValue(true),
-  cleanupShares: vi.fn()
+  cleanupShares: vi.fn(),
+  registerIpcHandlers: vi.fn()
 }));
 vi.mock('../src/main/dirFuzzer.js', () => ({
   startDirFuzz: vi.fn(),
   stopDirFuzz: vi.fn(),
-  cleanupDirFuzz: vi.fn()
+  cleanupDirFuzz: vi.fn(),
+  registerIpcHandlers: vi.fn()
 }));
+vi.mock('../src/main/credSpray.js', () => ({
+  startCredSpray: vi.fn(),
+  stopCredSpray: vi.fn(),
+  cleanupCredSpray: vi.fn(),
+  registerIpcHandlers: vi.fn()
+}));
+vi.mock('../src/main/ipc/scanIpc.js', () => ({ registerIpcHandlers: vi.fn() }));
+vi.mock('../src/main/ipc/settingsIpc.js', () => ({ registerIpcHandlers: vi.fn() }));
+vi.mock('../src/main/ipc/fileIpc.js', () => ({ registerIpcHandlers: vi.fn() }));
+vi.mock('../src/main/ipc/utilIpc.js', () => ({ registerIpcHandlers: vi.fn() }));
+vi.mock('../src/main/ipc/passiveIpc.js', () => ({ registerIpcHandlers: vi.fn() }));
 vi.mock('../src/main/tsharkScanner.js', () => ({
   startTsharkCapture: vi.fn(),
   stopTsharkCapture: vi.fn().mockReturnValue(true)

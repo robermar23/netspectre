@@ -341,3 +341,37 @@ export function isDirFuzzRunning() {
 export function cleanupDirFuzz() {
   stopDirFuzz();
 }
+
+import { IPC_CHANNELS } from '#shared/ipc.js';
+import { isValidHttpUrl } from '#shared/validate.js';
+
+export function registerIpcHandlers(ipcMain, getWindow) {
+  ipcMain.handle(IPC_CHANNELS.DIRFUZZ_START, async (event, options) => {
+    console.log(`Dir fuzz requested on ${options?.targetUrl}`);
+
+    if (!options || typeof options !== 'object') {
+      return { status: 'error', error: 'Invalid options payload' };
+    }
+
+    if (!isValidHttpUrl(options.targetUrl)) {
+      return { status: 'error', error: 'Invalid target URL — must be a valid http:// or https:// URL' };
+    }
+
+    // startDirFuzz is async and streams results; fire and don't await
+    startDirFuzz(
+      options,
+      (hit)      => getWindow()?.webContents.send(IPC_CHANNELS.DIRFUZZ_HIT, hit),
+      (progress) => getWindow()?.webContents.send(IPC_CHANNELS.DIRFUZZ_PROGRESS, progress),
+      (complete) => getWindow()?.webContents.send(IPC_CHANNELS.DIRFUZZ_COMPLETE, complete),
+      (err)      => getWindow()?.webContents.send(IPC_CHANNELS.DIRFUZZ_ERROR, err)
+    );
+
+    return { status: 'started' };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.DIRFUZZ_STOP, async () => {
+    console.log('Dir fuzz stop requested');
+    stopDirFuzz();
+    return { status: 'stopped' };
+  });
+}

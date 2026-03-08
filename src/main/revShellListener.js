@@ -172,3 +172,33 @@ export function sendToShell(data) {
 export function isListenerActive() {
   return activeListener !== null || ncatProcess !== null;
 }
+
+import { IPC_CHANNELS } from '#shared/ipc.js';
+
+export function registerIpcHandlers(ipcMain, getWindow) {
+  ipcMain.handle(IPC_CHANNELS.REVSHELL_START, async (event, options) => {
+    console.log(`Reverse shell listener requested on port ${options?.port} using ${options?.mode}`);
+
+    if (!options || typeof options !== 'object') {
+      return { status: 'error', error: 'Invalid options payload' };
+    }
+
+    startListener(options,
+      (conn) => getWindow()?.webContents.send(IPC_CHANNELS.REVSHELL_CONNECTION, conn),
+      (data) => getWindow()?.webContents.send(IPC_CHANNELS.REVSHELL_DATA, data),
+      (err)  => getWindow()?.webContents.send(IPC_CHANNELS.REVSHELL_ERROR, err)
+    );
+    return { status: 'started' };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.REVSHELL_STOP, async () => {
+    console.log('Reverse shell listener stop requested');
+    stopListener();
+    return { status: 'stopped' };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.REVSHELL_SEND, async (event, data) => {
+    const success = sendToShell(data);
+    return { status: success ? 'sent' : 'failed' };
+  });
+}

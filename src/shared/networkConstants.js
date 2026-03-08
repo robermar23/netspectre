@@ -220,6 +220,22 @@ export const IOT_DEFAULT_CREDENTIALS = [
   { user: 'admin',      pass: '123456' },
 ];
 
+// Port groups for feature routing
+export const HTTP_PORTS    = [80, 443, 8080, 8443, 3000, 5000, 8000, 8888];
+export const SMB_PORTS     = [139, 445];
+export const TELNET_PORTS  = [23];
+export const FTP_PORTS     = [21];
+export const SSH_PORTS     = [22];
+export const RDP_PORTS     = [3389];
+
+// Named timeout constants (milliseconds)
+export const TIMEOUTS = {
+  CONNECT_MS:        3_000,
+  REQUEST_MS:        5_000,
+  DEEP_SCAN_MS:     10_000,
+  TELNET_BANNER_MS:  3_000,
+};
+
 export const COMMON_WEB_PATHS = [
   '/admin', '/login', '/logout', '/dashboard', '/api', '/api/v1', '/api/v2',
   '/config', '/configuration', '/setup', '/install', '/backup', '/db',
