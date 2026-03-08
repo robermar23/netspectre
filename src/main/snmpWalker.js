@@ -138,8 +138,7 @@ export function snmpWalk(targetIp, options, onResult, onProgress, onComplete, on
 /**
  * --- Intelligence Helpers ---
  */
-
-function parseSysDescr(val) {
+export function parseSysDescr(val) {
   let osVal = val;
   let vendorVal = '';
 
@@ -160,7 +159,7 @@ function oidToIPv4(oid) {
   return parts.slice(-4).join('.');
 }
 
-function extractIntelligence({ oid, val, targetIp, onIntelligence }) {
+export function extractIntelligence({ oid, val, targetIp, onIntelligence }) {
   if (!onIntelligence) return;
 
   if (oid === '1.3.6.1.2.1.1.1.0') { // sysDescr

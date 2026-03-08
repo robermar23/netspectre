@@ -21,7 +21,7 @@ const ABSOLUTE_MAX_ATTEMPTS = 50000;
  * @param {object} opts
  * @returns {{ valid: boolean, error?: string }}
  */
-function validateOptions(opts) {
+export function validateOptions(opts) {
   if (!opts.targetIp || !ipRegex.test(opts.targetIp)) {
     return { valid: false, error: 'Invalid IP address format' };
   }
@@ -115,8 +115,11 @@ function buildHydraArgs(opts) {
 
   // Any custom arguments
   if (Array.isArray(opts.customArgs)) {
-    // Sanitize: only allow arguments that start with '-'
-    const safe = opts.customArgs.filter(a => typeof a === 'string' && a.startsWith('-'));
+    // Sanitize: allow flags starts with '-' or alphanumeric values with safe symbols
+    const safe = opts.customArgs.filter(a => 
+      typeof a === 'string' && 
+      (a.startsWith('-') || /^[a-zA-Z0-9\:_]+$/.test(a))
+    );
     args.push(...safe);
   }
 
@@ -314,6 +317,6 @@ export function cleanupBruteForce() {
     try {
       proc.kill('SIGKILL');
     } catch (_) { /* ignore */ }
-    activeProcesses.delete(key);
   }
+  activeProcesses.clear();
 }
