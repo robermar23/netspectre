@@ -181,3 +181,32 @@ export function stopCredSpray() {
 export function cleanupCredSpray() {
   stopCredSpray();
 }
+
+import { IPC_CHANNELS } from '../shared/ipc.js';
+
+export function registerIpcHandlers(ipcMain, getWindow) {
+  ipcMain.handle(IPC_CHANNELS.CREDSPRAY_START, async (_event, options) => {
+    console.log(`CredSpray requested`);
+
+    if (!options || typeof options !== 'object') {
+      return { status: 'error', error: 'Invalid options payload' };
+    }
+
+    // startCredSpray is async but we don't await the whole loop here
+    startCredSpray(
+      options,
+      (hit)      => getWindow()?.webContents.send(IPC_CHANNELS.CREDSPRAY_HIT, hit),
+      (progress) => getWindow()?.webContents.send(IPC_CHANNELS.CREDSPRAY_PROGRESS, progress),
+      (complete) => getWindow()?.webContents.send(IPC_CHANNELS.CREDSPRAY_COMPLETE, complete),
+      (err)      => getWindow()?.webContents.send(IPC_CHANNELS.CREDSPRAY_ERROR, err)
+    );
+
+    return { status: 'started' };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CREDSPRAY_STOP, async () => {
+    console.log('CredSpray stop requested');
+    stopCredSpray();
+    return { status: 'stopped' };
+  });
+}

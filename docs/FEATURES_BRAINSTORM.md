@@ -135,9 +135,14 @@ This is Burp Suite's primary commercial value. Each vulnerability class requires
 1. The combination of features in NetSpecter today is unique and provides a powerful tool for network and web application security testing.
 2. It would enhance those capabilities by adding a learning utility that allows users to learn about network and web application security testing.
 3. Every action in NetSpecter should offer a learning experience, whether it's through a tooltip, a popup, or a video tutorial for each topic it covers
-4. Think of different ways "learning" can be implemented in NetSpecter and how it can be integrated into the application for maximum value
+4. Think of different ways "learning and teaching" can be implemented in NetSpecter and how it can be integrated into the application user interface for maximum value
 
-## 🧩 8. Architecture Recommendation: Single App, Multi-Workspace UI
+## 9. Allow for configuration
+
+1. A lot of constant values are hardcoded in the application. These should be configurable by the user.
+2. Enhance the settings modal to allow for configuration of these values and store them in electron-store or whateve is recommended in this type of scenario
+
+## 🧩 10. Architecture Recommendation: Single App, Multi-Workspace UI
 
 ### Decision: One Unified Application
 

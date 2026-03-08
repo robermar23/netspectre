@@ -160,6 +160,8 @@
     <!-- Split View Container -->
     <div class="split-view-container" style="display: flex; flex-grow: 1; overflow: hidden; gap: 0;">
 
+      <!-- Resizer Handle for Credential Spray Panel -->
+      <div id="credspray-resizer" class="resizer" style="display: none; order: 2;"></div>
       <!-- Credential Spray Panel (Hidden by default, slides in from right or is absolute) -->
       <aside id="credspray-panel" class="details-panel glass-panel"
         style="display: none; width: 400px; order: 3; flex-direction: column; border-left: 1px solid var(--border-glass);">
@@ -293,7 +295,6 @@
           <div id="credspray-footer-hits" style="display:none;"></div>
 
         </div>
-        <div id="credspray-resizer" class="panel-resizer" style="left: 0;"></div>
       </aside>
 
       <!-- Dashboard Grid -->

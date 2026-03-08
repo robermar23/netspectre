@@ -320,3 +320,31 @@ export function cleanupBruteForce() {
   }
   activeProcesses.clear();
 }
+
+import { IPC_CHANNELS } from '#shared/ipc.js';
+
+export function registerIpcHandlers(ipcMain, getWindow) {
+  ipcMain.handle(IPC_CHANNELS.BRUTEFORCE_START, async (event, options) => {
+    console.log(`Brute-force requested on ${options?.targetIp}:${options?.port} (${options?.protocol})`);
+
+    // Validate basic input structure
+    if (!options || typeof options !== 'object') {
+      return { status: 'error', error: 'Invalid options payload' };
+    }
+
+    startBruteForce(options,
+      (attempt)  => getWindow()?.webContents.send(IPC_CHANNELS.BRUTEFORCE_ATTEMPT, attempt),
+      (result)   => getWindow()?.webContents.send(IPC_CHANNELS.BRUTEFORCE_RESULT, result),
+      (progress) => getWindow()?.webContents.send(IPC_CHANNELS.BRUTEFORCE_PROGRESS, progress),
+      (err)      => getWindow()?.webContents.send(IPC_CHANNELS.BRUTEFORCE_ERROR, err),
+      (msg)      => getWindow()?.webContents.send(IPC_CHANNELS.BRUTEFORCE_COMPLETE, msg)
+    );
+    return { status: 'started' };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.BRUTEFORCE_STOP, async () => {
+    console.log('Brute-force stop requested');
+    stopBruteForce();
+    return { status: 'stopped' };
+  });
+}

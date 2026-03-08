@@ -385,3 +385,69 @@ export async function cleanupMsf() {
   connectionConfig = null;
   state = MSF_STATES.DISCONNECTED;
 }
+
+import { IPC_CHANNELS } from '#shared/ipc.js';
+
+export function registerIpcHandlers(ipcMain, getWindow) {
+  ipcMain.handle(IPC_CHANNELS.MSF_CONNECT, async (event, options) => {
+    console.log(`MSF connect requested to ${options?.host}:${options?.port}`);
+    if (!options || typeof options !== 'object') {
+      return { status: 'error', error: 'Invalid options payload' };
+    }
+    try {
+      const result = await msfConnect(options);
+      getWindow()?.webContents.send(IPC_CHANNELS.MSF_STATUS, { state: 'connected', ...result });
+      return result;
+    } catch (err) {
+      getWindow()?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
+      return { status: 'error', error: err.message };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MSF_DISCONNECT, async () => {
+    console.log('MSF disconnect requested');
+    try {
+      const result = await msfDisconnect();
+      getWindow()?.webContents.send(IPC_CHANNELS.MSF_STATUS, { state: 'disconnected' });
+      return result;
+    } catch (err) {
+      return { status: 'error', error: err.message };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MSF_LIST_EXPLOITS, async (event, query) => {
+    console.log(`MSF exploit search: ${query}`);
+    try {
+      const exploits = await msfListExploits(query);
+      return { status: 'success', exploits };
+    } catch (err) {
+      getWindow()?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
+      return { status: 'error', error: err.message };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MSF_RUN_EXPLOIT, async (event, options) => {
+    console.log(`MSF run exploit: ${options?.modulePath} against ${options?.targetIp}`);
+    if (!options || typeof options !== 'object') {
+      return { status: 'error', error: 'Invalid exploit options' };
+    }
+    try {
+      const result = await msfRunExploit(options);
+      getWindow()?.webContents.send(IPC_CHANNELS.MSF_RESULT, result);
+      return { status: 'started', ...result };
+    } catch (err) {
+      getWindow()?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
+      return { status: 'error', error: err.message };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MSF_SESSION_LIST, async () => {
+    try {
+      const sessions = await msfGetSessions();
+      return { status: 'success', sessions };
+    } catch (err) {
+      getWindow()?.webContents.send(IPC_CHANNELS.MSF_ERROR, { message: err.message });
+      return { status: 'error', error: err.message };
+    }
+  });
+}

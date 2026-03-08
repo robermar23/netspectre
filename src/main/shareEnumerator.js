@@ -365,3 +365,84 @@ export function cleanupShares() {
   }
   activeProcesses.clear();
 }
+
+import { app, dialog } from 'electron';
+import path from 'path';
+import { IPC_CHANNELS } from '#shared/ipc.js';
+import { isPathWithinRoot } from '#shared/validate.js';
+
+export function registerIpcHandlers(ipcMain, getWindow) {
+  ipcMain.handle(IPC_CHANNELS.SHARE_ENUMERATE, async (event, options) => {
+    const { targetIp, credentials } = options || {};
+    console.log(`Share enumeration requested on ${targetIp}`);
+
+    if (!options || typeof options !== 'object') {
+      return { status: 'error', error: 'Invalid options payload' };
+    }
+
+    enumerateShares(
+      targetIp,
+      credentials || null,
+      (result) => getWindow()?.webContents.send(IPC_CHANNELS.SHARE_RESULT, result),
+      (err)    => getWindow()?.webContents.send(IPC_CHANNELS.SHARE_ERROR, err)
+    );
+    return { status: 'started' };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SHARE_BROWSE, async (event, options) => {
+    const { targetIp, shareName, remotePath, credentials } = options || {};
+    console.log(`Share browse requested: //${targetIp}/${shareName}${remotePath || '/'}`);
+
+    if (!options || !targetIp || !shareName) {
+      return { status: 'error', error: 'targetIp and shareName are required' };
+    }
+
+    await browseShare(
+      targetIp,
+      shareName,
+      remotePath || '',
+      credentials || null,
+      (result) => getWindow()?.webContents.send(IPC_CHANNELS.SHARE_RESULT, { type: 'browse', ...result }),
+      (err)    => getWindow()?.webContents.send(IPC_CHANNELS.SHARE_ERROR, err)
+    );
+    return { status: 'done' };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SHARE_DOWNLOAD, async (event, options) => {
+    const { targetIp, shareName, remoteFile, credentials } = options || {};
+    console.log(`Share download requested: //${targetIp}/${shareName}/${remoteFile}`);
+
+    if (!targetIp || !shareName || !remoteFile) {
+      return { status: 'error', error: 'targetIp, shareName, and remoteFile are required' };
+    }
+
+    // Prompt user to choose save location
+    const filename = remoteFile.split(/[/\\]/).filter(Boolean).pop() || 'download';
+    const downloadsDir = app.getPath('downloads');
+    const { canceled, filePath } = await dialog.showSaveDialog(getWindow(), {
+      title: 'Save Downloaded File',
+      defaultPath: path.join(downloadsDir, filename),
+    });
+
+    if (canceled || !filePath) return { status: 'cancelled' };
+
+    // Validate the chosen save path stays within the downloads directory
+    if (!isPathWithinRoot(filePath, downloadsDir)) {
+      return { status: 'error', error: 'Save path is outside the allowed downloads directory' };
+    }
+
+    const ok = await downloadFile(
+      targetIp,
+      shareName,
+      remoteFile,
+      filePath,
+      credentials || null,
+      (err) => getWindow()?.webContents.send(IPC_CHANNELS.SHARE_ERROR, err)
+    );
+
+    if (ok) {
+      return { status: 'downloaded', localPath: filePath };
+    }
+    return { status: 'error', error: 'Download failed — check share error stream' };
+  });
+}
