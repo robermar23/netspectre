@@ -30,6 +30,12 @@ async function syncDependencyToggle({
   settingsKey,
   toggleEl,
 }) {
+  const settings = await api.settings.getAll();
+  const pathInputEl = document.getElementById(`setting-path-${settingsKey}`);
+  if (pathInputEl) {
+    pathInputEl.value = settings[settingsKey]?.path || '';
+  }
+
   const { installed } = await checkFn();
   const statusText = statusEl.querySelector('.status-text');
 
@@ -39,7 +45,6 @@ async function syncDependencyToggle({
     statusText.textContent = installed ? installedText : missingText;
   }
 
-  const settings = await api.settings.getAll();
   const enabled = settings[settingsKey]?.enabled !== false;
 
   toggleEl.checked = enabled;
@@ -198,6 +203,37 @@ export function init() {
 
   btnSettingsDone.addEventListener('click', () => {
     settingsModalOverlay.classList.add('hidden');
+  });
+
+  // Handle manual path overrides
+  document.querySelectorAll('.custom-path-input').forEach(input => {
+    input.addEventListener('change', async (e) => {
+      const targetKey = e.target.id.replace('setting-path-', '');
+      await api.settings.set(`${targetKey}.path`, e.target.value.trim());
+      loadAndApplySettings(); // Re-trigger dependency checks
+    });
+  });
+
+  // Handle file browse dialogs for paths
+  document.querySelectorAll('.btn-browse-path').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const targetInputId = e.currentTarget.getAttribute('data-target');
+      const inputEl = document.getElementById(targetInputId);
+      const targetKey = targetInputId.replace('setting-path-', '');
+
+      const result = await window.electronAPI.browseFile({
+        title: `Select ${targetKey} Executable`,
+        properties: ['openFile'],
+        filters: [{ name: 'Executables', extensions: ['exe', 'bat', 'cmd', 'sh', '*'] }]
+      });
+
+      if (!result.canceled && result.filePaths.length > 0) {
+        const selectedPath = result.filePaths[0];
+        inputEl.value = selectedPath;
+        await api.settings.set(`${targetKey}.path`, selectedPath);
+        loadAndApplySettings(); // Re-trigger dependency checks
+      }
+    });
   });
 
   // Run once on boot

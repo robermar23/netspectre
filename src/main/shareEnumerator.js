@@ -44,23 +44,81 @@ function isValidRemotePath(remotePath) {
   return !norm.includes('../') && !norm.includes('..');
 }
 
+
+
+// ---- Helper -----------------------------------------------------------
+function isImpacket() {
+  const p = getSmbclientPath().toLowerCase();
+  return p.includes('impacket') || p.includes('python');
+}
+
+// ---- Credential arg builder -----------------------------------------
+
+/**
+ * Build the connection/credential args for the appropriate tool.
+ * Impacket expects: [domain/]username[:password]@<target_ip> (or ''@target for null)
+ * smbclient expects: -U user%pass or -N
+ */
+function buildConnectionArgs(targetIp, credentials, impacketMode) {
+  let user = '';
+  let pass = '';
+  let domain = '';
+
+  if (credentials && credentials.username) {
+    user = String(credentials.username).replace(/[%"]/g, '');
+    pass = String(credentials.password || '').replace(/[%"]/g, '');
+    if (credentials.domain) domain = String(credentials.domain).replace(/[^a-zA-Z0-9._-]/g, '');
+  }
+
+  if (impacketMode) {
+    if (!user) {
+      // Null session impacket
+      return [`""@${targetIp}`];
+    }
+    const prefix = domain ? `${domain}/${user}` : user;
+    const auth = pass ? `${prefix}:${pass}` : prefix;
+    return [`${auth}@${targetIp}`];
+  } else {
+    // Standard smbclient
+    const args = [];
+    if (user) {
+      args.push('-U', `${user}%${pass}`);
+      if (domain) args.push('--workgroup', domain);
+    } else {
+      args.push('-N');
+    }
+    return args;
+  }
+}
+
 // ---- Output parsers -------------------------------------------------
 
 /**
- * Parse `smbclient -L //<ip> -N` stdout.
- * smbclient prints share list to stderr on some builds; accept both.
- *
- * Sample output:
- *   Sharename       Type      Comment
- *   ---------       ----      -------
- *   ADMIN$          Disk      Remote Admin
- *   C$              Disk      Default share
- *   IPC$            IPC       Remote IPC
+ * Parse share list output. Handles both `smbclient` and `impacket-smbclient`.
  */
-function parseSmbList(combined) {
+function parseSmbList(combined, impacketMode) {
   const shares = [];
-  let inSection = false;
+  
+  if (impacketMode) {
+    // Impacket `shares` command output looks like:
+    // [-] ADMIN$
+    // [-] C$
+    // [-] IPC$
+    for (const line of combined.split('\n')) {
+      const match = line.match(/^\[-\]\s+(.+?)\s*$/);
+      if (match) {
+        shares.push({
+          name: match[1].trim(),
+          type: 'disk', // Impacket doesn't easily expose type in list view
+          comment: '',
+          permissions: null,
+        });
+      }
+    }
+    return shares;
+  }
 
+  let inSection = false;
   for (const line of combined.split('\n')) {
     if (/^\s*Sharename\s+Type\s+Comment/i.test(line)) {
       inSection = true;
@@ -112,51 +170,42 @@ function parseNfsExports(output) {
 }
 
 /**
- * Parse `smbclient //<ip>/<share> -c 'ls'` stdout.
- *
- * Sample lines:
- *   "  Documents           D        0  Wed Mar  5 09:00:00 2025"
- *   "  report.pdf          A   124032  Tue Jan 14 14:22:00 2025"
+ * Parse `smbclient -c 'ls'` OR `impacket-smbclient -c 'ls'` stdout.
  */
-function parseSmbDirectory(output) {
+function parseSmbDirectory(output, impacketMode) {
   const entries = [];
   for (const line of output.split('\n')) {
-    // Two leading spaces, then name (padded), attrs, size, date
-    const m = line.match(/^\s{2}(.+?)\s{2,}([ADRHS]+)\s+(\d+)\s+(.+)$/);
-    if (m) {
-      const name = m[1].trimEnd();
-      if (name === '.' || name === '..') continue;
-      entries.push({
-        name,
-        type: m[2].includes('D') ? 'dir' : 'file',
-        size: parseInt(m[3], 10),
-        modified: m[4].trim(),
-      });
+    if (impacketMode) {
+      // Impacket ls format:
+      // drw-rw-rw-          0  Sun Jan 12 11:22:33 2025 folder_name
+      // -rw-rw-rw-     123456  Mon Feb 03 04:05:06 2025 file.txt
+      const m = line.match(/^([d\-])[rwx\-]{9}\s+(\d+)\s+([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}\s+\d{4})\s+(.+)$/);
+      if (m) {
+        const name = m[4].trim();
+        if (name === '.' || name === '..') continue;
+        entries.push({
+          name,
+          type: m[1] === 'd' ? 'dir' : 'file',
+          size: parseInt(m[2], 10) || 0,
+          modified: m[3]
+        });
+      }
+    } else {
+      // Original smbclient format
+      const m = line.match(/^\s{2}(.+?)\s{2,}([ADRHS]+)\s+(\d+)\s+(.+)$/);
+      if (m) {
+        const name = m[1].trimEnd();
+        if (name === '.' || name === '..') continue;
+        entries.push({
+          name,
+          type: m[2].includes('D') ? 'dir' : 'file',
+          size: parseInt(m[3], 10),
+          modified: m[4].trim(),
+        });
+      }
     }
   }
   return entries;
-}
-
-// ---- Credential arg builder -----------------------------------------
-
-/**
- * Build the smbclient credential args without shell injection.
- * smbclient accepts "-U username%password" as a single flag value.
- */
-function buildCredArgs(credentials) {
-  const args = [];
-  if (credentials && credentials.username) {
-    const user = String(credentials.username).replace(/[%"]/g, '');  // sanitize separator chars
-    const pass = String(credentials.password || '').replace(/[%"]/g, '');
-    args.push('-U', `${user}%${pass}`);
-    if (credentials.domain) {
-      const domain = String(credentials.domain).replace(/[^a-zA-Z0-9._-]/g, '');
-      args.push('--workgroup', domain);
-    }
-  } else {
-    args.push('-N');   // null session
-  }
-  return args;
 }
 
 // ---- Public API -----------------------------------------------------
@@ -179,11 +228,30 @@ export async function enumerateShares(targetIp, credentials, onResult, onError) 
   // --- SMB ---
   await new Promise((resolve) => {
     const smbPath = getSmbclientPath();
-    const args = ['-L', `//${targetIp}`, ...buildCredArgs(credentials)];
+    const impacketMode = isImpacket();
+    
+    let args;
+    let impacketCmd = '';
+    if (impacketMode) {
+      args = [...buildConnectionArgs(targetIp, credentials, true)];
+      if (!credentials || !credentials.password) args.push('-no-pass');
+      impacketCmd = 'shares';
+    } else {
+      args = ['-L', `//${targetIp}`, ...buildConnectionArgs(targetIp, credentials, false)];
+    }
 
-    const proc = spawn(smbPath, args, { timeout: 30000 });
+    const isPython = smbPath.toLowerCase().endsWith('.py');
+    const finalCmd = isPython ? 'python' : smbPath;
+    const finalArgs = isPython ? [smbPath, ...args] : args;
+
+    const proc = spawn(finalCmd, finalArgs, { timeout: 30000 });
     const key = `smb-list-${targetIp}-${Date.now()}`;
     activeProcesses.set(key, proc);
+
+    if (impacketCmd) {
+      proc.stdin.write(impacketCmd + '\n');
+      proc.stdin.end();
+    }
 
     let stdout = '';
     let stderr = '';
@@ -194,10 +262,13 @@ export async function enumerateShares(targetIp, credentials, onResult, onError) 
       activeProcesses.delete(key);
       // smbclient writes share list to stdout, but some builds use stderr
       const combined = stdout + '\n' + stderr;
-      const shares = parseSmbList(combined);
+      const shares = parseSmbList(combined, impacketMode);
       const errLower = combined.toLowerCase();
-      if (shares.length === 0 && (errLower.includes('connection refused') || errLower.includes('network unreachable') || errLower.includes('bad file'))) {
-        onError({ message: `SMB error: ${stderr.split('\n').find(l => l.trim()) || 'Connection failed'}` });
+      if (shares.length === 0 && (errLower.includes('connection refused') || errLower.includes('network unreachable') || errLower.includes('bad file') || errLower.includes('error') || errLower.includes('failure'))) {
+        const parsedStderr = stderr.split('\n').find(l => l.trim() && !l.includes('Impacket'));
+        const parsedStdout = stdout.split('\n').find(l => l.includes('[-]'));
+        const msg = `SMB error: ${parsedStderr || parsedStdout || 'Connection failed'}`;
+        onResult({ type: 'smb', shares: [], note: msg });
       } else {
         onResult({ type: 'smb', shares });
       }
@@ -263,14 +334,36 @@ export async function browseShare(targetIp, shareName, remotePath, credentials, 
   }
 
   const smbPath = getSmbclientPath();
-  const shareUNC = `//${targetIp}/${shareName}`;
-  const lsCmd = safePath ? `cd "${safePath}"; ls` : 'ls';
-  const args = [shareUNC, '-c', lsCmd, ...buildCredArgs(credentials)];
+  const impacketMode = isImpacket();
+  
+  let args;
+  let impacketCmd = '';
+  if (impacketMode) {
+    args = [...buildConnectionArgs(targetIp, credentials, true)];
+    if (!credentials || !credentials.password) args.push('-no-pass');
+    // Impacket syntax to access a specific share path:
+    const useCmd = `use ${shareName}`;
+    const cdCmd = safePath ? `cd "${safePath}"` : '';
+    impacketCmd = [useCmd, cdCmd, 'ls'].filter(Boolean).join('\n');
+  } else {
+    const shareUNC = `//${targetIp}/${shareName}`;
+    const lsCmd = safePath ? `cd "${safePath}"; ls` : 'ls';
+    args = [shareUNC, '-c', lsCmd, ...buildConnectionArgs(targetIp, credentials, false)];
+  }
 
   return new Promise((resolve) => {
-    const proc = spawn(smbPath, args, { timeout: 30000 });
+    const isPython = smbPath.toLowerCase().endsWith('.py');
+    const finalCmd = isPython ? 'python' : smbPath;
+    const finalArgs = isPython ? [smbPath, ...args] : args;
+
+    const proc = spawn(finalCmd, finalArgs, { timeout: 30000 });
     const key = `smb-browse-${targetIp}-${shareName}-${Date.now()}`;
     activeProcesses.set(key, proc);
+
+    if (impacketCmd) {
+      proc.stdin.write(impacketCmd + '\n');
+      proc.stdin.end();
+    }
 
     let stdout = '';
     let stderr = '';
@@ -279,7 +372,7 @@ export async function browseShare(targetIp, shareName, remotePath, credentials, 
 
     proc.on('close', () => {
       activeProcesses.delete(key);
-      const entries = parseSmbDirectory(stdout);
+      const entries = parseSmbDirectory(stdout, impacketMode);
       onResult({ path: safePath ? `/${safePath}` : '/', entries });
       resolve();
     });
@@ -313,25 +406,45 @@ export async function downloadFile(targetIp, shareName, remoteFile, localPath, c
     return false;
   }
 
-  const smbPath = getSmbclientPath();
-  const shareUNC = `//${targetIp}/${shareName}`;
   const filename = safeRemote.split('/').filter(Boolean).pop();
   const dir = safeRemote.includes('/')
     ? safeRemote.substring(0, safeRemote.lastIndexOf('/'))
     : '';
 
-  // Build the smbclient -c command string carefully
-  // Local path is validated by Electron's save dialog — passed as-is
-  const getCmd = dir
-    ? `cd "${dir}"; get "${filename}" "${localPath}"`
-    : `get "${filename}" "${localPath}"`;
-
-  const args = [shareUNC, '-c', getCmd, ...buildCredArgs(credentials)];
+  const smbPath = getSmbclientPath();
+  const impacketMode = isImpacket();
+  
+  let args;
+  let impacketCmd = '';
+  if (impacketMode) {
+    args = [...buildConnectionArgs(targetIp, credentials, true)];
+    if (!credentials || !credentials.password) args.push('-no-pass');
+    
+    const useCmd = `use ${shareName}`;
+    const cdCmd = dir ? `cd "${dir}"` : '';
+    const getCmd = `get "${filename}" "${localPath}"`;
+    impacketCmd = [useCmd, cdCmd, getCmd].filter(Boolean).join('\n');
+  } else {
+    const shareUNC = `//${targetIp}/${shareName}`;
+    const getCmd = dir
+      ? `cd "${dir}"; get "${filename}" "${localPath}"`
+      : `get "${filename}" "${localPath}"`;
+    args = [shareUNC, '-c', getCmd, ...buildConnectionArgs(targetIp, credentials, false)];
+  }
 
   return new Promise((resolve) => {
-    const proc = spawn(smbPath, args, { timeout: 120000 });
+    const isPython = smbPath.toLowerCase().endsWith('.py');
+    const finalCmd = isPython ? 'python' : smbPath;
+    const finalArgs = isPython ? [smbPath, ...args] : args;
+
+    const proc = spawn(finalCmd, finalArgs, { timeout: 120000 });
     const key = `smb-get-${targetIp}-${shareName}-${filename}-${Date.now()}`;
     activeProcesses.set(key, proc);
+
+    if (impacketCmd) {
+      proc.stdin.write(impacketCmd + '\n');
+      proc.stdin.end();
+    }
 
     let stderr = '';
     proc.stderr.on('data', (d) => { stderr += d.toString(); });

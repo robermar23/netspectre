@@ -230,6 +230,16 @@ function renderActionButtons(container, ip, data) {
     btn.innerHTML = '<span class="icon">🖥️</span> Remote Desktop';
     btn.addEventListener('click', () => window.electronAPI.openExternalAction({type:'rdp', ip}));
     container.appendChild(btn);
+  } else if (data.port === 445 || data.port === 139) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-action pentest-action smbclient-only';
+    btn.innerHTML = '<span class="icon">📂</span> Enumerate Shares';
+    btn.addEventListener('click', () => {
+      if (_shareEnum) _shareEnum.openPanel(ip);
+    });
+    // If setting is disabled, it will be hidden by CSS; but we dynamically check it here as a safety measure.
+    if (!state.isSmbclientInstalled) btn.style.display = 'none';
+    container.appendChild(btn);
   }
 
   // Brute-Force action for brute-forceable ports

@@ -467,7 +467,8 @@ export function init() {
       shareListSmb.innerHTML = '';
 
       if (data.shares.length === 0) {
-        shareListSmb.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:12px;">No SMB shares found (null session may be blocked)</div>';
+        const msg = data.note || 'No SMB shares found (null session may be blocked)';
+        shareListSmb.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:12px;">${escapeHtml(msg)}</div>`;
       } else {
         data.shares.forEach(share => renderShareItem(share, shareListSmb));
       }

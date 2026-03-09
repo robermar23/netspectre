@@ -144,6 +144,9 @@ const DEPENDENCY_PATHS = {
   },
   smbclient: {
     win32: [
+      'impacket-smbclient',
+      'impacket-smbclient.exe',
+      'smbclient.exe',
       'smbclient'
     ],
     darwin: [
@@ -198,37 +201,57 @@ export async function checkDependency(toolName) {
   }
 
   const platform = process.platform;
-  // Fallback to linux paths if platform not specifically defined
-  const paths = config[platform] || config.linux || [];
   const versionArg = config.versionArg;
+  const commandsToCheck = [];
 
-  const commandsToCheck = paths.map(p => ({
-    cmd: p.includes(' ') || p.includes('\\') ? `"${p}" ${versionArg}` : `${p} ${versionArg}`,
-    path: p
-  }));
+  // Check for a saved custom manual path override
+  const savedPath = getSetting(`${toolName}.path`);
+  const isCustomPath = savedPath && savedPath.trim().length > 0;
+
+  if (isCustomPath) {
+    const isPython = savedPath.toLowerCase().endsWith('.py');
+    const baseCmd = savedPath.includes(' ') || savedPath.includes('\\') ? `"${savedPath}"` : savedPath;
+    commandsToCheck.push({
+      cmd: isPython ? `python ${baseCmd} ${versionArg}` : `${baseCmd} ${versionArg}`,
+      path: savedPath
+    });
+  } else {
+    // Fallback to default auto-detection list if no custom path exists
+    const paths = config[platform] || config.linux || [];
+    paths.forEach(p => {
+      const isPython = p.toLowerCase().endsWith('.py');
+      const baseCmd = p.includes(' ') || p.includes('\\') ? `"${p}"` : p;
+      commandsToCheck.push({
+        cmd: isPython ? `python ${baseCmd} ${versionArg}` : `${baseCmd} ${versionArg}`,
+        path: p
+      });
+    });
+  }
 
   let lastError;
   for (const { cmd, path } of commandsToCheck) {
      try {
        const { stdout } = await execPromise(cmd);
-       // Save discovered path automatically to the DB so scanners can use it
-       setSetting(`${toolName}.path`, path);
+       // only map auto-discovered path if we were relying on defaults
+       if (!isCustomPath) setSetting(`${toolName}.path`, path);
        return { installed: true, output: stdout.split('\n')[0].trim() };
      } catch (error) {
-       // Some tools (e.g. hydra -h) exit with non-zero but still produce output.
-       // If we got stdout/stderr output, the binary exists — treat as installed.
-       // But filter out shell-level "command not found" messages.
        const output = error.stdout || error.stderr || '';
        const isShellNotFound = /is not recognized|not found|no such file|cannot find/i.test(output);
-       if (output.trim().length > 0 && !isShellNotFound) {
-         setSetting(`${toolName}.path`, path);
+       // Impacket crashes with exit code 1 when passed -V, but we can still parse the version string
+       const isImpacketVersion = output.toLowerCase().includes('impacket');
+       
+       if ((output.trim().length > 0 && !isShellNotFound) || isImpacketVersion) {
+         if (!isCustomPath) setSetting(`${toolName}.path`, path);
          return { installed: true, output: output.split('\n')[0].trim() };
        }
        lastError = error;
      }
   }
 
-  // If all failed
-  setSetting(`${toolName}.path`, '');
+  // If all failed, DO NOT wipe custom path so the user can fix it
+  if (!isCustomPath) {
+    setSetting(`${toolName}.path`, '');
+  }
   return { installed: false, error: lastError?.message || 'Unknown execution error' };
 }
