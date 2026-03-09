@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.14.0](https://github.com/robermar23/netspectre/compare/v1.13.0...v1.14.0) (2026-03-09)
+
+
+### Features
+
+* **shares:** add Impacket support and manual path overrides ([7cd5cd2](https://github.com/robermar23/netspectre/commit/7cd5cd2f83e8cf48151ace59eaf19407d7cd9159))
+
+
+### Bug Fixes
+
+* applied code review changes ([9f8b82d](https://github.com/robermar23/netspectre/commit/9f8b82d5c82758f7ed35f7f8e1a689be821a8bfe))
+* bug hm-01 ([6e8173a](https://github.com/robermar23/netspectre/commit/6e8173ac7e3f1d9e1da98547711b50726be5f9d9))
+* bug hm-02 ([1f3e0c9](https://github.com/robermar23/netspectre/commit/1f3e0c9423c157a609470fc18557ac87a73b1aa8))
+* bug-hm-05 ([a25722c](https://github.com/robermar23/netspectre/commit/a25722c4eccf0e293c4e566a9f829b22b075a9bf))
+* cred-01 ([08fd652](https://github.com/robermar23/netspectre/commit/08fd6529516936ba78cec5de965248f3bb9e3515))
+
 ## [1.13.0](https://github.com/robermar23/netspectre/compare/v1.12.0...v1.13.0) (2026-03-08)
 
 
