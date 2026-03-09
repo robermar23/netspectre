@@ -239,7 +239,8 @@
           </div>
 
           <!-- Active Progress Area -->
-          <div id="credspray-progress-container" style="display: none; flex-direction: column; gap: 8px; margin-top: 8px;">
+          <div id="credspray-progress-container"
+            style="display: none; flex-direction: column; gap: 8px; margin-top: 8px;">
             <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
               <span id="credspray-progress-text">Initializing...</span>
               <span id="credspray-progress-pct">0%</span>
@@ -288,7 +289,8 @@
           </div>
 
           <!-- Panel Footer Actions -->
-          <div class="panel-footer" style="display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-glass);">
+          <div class="panel-footer"
+            style="display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-glass);">
             <button id="btn-credspray-clear" class="btn secondary full-width">Clear</button>
             <button id="btn-credspray-export" class="btn info full-width" disabled>Export CSV</button>
           </div>
@@ -1137,6 +1139,11 @@
               </label>
             </div>
             <div style="flex:1;"></div>
+            <button id="btn-hardening-add-all" class="btn secondary"
+              style="font-size:11px; padding:5px 10px; white-space:nowrap;"
+              title="Import all discovered hosts matching this subnet as the baseline">
+              📋 Import Hosts
+            </button>
             <button id="btn-hardening-set-baseline" class="btn secondary"
               style="font-size:11px; padding:5px 10px; white-space:nowrap;"
               title="Snapshot current scan results as the new baseline">
@@ -1371,6 +1378,15 @@
           <div class="dependency-status" id="status-nmap">
             <span class="status-dot"></span> <span class="status-text">Checking availability...</span>
           </div>
+          <div class="form-group" style="margin-top: 8px;">
+            <label class="form-label" style="font-size: 10px;">Executable Path (Optional Override)</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="setting-path-nmap" class="text-input full-width custom-path-input"
+                placeholder="Auto-detect">
+              <button class="btn secondary icon-only btn-browse-path" data-target="setting-path-nmap"
+                title="Browse">📁</button>
+            </div>
+          </div>
         </div>
 
         <!-- Tshark Settings Group -->
@@ -1386,6 +1402,15 @@
             Npcap or WinPcap.</p>
           <div class="dependency-status" id="status-tshark">
             <span class="status-dot"></span> <span class="status-text">Checking availability...</span>
+          </div>
+          <div class="form-group" style="margin-top: 8px;">
+            <label class="form-label" style="font-size: 10px;">Executable Path (Optional Override)</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="setting-path-tshark" class="text-input full-width custom-path-input"
+                placeholder="Auto-detect">
+              <button class="btn secondary icon-only btn-browse-path" data-target="setting-path-tshark"
+                title="Browse">📁</button>
+            </div>
           </div>
         </div>
 
@@ -1403,6 +1428,15 @@
           <div class="dependency-status" id="status-hydra">
             <span class="status-dot"></span> <span class="status-text">Checking availability...</span>
           </div>
+          <div class="form-group" style="margin-top: 8px;">
+            <label class="form-label" style="font-size: 10px;">Executable Path (Optional Override)</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="setting-path-hydra" class="text-input full-width custom-path-input"
+                placeholder="Auto-detect">
+              <button class="btn secondary icon-only btn-browse-path" data-target="setting-path-hydra"
+                title="Browse">📁</button>
+            </div>
+          </div>
         </div>
 
         <!-- Metasploit Settings Group -->
@@ -1419,6 +1453,15 @@
               use only with authorization.</strong></p>
           <div class="dependency-status" id="status-msfrpcd">
             <span class="status-dot"></span> <span class="status-text">Checking availability...</span>
+          </div>
+          <div class="form-group" style="margin-top: 8px;">
+            <label class="form-label" style="font-size: 10px;">Executable Path (Optional Override)</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="setting-path-msfrpcd" class="text-input full-width custom-path-input"
+                placeholder="Auto-detect">
+              <button class="btn secondary icon-only btn-browse-path" data-target="setting-path-msfrpcd"
+                title="Browse">📁</button>
+            </div>
           </div>
         </div>
 
@@ -1442,6 +1485,15 @@
           <div class="dependency-status" id="status-smbclient">
             <span class="status-dot"></span> <span class="status-text">Checking availability...</span>
           </div>
+          <div class="form-group" style="margin-top: 8px;">
+            <label class="form-label" style="font-size: 10px;">Executable Path (Optional Override)</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="setting-path-smbclient" class="text-input full-width custom-path-input"
+                placeholder="Auto-detect">
+              <button class="btn secondary icon-only btn-browse-path" data-target="setting-path-smbclient"
+                title="Browse">📁</button>
+            </div>
+          </div>
         </div>
 
         <!-- showmount Settings Group -->
@@ -1461,6 +1513,15 @@
           </p>
           <div class="dependency-status" id="status-showmount">
             <span class="status-dot"></span> <span class="status-text">Checking availability...</span>
+          </div>
+          <div class="form-group" style="margin-top: 8px;">
+            <label class="form-label" style="font-size: 10px;">Executable Path (Optional Override)</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="setting-path-showmount" class="text-input full-width custom-path-input"
+                placeholder="Auto-detect">
+              <button class="btn secondary icon-only btn-browse-path" data-target="setting-path-showmount"
+                title="Browse">📁</button>
+            </div>
           </div>
         </div>
 

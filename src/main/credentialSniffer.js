@@ -23,7 +23,7 @@ export function startCredentialSniffing(interfaceId, onCredentialFound, onError,
     '-e', 'ftp.request.arg',
     '-e', 'http.authorization',
     '-e', 'pop.request.command',
-    '-e', 'pop.request.arg',
+    '-e', 'pop.request.data',
     '-e', 'imap.request'
   ];
 

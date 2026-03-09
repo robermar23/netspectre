@@ -56,6 +56,15 @@ sudo apt install smbclient nfs-common
 brew install samba
 ```
 
+**Windows SMB Support (Impacket):**
+Windows natively caches SMB connections, which breaks credential testing and enumeration workflows. Instead of native Windows SMB, NetSpecter relies on Impacket (`impacket-smbclient`) for Windows users.
+1. Install [Python 3](https://www.python.org/downloads/windows/).
+2. Open PowerShell or Command Prompt and run:
+   ```cmd
+   pip install impacket
+   ```
+3. Open NetSpecter **Settings** and ensure the `smbclient` path automatically detects `impacket-smbclient.exe` (usually located in your Python `Scripts` folder).
+
 ## 1. Target Acquisition and Scope
 
 NetSpecter uses a **Target Scope** model, where you define exactly which hosts you are authorized to test before they appear on your dashboard. Click the **＋ Add Hosts** button to open the acquisition modal.

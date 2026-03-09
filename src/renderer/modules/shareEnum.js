@@ -316,7 +316,13 @@ async function runEnumeration() {
   if (shareFileTbody) {
     shareFileTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 32px;">Select a share to browse</td></tr>';
   }
-  if (shareBreadcrumb) shareBreadcrumb.innerHTML = '<span style="opacity:0.5;">No share selected</span>';
+  if (shareBreadcrumb) {
+    shareBreadcrumb.innerHTML = '';
+    const span = document.createElement('span');
+    span.style.opacity = '0.5';
+    span.textContent = 'No share selected';
+    shareBreadcrumb.appendChild(span);
+  }
   if (shareFooterInfo) shareFooterInfo.textContent = '—';
   shareCurrentShare = '';
 
@@ -369,7 +375,13 @@ export function openPanel(prefilledIp) {
   if (shareListSmb) shareListSmb.innerHTML = '<div class="share-empty-state" style="text-align:center;color:var(--text-muted);padding:24px;font-size:12px;">Run enumeration to discover shares</div>';
   if (shareListNfs) shareListNfs.innerHTML = '<div class="share-empty-state" style="text-align:center;color:var(--text-muted);padding:24px;font-size:12px;">Run enumeration to discover NFS exports</div>';
   if (shareFileTbody) shareFileTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px;">Select a share to browse</td></tr>';
-  if (shareBreadcrumb) shareBreadcrumb.innerHTML = '<span style="opacity:0.5;">No share selected</span>';
+  if (shareBreadcrumb) {
+    shareBreadcrumb.innerHTML = '';
+    const span = document.createElement('span');
+    span.style.opacity = '0.5';
+    span.textContent = 'No share selected';
+    shareBreadcrumb.appendChild(span);
+  }
   if (shareFooterInfo) shareFooterInfo.textContent = '—';
   setShareStatus('Enter a target IP and click Enumerate.', false);
   if (sharePanel) openPanelHelper(sharePanel, shareResizer);
@@ -408,7 +420,13 @@ export function init() {
     if (shareListSmb) shareListSmb.innerHTML = '<div class="share-empty-state" style="text-align:center;color:var(--text-muted);padding:24px;font-size:12px;">Run enumeration to discover shares</div>';
     if (shareListNfs) shareListNfs.innerHTML = '<div class="share-empty-state" style="text-align:center;color:var(--text-muted);padding:24px;font-size:12px;">Run enumeration to discover NFS exports</div>';
     if (shareFileTbody) shareFileTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px;">Select a share to browse</td></tr>';
-    if (shareBreadcrumb) shareBreadcrumb.innerHTML = '<span style="opacity:0.5;">No share selected</span>';
+    if (shareBreadcrumb) {
+      shareBreadcrumb.innerHTML = '';
+      const span = document.createElement('span');
+      span.style.opacity = '0.5';
+      span.textContent = 'No share selected';
+      shareBreadcrumb.appendChild(span);
+    }
     if (shareFooterInfo) shareFooterInfo.textContent = '—';
     shareCurrentIp = ''; shareCurrentShare = '';
     setShareStatus('Enter a target IP and click Enumerate.', false);
@@ -467,7 +485,12 @@ export function init() {
       shareListSmb.innerHTML = '';
 
       if (data.shares.length === 0) {
-        shareListSmb.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:12px;">No SMB shares found (null session may be blocked)</div>';
+        const msg = data.note || 'No SMB shares found (null session may be blocked)';
+        const div = document.createElement('div');
+        div.className = 'share-empty-state';
+        div.style.cssText = 'text-align:center;color:var(--text-muted);padding:16px;font-size:12px;';
+        div.textContent = msg;
+        shareListSmb.appendChild(div);
       } else {
         data.shares.forEach(share => renderShareItem(share, shareListSmb));
       }
@@ -479,7 +502,11 @@ export function init() {
 
       if (data.shares.length === 0) {
         const msg = data.note || 'No NFS exports found';
-        shareListNfs.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:12px;">${escapeHtml(msg)}</div>`;
+        const div = document.createElement('div');
+        div.className = 'share-empty-state';
+        div.style.cssText = 'text-align:center;color:var(--text-muted);padding:16px;font-size:12px;';
+        div.textContent = msg;
+        shareListNfs.appendChild(div);
       } else {
         data.shares.forEach(share => renderShareItem(share, shareListNfs));
       }

@@ -62,6 +62,32 @@ function buildHostMonitorActions(host, monSection, subnetGuess) {
   const actionRow = document.createElement('div');
   actionRow.style.cssText = 'display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;';
 
+  if (!host.monitorStatus || host.monitorStatus === 'offline') {
+    const btnAddToMonitor = document.createElement('button');
+    btnAddToMonitor.className = 'btn-action';
+    btnAddToMonitor.style.cssText = 'font-size:10px; padding:3px 8px; border-color:var(--success); color:var(--success);';
+    btnAddToMonitor.textContent = '➕ Add to Monitor';
+    btnAddToMonitor.addEventListener('click', async () => {
+      try {
+        const existing = await api.hardeningMonitor.getBaseline(subnetGuess);
+        const hosts = existing?.hosts || [];
+        if (!hosts.some(h => h.ip === host.ip)) {
+          hosts.push({
+            ip: host.ip, mac: host.mac || '', hostname: host.hostname || '',
+            ports: host.ports?.map(p => p.port || p) || [],
+            firstSeen: host.firstSeen || Date.now(), lastSeen: host.lastSeen || Date.now(),
+          });
+        }
+        await api.hardeningMonitor.setBaseline(subnetGuess, hosts);
+        const idx = state.hosts.findIndex(h => h.ip === host.ip);
+        if (idx >= 0) state.hosts[idx].monitorStatus = state.hosts[idx].monitorStatus || 'monitored';
+        btnAddToMonitor.textContent = '✓ Added';
+        btnAddToMonitor.disabled = true;
+      } catch { btnAddToMonitor.textContent = '⚠ Error'; }
+    });
+    actionRow.appendChild(btnAddToMonitor);
+  }
+
   const btnOpenMonitor = document.createElement('button');
   btnOpenMonitor.className = 'btn-action';
   btnOpenMonitor.style.cssText = 'font-size:10px; padding:3px 8px; border-color:var(--hardening); color:var(--hardening);';
@@ -203,6 +229,16 @@ function renderActionButtons(container, ip, data) {
     btn.className = 'btn-action';
     btn.innerHTML = '<span class="icon">🖥️</span> Remote Desktop';
     btn.addEventListener('click', () => window.electronAPI.openExternalAction({type:'rdp', ip}));
+    container.appendChild(btn);
+  } else if (data.port === 445 || data.port === 139) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-action pentest-action smbclient-only';
+    btn.innerHTML = '<span class="icon">📂</span> Enumerate Shares';
+    btn.addEventListener('click', () => {
+      if (_shareEnum) _shareEnum.openPanel(ip);
+    });
+    // If setting is disabled, it will be hidden by CSS; but we dynamically check it here as a safety measure.
+    if (!state.isSmbclientInstalled) btn.style.display = 'none';
     container.appendChild(btn);
   }
 
