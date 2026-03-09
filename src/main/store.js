@@ -59,6 +59,13 @@ const schema = {
       consentGiven: { type: 'boolean', default: false }
     },
     default: { consentGiven: false }
+  },
+  python: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', default: 'python' }
+    },
+    default: { path: 'python' }
   }
 };
 
@@ -194,6 +201,25 @@ export function getAllSettings() {
   return store.store;
 }
 
+/**
+ * Dynamically resolve 'python' vs 'python3'.
+ * Tries the configured path first, then fallbacks.
+ */
+export async function resolvePython() {
+  const configured = getSetting('python.path') || 'python';
+  const candidates = [configured, 'python3', 'python'];
+  
+  for (const c of candidates) {
+    try {
+      await execPromise(`${c} --version`);
+      return c;
+    } catch {
+      continue;
+    }
+  }
+  return 'python'; // Fallback
+}
+
 export async function checkDependency(toolName) {
   const config = DEPENDENCY_PATHS[toolName];
   if (!config) {
@@ -210,19 +236,21 @@ export async function checkDependency(toolName) {
 
   if (isCustomPath) {
     const isPython = savedPath.toLowerCase().endsWith('.py');
+    const pyInterpreter = await resolvePython();
     const baseCmd = savedPath.includes(' ') || savedPath.includes('\\') ? `"${savedPath}"` : savedPath;
     commandsToCheck.push({
-      cmd: isPython ? `python ${baseCmd} ${versionArg}` : `${baseCmd} ${versionArg}`,
+      cmd: isPython ? `${pyInterpreter} ${baseCmd} ${versionArg}` : `${baseCmd} ${versionArg}`,
       path: savedPath
     });
   } else {
     // Fallback to default auto-detection list if no custom path exists
     const paths = config[platform] || config.linux || [];
+    const pyInterpreter = await resolvePython();
     paths.forEach(p => {
       const isPython = p.toLowerCase().endsWith('.py');
       const baseCmd = p.includes(' ') || p.includes('\\') ? `"${p}"` : p;
       commandsToCheck.push({
-        cmd: isPython ? `python ${baseCmd} ${versionArg}` : `${baseCmd} ${versionArg}`,
+        cmd: isPython ? `${pyInterpreter} ${baseCmd} ${versionArg}` : `${baseCmd} ${versionArg}`,
         path: p
       });
     });

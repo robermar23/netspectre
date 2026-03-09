@@ -14,7 +14,7 @@
  */
 
 import { spawn } from 'child_process';
-import { getSetting } from './store.js';
+import { getSetting, resolvePython } from './store.js';
 import { ipRegex } from '#shared/networkConstants.js';
 
 // ---- Active process registry ----------------------------------------
@@ -47,19 +47,17 @@ function isValidRemotePath(remotePath) {
 
 
 // ---- Helper -----------------------------------------------------------
+// ---- Helper -----------------------------------------------------------
 function isImpacket() {
   const p = getSmbclientPath().toLowerCase();
-  return p.includes('impacket') || p.includes('python');
+  const base = p.split(/[/\\]/).pop() || '';
+  return base.includes('impacket-smbclient') || base.includes('smbclient.py');
 }
 
-// ---- Credential arg builder -----------------------------------------
-
 /**
- * Build the connection/credential args for the appropriate tool.
- * Impacket expects: [domain/]username[:password]@<target_ip> (or ''@target for null)
- * smbclient expects: -U user%pass or -N
+ * Build the connection spec for Impacket: [domain/]user[:pass]@host
  */
-function buildConnectionArgs(targetIp, credentials, impacketMode) {
+function buildImpacketConnectionSpec(targetIp, credentials) {
   let user = '';
   let pass = '';
   let domain = '';
@@ -67,29 +65,67 @@ function buildConnectionArgs(targetIp, credentials, impacketMode) {
   if (credentials && credentials.username) {
     user = String(credentials.username).replace(/[%"]/g, '');
     pass = String(credentials.password || '').replace(/[%"]/g, '');
-    if (credentials.domain) domain = String(credentials.domain).replace(/[^a-zA-Z0-9._-]/g, '');
+    if (credentials.domain) {
+      domain = String(credentials.domain).replace(/[^a-zA-Z0-9._-]/g, '');
+    }
   }
 
-  if (impacketMode) {
-    if (!user) {
-      // Null session impacket
-      return [`""@${targetIp}`];
-    }
-    const prefix = domain ? `${domain}/${user}` : user;
-    const auth = pass ? `${prefix}:${pass}` : prefix;
-    return [`${auth}@${targetIp}`];
-  } else {
-    // Standard smbclient
-    const args = [];
-    if (user) {
-      args.push('-U', `${user}%${pass}`);
-      if (domain) args.push('--workgroup', domain);
-    } else {
-      args.push('-N');
-    }
-    return args;
-  }
+  if (!user) return [`""@${targetIp}`];
+
+  const prefix = domain ? `${domain}/${user}` : user;
+  const auth = pass ? `${prefix}:${pass}` : prefix;
+  return [`${auth}@${targetIp}`];
 }
+
+/**
+ * Build the credential args for standard smbclient: -U user%pass or -N
+ */
+function buildSmbclientCredArgs(credentials) {
+  const args = [];
+  if (credentials && credentials.username) {
+    const user = String(credentials.username).replace(/[%"]/g, '');
+    const pass = String(credentials.password || '').replace(/[%"]/g, '');
+    args.push('-U', `${user}%${pass}`);
+    if (credentials.domain) {
+      const domain = String(credentials.domain).replace(/[^a-zA-Z0-9._-]/g, '');
+      args.push('--workgroup', domain);
+    }
+  } else {
+    args.push('-N');
+  }
+  return args;
+}
+
+/**
+ * Centralized helper to spawn the appropriate SMB tool.
+ */
+async function spawnSmbTool({ targetIp, credentials, baseArgs, impacketCmd, timeoutMs, key }) {
+  const smbPath = getSmbclientPath();
+  const impacketMode = isImpacket();
+
+  let args = [...baseArgs];
+
+  if (impacketMode) {
+    args = [...buildImpacketConnectionSpec(targetIp, credentials)];
+    if (!credentials || !credentials.password) args.push('-no-pass');
+  }
+
+  const isPython = smbPath.toLowerCase().endsWith('.py');
+  const pyInterpreter = isPython ? await resolvePython() : ''; 
+  const finalCmd = isPython ? pyInterpreter : smbPath;
+  const finalArgs = isPython ? [smbPath, ...args] : args;
+
+  const proc = spawn(finalCmd, finalArgs, { timeout: timeoutMs || 30000 });
+  if (key) activeProcesses.set(key, proc);
+
+  if (impacketMode && impacketCmd) {
+    proc.stdin.write(impacketCmd + '\n');
+    proc.stdin.end();
+  }
+
+  return { proc, impacketMode };
+}
+
 
 // ---- Output parsers -------------------------------------------------
 
@@ -169,41 +205,46 @@ function parseNfsExports(output) {
   return shares;
 }
 
-/**
- * Parse `smbclient -c 'ls'` OR `impacket-smbclient -c 'ls'` stdout.
- */
 function parseSmbDirectory(output, impacketMode) {
+  return impacketMode
+    ? parseSmbDirectoryImpacket(output)
+    : parseSmbDirectorySmbclient(output);
+}
+
+function parseSmbDirectoryImpacket(output) {
   const entries = [];
   for (const line of output.split('\n')) {
-    if (impacketMode) {
-      // Impacket ls format:
-      // drw-rw-rw-          0  Sun Jan 12 11:22:33 2025 folder_name
-      // -rw-rw-rw-     123456  Mon Feb 03 04:05:06 2025 file.txt
-      const m = line.match(/^([d\-])[rwx\-]{9}\s+(\d+)\s+([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}\s+\d{4})\s+(.+)$/);
-      if (m) {
-        const name = m[4].trim();
-        if (name === '.' || name === '..') continue;
-        entries.push({
-          name,
-          type: m[1] === 'd' ? 'dir' : 'file',
-          size: parseInt(m[2], 10) || 0,
-          modified: m[3]
-        });
-      }
-    } else {
-      // Original smbclient format
-      const m = line.match(/^\s{2}(.+?)\s{2,}([ADRHS]+)\s+(\d+)\s+(.+)$/);
-      if (m) {
-        const name = m[1].trimEnd();
-        if (name === '.' || name === '..') continue;
-        entries.push({
-          name,
-          type: m[2].includes('D') ? 'dir' : 'file',
-          size: parseInt(m[3], 10),
-          modified: m[4].trim(),
-        });
-      }
-    }
+    // Impacket ls format:
+    // drw-rw-rw-          0  Sun Jan 12 11:22:33 2025 folder_name
+    // -rw-rw-rw-     123456  Mon Feb 03 04:05:06 2025 file.txt
+    const m = line.match(/^([d\-])[rwx\-]{9}\s+(\d+)\s+([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}\s+\d{4})\s+(.+)$/);
+    if (!m) continue;
+    const name = m[4].trim();
+    if (name === '.' || name === '..') continue;
+    entries.push({
+      name,
+      type: m[1] === 'd' ? 'dir' : 'file',
+      size: parseInt(m[2], 10) || 0,
+      modified: m[3]
+    });
+  }
+  return entries;
+}
+
+function parseSmbDirectorySmbclient(output) {
+  const entries = [];
+  for (const line of output.split('\n')) {
+    // Original smbclient format
+    const m = line.match(/^\s{2}(.+?)\s{2,}([ADRHS]+)\s+(\d+)\s+(.+)$/);
+    if (!m) continue;
+    const name = m[1].trimEnd();
+    if (name === '.' || name === '..') continue;
+    entries.push({
+      name,
+      type: m[2].includes('D') ? 'dir' : 'file',
+      size: parseInt(m[3], 10),
+      modified: m[4].trim(),
+    });
   }
   return entries;
 }
@@ -227,62 +268,63 @@ export async function enumerateShares(targetIp, credentials, onResult, onError) 
 
   // --- SMB ---
   await new Promise((resolve) => {
-    const smbPath = getSmbclientPath();
     const impacketMode = isImpacket();
-    
-    let args;
-    let impacketCmd = '';
-    if (impacketMode) {
-      args = [...buildConnectionArgs(targetIp, credentials, true)];
-      if (!credentials || !credentials.password) args.push('-no-pass');
-      impacketCmd = 'shares';
-    } else {
-      args = ['-L', `//${targetIp}`, ...buildConnectionArgs(targetIp, credentials, false)];
-    }
-
-    const isPython = smbPath.toLowerCase().endsWith('.py');
-    const finalCmd = isPython ? 'python' : smbPath;
-    const finalArgs = isPython ? [smbPath, ...args] : args;
-
-    const proc = spawn(finalCmd, finalArgs, { timeout: 30000 });
+    const baseArgs = impacketMode ? [] : ['-L', `//${targetIp}`, ...buildSmbclientCredArgs(credentials)];
     const key = `smb-list-${targetIp}-${Date.now()}`;
-    activeProcesses.set(key, proc);
 
-    if (impacketCmd) {
-      proc.stdin.write(impacketCmd + '\n');
-      proc.stdin.end();
-    }
+    spawnSmbTool({
+      targetIp,
+      credentials,
+      baseArgs,
+      impacketCmd: impacketMode ? 'shares' : '',
+      timeoutMs: 30000,
+      key
+    }).then(({ proc }) => {
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', (d) => { stdout += d.toString(); });
+      proc.stderr.on('data', (d) => { stderr += d.toString(); });
 
-    let stdout = '';
-    let stderr = '';
-    proc.stdout.on('data', (d) => { stdout += d.toString(); });
-    proc.stderr.on('data', (d) => { stderr += d.toString(); });
+      proc.on('close', () => {
+        activeProcesses.delete(key);
+        const combined = stdout + '\n' + stderr;
+        const shares = parseSmbList(combined, impacketMode);
+        const errLower = combined.toLowerCase();
+        
+        const isConnectionError = (shares.length === 0 && (
+          errLower.includes('connection refused') || 
+          errLower.includes('network unreachable') || 
+          errLower.includes('bad file') || 
+          errLower.includes('error') || 
+          errLower.includes('failure')
+        ));
 
-    proc.on('close', () => {
-      activeProcesses.delete(key);
-      // smbclient writes share list to stdout, but some builds use stderr
-      const combined = stdout + '\n' + stderr;
-      const shares = parseSmbList(combined, impacketMode);
-      const errLower = combined.toLowerCase();
-      if (shares.length === 0 && (errLower.includes('connection refused') || errLower.includes('network unreachable') || errLower.includes('bad file') || errLower.includes('error') || errLower.includes('failure'))) {
-        const parsedStderr = stderr.split('\n').find(l => l.trim() && !l.includes('Impacket'));
-        const parsedStdout = stdout.split('\n').find(l => l.includes('[-]'));
-        const msg = `SMB error: ${parsedStderr || parsedStdout || 'Connection failed'}`;
-        onResult({ type: 'smb', shares: [], note: msg });
-      } else {
-        onResult({ type: 'smb', shares });
-      }
-      resolve();
-    });
+        if (isConnectionError) {
+          const parsedStderr = stderr.split('\n').find(l => l.trim() && !l.includes('Impacket'));
+          const parsedStdout = stdout.split('\n').find(l => l.includes('[-]'));
+          const msg = `SMB error: ${parsedStderr || parsedStdout || 'Connection failed'}`;
+          
+          // Notify of error but also send empty result for UI note consistency
+          onResult({ type: 'smb', shares: [], note: msg });
+          // Retain onError for transport failures if callers need it
+          if (errLower.includes('refused') || errLower.includes('unreachable')) {
+            onError({ message: msg });
+          }
+        } else {
+          onResult({ type: 'smb', shares });
+        }
+        resolve();
+      });
 
-    proc.on('error', (err) => {
-      activeProcesses.delete(key);
-      if (err.code === 'ENOENT') {
-        onError({ message: 'smbclient not found. Install Samba tools and configure the path in Settings.' });
-      } else {
-        onError({ message: `smbclient error: ${err.message}` });
-      }
-      resolve();
+      proc.on('error', (err) => {
+        activeProcesses.delete(key);
+        if (err.code === 'ENOENT') {
+          onError({ message: 'smbclient not found. Install Samba tools and configure the path in Settings.' });
+        } else {
+          onError({ message: `smbclient error: ${err.message}` });
+        }
+        resolve();
+      });
     });
   });
 
@@ -333,54 +375,47 @@ export async function browseShare(targetIp, shareName, remotePath, credentials, 
     return;
   }
 
-  const smbPath = getSmbclientPath();
+  const key = `smb-browse-${targetIp}-${shareName}-${Date.now()}`;
   const impacketMode = isImpacket();
   
-  let args;
+  let baseArgs = [];
   let impacketCmd = '';
   if (impacketMode) {
-    args = [...buildConnectionArgs(targetIp, credentials, true)];
-    if (!credentials || !credentials.password) args.push('-no-pass');
-    // Impacket syntax to access a specific share path:
     const useCmd = `use ${shareName}`;
     const cdCmd = safePath ? `cd "${safePath}"` : '';
     impacketCmd = [useCmd, cdCmd, 'ls'].filter(Boolean).join('\n');
   } else {
     const shareUNC = `//${targetIp}/${shareName}`;
     const lsCmd = safePath ? `cd "${safePath}"; ls` : 'ls';
-    args = [shareUNC, '-c', lsCmd, ...buildConnectionArgs(targetIp, credentials, false)];
+    baseArgs = [shareUNC, '-c', lsCmd, ...buildSmbclientCredArgs(credentials)];
   }
 
   return new Promise((resolve) => {
-    const isPython = smbPath.toLowerCase().endsWith('.py');
-    const finalCmd = isPython ? 'python' : smbPath;
-    const finalArgs = isPython ? [smbPath, ...args] : args;
+    spawnSmbTool({
+      targetIp,
+      credentials,
+      baseArgs,
+      impacketCmd,
+      timeoutMs: 30000,
+      key
+    }).then(({ proc }) => {
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', (d) => { stdout += d.toString(); });
+      proc.stderr.on('data', (d) => { stderr += d.toString(); });
 
-    const proc = spawn(finalCmd, finalArgs, { timeout: 30000 });
-    const key = `smb-browse-${targetIp}-${shareName}-${Date.now()}`;
-    activeProcesses.set(key, proc);
+      proc.on('close', () => {
+        activeProcesses.delete(key);
+        const entries = parseSmbDirectory(stdout, impacketMode);
+        onResult({ path: safePath ? `/${safePath}` : '/', entries });
+        resolve();
+      });
 
-    if (impacketCmd) {
-      proc.stdin.write(impacketCmd + '\n');
-      proc.stdin.end();
-    }
-
-    let stdout = '';
-    let stderr = '';
-    proc.stdout.on('data', (d) => { stdout += d.toString(); });
-    proc.stderr.on('data', (d) => { stderr += d.toString(); });
-
-    proc.on('close', () => {
-      activeProcesses.delete(key);
-      const entries = parseSmbDirectory(stdout, impacketMode);
-      onResult({ path: safePath ? `/${safePath}` : '/', entries });
-      resolve();
-    });
-
-    proc.on('error', (err) => {
-      activeProcesses.delete(key);
-      onError({ message: `Failed to browse share: ${err.message}` });
-      resolve();
+      proc.on('error', (err) => {
+        activeProcesses.delete(key);
+        onError({ message: `Failed to browse share: ${err.message}` });
+        resolve();
+      });
     });
   });
 }
@@ -411,15 +446,12 @@ export async function downloadFile(targetIp, shareName, remoteFile, localPath, c
     ? safeRemote.substring(0, safeRemote.lastIndexOf('/'))
     : '';
 
-  const smbPath = getSmbclientPath();
+  const key = `smb-get-${targetIp}-${shareName}-${filename}-${Date.now()}`;
   const impacketMode = isImpacket();
   
-  let args;
+  let baseArgs = [];
   let impacketCmd = '';
   if (impacketMode) {
-    args = [...buildConnectionArgs(targetIp, credentials, true)];
-    if (!credentials || !credentials.password) args.push('-no-pass');
-    
     const useCmd = `use ${shareName}`;
     const cdCmd = dir ? `cd "${dir}"` : '';
     const getCmd = `get "${filename}" "${localPath}"`;
@@ -429,41 +461,37 @@ export async function downloadFile(targetIp, shareName, remoteFile, localPath, c
     const getCmd = dir
       ? `cd "${dir}"; get "${filename}" "${localPath}"`
       : `get "${filename}" "${localPath}"`;
-    args = [shareUNC, '-c', getCmd, ...buildConnectionArgs(targetIp, credentials, false)];
+    baseArgs = [shareUNC, '-c', getCmd, ...buildSmbclientCredArgs(credentials)];
   }
 
   return new Promise((resolve) => {
-    const isPython = smbPath.toLowerCase().endsWith('.py');
-    const finalCmd = isPython ? 'python' : smbPath;
-    const finalArgs = isPython ? [smbPath, ...args] : args;
+    spawnSmbTool({
+      targetIp,
+      credentials,
+      baseArgs,
+      impacketCmd,
+      timeoutMs: 120000,
+      key
+    }).then(({ proc }) => {
+      let stderr = '';
+      proc.stderr.on('data', (d) => { stderr += d.toString(); });
 
-    const proc = spawn(finalCmd, finalArgs, { timeout: 120000 });
-    const key = `smb-get-${targetIp}-${shareName}-${filename}-${Date.now()}`;
-    activeProcesses.set(key, proc);
+      proc.on('close', (code) => {
+        activeProcesses.delete(key);
+        if (code === 0 || code === null) {
+          resolve(true);
+        } else {
+          const msg = stderr.split('\n').find(l => l.trim()) || 'Unknown download error';
+          onError({ message: `Download failed: ${msg}` });
+          resolve(false);
+        }
+      });
 
-    if (impacketCmd) {
-      proc.stdin.write(impacketCmd + '\n');
-      proc.stdin.end();
-    }
-
-    let stderr = '';
-    proc.stderr.on('data', (d) => { stderr += d.toString(); });
-
-    proc.on('close', (code) => {
-      activeProcesses.delete(key);
-      if (code === 0 || code === null) {
-        resolve(true);
-      } else {
-        const msg = stderr.split('\n').find(l => l.trim()) || 'Unknown download error';
-        onError({ message: `Download failed: ${msg}` });
+      proc.on('error', (err) => {
+        activeProcesses.delete(key);
+        onError({ message: `smbclient error: ${err.message}` });
         resolve(false);
-      }
-    });
-
-    proc.on('error', (err) => {
-      activeProcesses.delete(key);
-      onError({ message: `smbclient error: ${err.message}` });
-      resolve(false);
+      });
     });
   });
 }

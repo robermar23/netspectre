@@ -130,6 +130,65 @@ function setStatusDot(dotState) {
   }
 }
 
+function syncMonitorStatusWithBaseline(baselineHosts) {
+  for (const bHost of baselineHosts || []) {
+    const idx = state.hosts.findIndex(h => h.ip === bHost.ip);
+    if (idx >= 0) {
+      const host = state.hosts[idx];
+      host.monitorStatus = host.monitorStatus || 'monitored';
+      host.monitorLastSeen = host.monitorLastSeen || Date.now();
+    }
+  }
+  if (_debouncedRenderAllHosts) _debouncedRenderAllHosts();
+}
+
+function filterHostsBySubnet(hosts, subnet) {
+  const prefix = subnet.split('/')[0].split('.').slice(0, 3).join('.');
+  return hosts.filter(h => h.ip?.startsWith(prefix + '.'));
+}
+
+function mapHostsToBaselinePayload(hosts) {
+  const now = Date.now();
+  return hosts.map(h => ({
+    ip: h.ip,
+    mac: h.mac || '',
+    hostname: h.hostname || '',
+    ports: h.ports?.map(p => p.port || p) || [],
+    firstSeen: h.firstSeen || now,
+    lastSeen: h.lastSeen || now,
+  }));
+}
+
+function getOrCreateMonitorHost(ip) {
+  return state.hosts.find(h => h.ip === ip) || {
+    ip,
+    mac: '',
+    hostname: '',
+    vendor: '',
+    os: '',
+    ports: [],
+    source: 'monitor',
+    monitorStatus: 'online',
+  };
+}
+
+function getHardeningSubnet() {
+  return hardeningSubnetInput?.value.trim() || '';
+}
+
+function getHostsForBaseline() {
+  // Use the hosts from the most recent report if available, otherwise current state.hosts
+  const lastEvent = hardeningEvents[hardeningEvents.length - 1];
+  return lastEvent?.report?.currentHosts || state.hosts?.map(h => ({
+    ip: h.ip,
+    mac: h.mac || '',
+    hostname: h.hostname || '',
+    ports: h.ports?.map(p => p.port || p) || [],
+    firstSeen: h.firstSeen || Date.now(),
+    lastSeen: h.lastSeen || Date.now(),
+  })) || [];
+}
+
 function startHardeningCountdown(nextRunTs) {
   hardeningNextRunTs = nextRunTs;
   stopHardeningCountdown();
@@ -264,11 +323,7 @@ function buildAlertCard(delta, alertId) {
   actionDiv.querySelector('.btn-investigate')?.addEventListener('click', (e) => {
     const ip = e.currentTarget.dataset.ip;
     if (ip && typeof _openDetailsPanel === 'function') {
-      const host = state.hosts.find(h => h.ip === ip) || {
-        ip, mac: '', hostname: '', vendor: '', os: '',
-        ports: [], source: 'monitor', monitorStatus: 'online',
-      };
-      _openDetailsPanel(host);
+      _openDetailsPanel(getOrCreateMonitorHost(ip));
     }
   });
 
@@ -313,16 +368,7 @@ function buildAlertCard(delta, alertId) {
     if (report?.currentHosts) {
       await api.hardeningMonitor.setBaseline(subnet, report.currentHosts);
       refreshBaselineSummary();
-
-      // HM-05: sync status immediately for existing state.hosts
-      for (const bHost of report.currentHosts) {
-        const idx = state.hosts.findIndex(h => h.ip === bHost.ip);
-        if (idx >= 0) {
-          state.hosts[idx].monitorStatus = state.hosts[idx].monitorStatus || 'monitored';
-          state.hosts[idx].monitorLastSeen = state.hosts[idx].monitorLastSeen || Date.now();
-        }
-      }
-      if (_debouncedRenderAllHosts) _debouncedRenderAllHosts();
+      syncMonitorStatusWithBaseline(report.currentHosts);
 
       btnPromote.textContent = '✓ Promoted';
       btnPromote.disabled = true;
@@ -348,7 +394,7 @@ function appendAlert(delta, report) {
 }
 
 async function refreshBaselineSummary() {
-  const subnet = hardeningSubnetInput?.value.trim();
+  const subnet = getHardeningSubnet();
   if (!subnet || !hardeningBaselineSummary) return;
 
   try {
@@ -419,17 +465,12 @@ export function init({ debouncedRenderAllHosts, updateSecurityBadgeDOM, updateMo
   const btnHardeningAddAll = document.getElementById('btn-hardening-add-all');
 
   btnHardeningAddAll?.addEventListener('click', async () => {
-    const subnet = hardeningSubnetInput?.value.trim();
+    const subnet = getHardeningSubnet();
     if (!subnet) { showHardeningError('Enter a subnet first.'); return; }
 
-    const prefix = subnet.split('/')[0].split('.').slice(0, 3).join('.');
-    const matchingHosts = state.hosts
-      .filter(h => h.ip.startsWith(prefix + '.'))
-      .map(h => ({
-        ip: h.ip, mac: h.mac || '', hostname: h.hostname || '',
-        ports: h.ports?.map(p => p.port || p) || [],
-        firstSeen: h.firstSeen || Date.now(), lastSeen: h.lastSeen || Date.now(),
-      }));
+    const matchingHosts = mapHostsToBaselinePayload(
+      filterHostsBySubnet(state.hosts, subnet)
+    );
 
     if (matchingHosts.length === 0) {
       showHardeningError('No discovered hosts match this subnet.');
@@ -440,12 +481,7 @@ export function init({ debouncedRenderAllHosts, updateSecurityBadgeDOM, updateMo
       await api.hardeningMonitor.setBaseline(subnet, matchingHosts);
       clearHardeningError();
       refreshBaselineSummary();
-      // Also mark hosts as monitored in state
-      for (const mh of matchingHosts) {
-        const idx = state.hosts.findIndex(h => h.ip === mh.ip);
-        if (idx >= 0) state.hosts[idx].monitorStatus = state.hosts[idx].monitorStatus || 'monitored';
-      }
-      if (_debouncedRenderAllHosts) _debouncedRenderAllHosts();
+      syncMonitorStatusWithBaseline(matchingHosts);
       btnHardeningAddAll.textContent = `✓ Imported ${matchingHosts.length}`;
       btnHardeningAddAll.disabled = true;
       setTimeout(() => {
@@ -475,7 +511,7 @@ export function init({ debouncedRenderAllHosts, updateSecurityBadgeDOM, updateMo
   });
 
   btnHardeningStart?.addEventListener('click', async () => {
-    const subnet = hardeningSubnetInput?.value.trim();
+    const subnet = getHardeningSubnet();
     if (!subnet) {
       showHardeningError('Please enter a target subnet in CIDR notation (e.g. 192.168.1.0/24).');
       return;
@@ -495,7 +531,7 @@ export function init({ debouncedRenderAllHosts, updateSecurityBadgeDOM, updateMo
   });
 
   btnHardeningStop?.addEventListener('click', async () => {
-    const subnet = hardeningSubnetInput?.value.trim();
+    const subnet = getHardeningSubnet();
     if (!subnet) return;
     try {
       await api.hardeningMonitor.stop(subnet);
@@ -507,21 +543,12 @@ export function init({ debouncedRenderAllHosts, updateSecurityBadgeDOM, updateMo
   });
 
   btnSetBaseline?.addEventListener('click', async () => {
-    const subnet = hardeningSubnetInput?.value.trim();
+    const subnet = getHardeningSubnet();
     if (!subnet) {
       showHardeningError('Enter a subnet first.');
       return;
     }
-    // Use the hosts from the most recent report if available, otherwise current state.hosts
-    const lastEvent = hardeningEvents[hardeningEvents.length - 1];
-    const hosts = lastEvent?.report?.currentHosts || state.hosts?.map(h => ({
-      ip: h.ip,
-      mac: h.mac || '',
-      hostname: h.hostname || '',
-      ports: h.ports?.map(p => p.port || p) || [],
-      firstSeen: Date.now(),
-      lastSeen: Date.now(),
-    })) || [];
+    const hosts = getHostsForBaseline();
 
     if (hosts.length === 0) {
       showHardeningError('No hosts to baseline. Run a scan first or add hosts to the scope.');
@@ -531,16 +558,7 @@ export function init({ debouncedRenderAllHosts, updateSecurityBadgeDOM, updateMo
       await api.hardeningMonitor.setBaseline(subnet, hosts);
       clearHardeningError();
       refreshBaselineSummary();
-
-      // HM-05: sync status immediately for existing state.hosts
-      for (const bHost of hosts) {
-        const idx = state.hosts.findIndex(h => h.ip === bHost.ip);
-        if (idx >= 0) {
-          state.hosts[idx].monitorStatus = state.hosts[idx].monitorStatus || 'monitored';
-          state.hosts[idx].monitorLastSeen = state.hosts[idx].monitorLastSeen || Date.now();
-        }
-      }
-      if (_debouncedRenderAllHosts) _debouncedRenderAllHosts();
+      syncMonitorStatusWithBaseline(hosts);
 
       if (btnSetBaseline) {
         const orig = btnSetBaseline.textContent;
