@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.15.0](https://github.com/robermar23/netspectre/compare/v1.14.0...v1.15.0) (2026-03-14)
+
+
+### Features
+
+* **cloudEnum:** add isCloudEnumRunning function and enhance IPC error handling for active sessions ([023ec1d](https://github.com/robermar23/netspectre/commit/023ec1d8d463a0ff063992a04e6dbdfdfce8d3bc))
+* **cloudEnum:** Implement Container & Cloud Enumeration feature ([c906d85](https://github.com/robermar23/netspectre/commit/c906d856da7afb404979e7c01e2f68d1bbc881ab))
+* **cloudEnum:** Implement Container & Cloud Enumeration feature ([f57bee6](https://github.com/robermar23/netspectre/commit/f57bee607f9795c3e2c4476a83035cfde6e2d8be))
+
 ## [1.14.0](https://github.com/robermar23/netspectre/compare/v1.13.0...v1.14.0) (2026-03-09)
 
 
