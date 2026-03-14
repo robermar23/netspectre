@@ -4,7 +4,7 @@
 
 # NetSpecter: Network Host Detection & Forensic Scanner
 
-A modern, cross-platform desktop application built with Electron, Node.js, and Vanilla JS that provides deep network visibility, OS fingerprinting, and forensic-level port scanning functionalities. Now featuring a comprehensive **Offensive Penetration Testing** suite for red team operations.
+A modern, cross-platform desktop application built with Electron, Node.js, and Vanilla JS that provides deep network visibility, OS fingerprinting, and forensic-level port scanning functionalities. Includes a comprehensive **Offensive Penetration Testing** suite for red team operations.
 
 ![App Dashboard Preview](resources/dashboard-preview.png)
 
@@ -130,3 +130,4 @@ This project is open-sourced software licensed under the [MIT license](LICENSE).
 - **Hydra**: NetSpecter integrates [Hydra](https://github.com/vanhauser-thc/thc-hydra) for multi-protocol brute-forcing. 
 - **Metasploit**: NetSpecter can optionally connect to the [Metasploit Framework](https://www.metasploit.com/) via MSFRPC for advanced exploitation workflows.
 - **Net-SNMP & Cytoscape**: NetSpecter bundles [net-snmp](https://www.npmjs.com/package/net-snmp) for JavaScript SNMP communication and [cytoscape](https://js.cytoscape.org/) for graph visualization.
+

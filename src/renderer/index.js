@@ -45,7 +45,7 @@ async function boot() {
   const shareEnum    = initShareEnum();
   const dirFuzz      = initDirFuzz();
   const credSpray    = initCredSpray();
-  const cloudEnum    = initCloudEnum();    // eslint-disable-line no-unused-vars
+  const cloudEnum    = initCloudEnum();
 
   // 4. Hardening monitor (needs renderAllHosts helpers)
   const hardeningMonitor = initHardeningMonitor({
@@ -68,10 +68,13 @@ async function boot() {
 
   // 6. Scan controls — host grid, scope modal, scan-all orchestrator, scan IPC events.
   //    Pass openDetailsPanel so "View Details" card buttons work.
-  initScanControls({ openDetailsPanel: hostDetails.openPanel });
+  //    Pass onHostsRendered so cloud-enum badges survive re-renders.
+  initScanControls({ openDetailsPanel: hostDetails.openPanel, onHostsRendered: cloudEnum.reapplyBadges });
 
   // 7. Wire openDetailsPanel into both scanControls (for late-rendered host cards)
-  //    and hardeningMonitor (for "Investigate" alert buttons)
+  //    and hardeningMonitor (for "Investigate" alert buttons).
+  //    Also expose globally for cross-module callers (CloudEnum "Scan Host" button).
+  window.__openDetailsPanel = hostDetails.openPanel;
   setOpenDetailsPanelRef(hostDetails.openPanel);
   setHardeningDetailsPanelRef(hostDetails.openPanel);
 

@@ -121,6 +121,11 @@ const vm = {
   },
 
   clearFindings() {
+    // Clear per-host cloud findings too
+    state.hosts.forEach(host => {
+      delete host.cloudFindings;
+      delete host.cloudSeverity;
+    });
     state.cloudFindings = [];
     if (ui.findingsList) ui.findingsList.innerHTML = '';
     if (ui.noFindings) {
@@ -135,6 +140,22 @@ const vm = {
   appendFinding(finding) {
     state.cloudFindings.push(finding);
     this.updateStats();
+
+    // Attach finding to the matching host object for persistence across re-renders
+    const hostEntry = state.hosts.find(h => h.ip === finding.ip);
+    if (hostEntry) {
+      if (!hostEntry.cloudFindings) hostEntry.cloudFindings = [];
+      const isDupe = hostEntry.cloudFindings.some(
+        f => f.ip === finding.ip && f.service === finding.service &&
+             f.port === finding.port && f.title === finding.title
+      );
+      if (!isDupe) hostEntry.cloudFindings.push(finding);
+      // Track worst severity on the host (escalates only, never de-escalates)
+      const rank = { critical: 2, warning: 1, info: 0 };
+      if ((rank[finding.severity] ?? 0) > (rank[hostEntry.cloudSeverity] ?? -1)) {
+        hostEntry.cloudSeverity = finding.severity;
+      }
+    }
 
     if (ui.noFindings) ui.noFindings.style.display = 'none';
 
@@ -204,7 +225,9 @@ const vm = {
     btnScan.style.cssText = 'font-size:10px; padding:2px 8px;';
     btnScan.textContent = '🔍 Scan Host';
     btnScan.addEventListener('click', () => {
-      if (window.__openDetailsPanel) window.__openDetailsPanel(finding.ip);
+      if (!window.__openDetailsPanel) return;
+      const host = state.hosts.find(h => h.ip === finding.ip);
+      window.__openDetailsPanel(host || { ip: finding.ip, ports: [], hostname: '', mac: '' });
     });
 
     const timeEl = document.createElement('span');
@@ -459,5 +482,15 @@ export function init() {
   // Expose for external callers (host details integration)
   window.__openCloudEnumPanel = openCloudEnumPanel;
 
-  return { openPanel: openCloudEnumPanel };
+  return { openPanel: openCloudEnumPanel, reapplyBadges: reapplyHostBadges };
+}
+
+// ─── Re-apply host badges after grid re-render ────────────────────────────────
+
+function reapplyHostBadges() {
+  state.hosts.forEach(host => {
+    if (host.cloudSeverity) {
+      _updateHostBadge(host.ip, host.cloudSeverity);
+    }
+  });
 }

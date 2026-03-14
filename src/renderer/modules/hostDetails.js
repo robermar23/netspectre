@@ -561,6 +561,10 @@ function openDetailsPanel(host) {
     portsList.insertAdjacentHTML('beforeend', '<span class="value">No common open ports detected.</span>');
   }
 
+  // Quick Connect actions for ALL discovered ports (any scan source)
+  const connectSection = buildConnectActionsSection(host.ip, host.ports);
+  if (connectSection) portsList.parentElement.appendChild(connectSection);
+
   // Share Enumeration quick-action for SMB hosts (port 139/445)
   if (host.ports && (host.ports.includes(445) || host.ports.includes(139)) && state.isSmbclientInstalled) {
     const shareSection = document.createElement('div');
@@ -672,6 +676,9 @@ function openDetailsPanel(host) {
     });
   }
 
+  // Cloud / Container Evidence section (populated if host was enumerated this session)
+  renderCloudFindingsSection(host, elements.detailsContent);
+
   if (host.routing && host.routing.length > 0) {
     document.getElementById('dp-routing-section').style.display = 'block';
     const rContainer = document.getElementById('dp-routing-container');
@@ -753,6 +760,75 @@ function createCredSprayQuickAction(ip) {
 
   container.append(label, btn);
   return container;
+}
+
+/**
+ * Builds a "Quick Connect" action strip from the canonical host.ports[] array.
+ * Works for ports discovered by any scan source (native, deep scan, nmap, passive).
+ * Note: Ports 445/139 (SMB) are excluded here — handled by the dedicated Shares section.
+ */
+function buildConnectActionsSection(ip, ports) {
+  if (!ports || ports.length === 0) return null;
+
+  const CONNECT_ACTIONS = [
+    { port: 80,   label: '🌐 HTTP',        type: 'http'  },
+    { port: 8080, label: '🌐 HTTP:8080',   type: 'http',  portArg: 8080 },
+    { port: 443,  label: '🔒 HTTPS',       type: 'https' },
+    { port: 8443, label: '🔒 HTTPS:8443',  type: 'https', portArg: 8443 },
+    { port: 22,   label: '⌨️ SSH',         type: 'ssh',   needsUsername: true },
+    { port: 3389, label: '🖥️ RDP',         type: 'rdp'   },
+    { port: 5900, label: '🖥️ VNC',         type: 'vnc'   },
+    { port: 23,   label: '⌨️ Telnet',      type: 'telnet' },
+  ];
+
+  const matchingActions = CONNECT_ACTIONS.filter(a => ports.includes(a.port));
+  if (matchingActions.length === 0) return null;
+
+  const section = document.createElement('div');
+  section.style.cssText = 'margin-top:10px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;';
+
+  const lbl = document.createElement('span');
+  lbl.style.cssText = 'font-size:11px; color:var(--text-muted); flex-basis:100%;';
+  lbl.textContent = '🔗 Quick Connect:';
+  section.appendChild(lbl);
+
+  matchingActions.forEach(action => {
+    if (action.needsUsername) {
+      // SSH-style: username input + connect button
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'display:flex; gap:4px; align-items:center;';
+
+      const usernameInput = document.createElement('input');
+      usernameInput.type = 'text';
+      usernameInput.className = 'text-input';
+      usernameInput.style.cssText = 'width:70px; padding:3px 6px; font-size:11px;';
+      usernameInput.placeholder = 'user';
+      usernameInput.value = 'root';
+      usernameInput.title = 'SSH Username';
+
+      const btn = document.createElement('button');
+      btn.className = 'btn-action';
+      btn.style.cssText = 'font-size:10px; padding:3px 8px;';
+      btn.textContent = action.label;
+      btn.addEventListener('click', () => {
+        window.electronAPI.openExternalAction({ type: action.type, ip, username: usernameInput.value || 'root' });
+      });
+
+      wrapper.append(usernameInput, btn);
+      section.appendChild(wrapper);
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'btn-action';
+      btn.style.cssText = 'font-size:10px; padding:3px 8px;';
+      btn.textContent = action.label;
+      btn.addEventListener('click', () => {
+        window.electronAPI.openExternalAction({ type: action.type, ip, port: action.portArg || action.port });
+      });
+      section.appendChild(btn);
+    }
+  });
+
+  return section;
 }
 
 /**
@@ -1098,6 +1174,20 @@ function attachDetailsPanelListeners(host) {
   let selectedNseScript = null;
 
   if (nseSearchInput && nseDropdown) {
+     function nseRiskLevel(categories) {
+        const cats = categories || [];
+        if (cats.includes('exploit'))   return { label: 'CRITICAL', color: 'var(--danger)' };
+        if (cats.includes('vuln'))      return { label: 'HIGH',     color: 'var(--warning)' };
+        if (cats.includes('brute'))     return { label: 'HIGH',     color: 'var(--warning)' };
+        if (cats.includes('malware'))   return { label: 'MEDIUM',   color: '#f59e0b' };
+        if (cats.includes('dos'))       return { label: 'MEDIUM',   color: '#f59e0b' };
+        if (cats.includes('intrusive')) return { label: 'MEDIUM',   color: '#f59e0b' };
+        if (cats.includes('auth'))      return { label: 'LOW',      color: 'var(--info)' };
+        if (cats.includes('discovery')) return { label: 'INFO',     color: 'var(--info)' };
+        if (cats.includes('safe'))      return { label: 'SAFE',     color: 'var(--success)' };
+        return { label: 'INFO', color: 'var(--text-muted)' };
+     }
+
      function renderNseDropdown(filterText = '') {
         nseDropdown.innerHTML = '';
         if (!filterText) {
@@ -1114,8 +1204,40 @@ function attachDetailsPanelListeners(host) {
            matches.forEach(script => {
               const item = document.createElement('div');
               item.className = 'nse-dropdown-item';
-              item.innerHTML = `<div style="font-weight: 500; color: var(--text-main);" class="nse-title-node"></div>`;
-              item.querySelector('.nse-title-node').textContent = script.id;
+
+              const risk = nseRiskLevel(script.categories);
+
+              // Row 1: script name + risk badge
+              const row1 = document.createElement('div');
+              row1.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:3px;';
+              const nameEl = document.createElement('span');
+              nameEl.style.cssText = 'font-weight:600; font-size:12px; color:var(--text-main); font-family:monospace; flex:1;';
+              nameEl.textContent = script.id;
+              const riskBadge = document.createElement('span');
+              riskBadge.style.cssText = `font-size:9px; padding:1px 5px; border-radius:8px; font-weight:700; border:1px solid ${risk.color}; color:${risk.color};`;
+              riskBadge.textContent = risk.label;
+              row1.append(nameEl, riskBadge);
+
+              // Row 2: category tags
+              const row2 = document.createElement('div');
+              row2.style.cssText = 'display:flex; gap:3px; flex-wrap:wrap; margin-bottom:3px;';
+              (script.categories || []).forEach(cat => {
+                 const tag = document.createElement('span');
+                 tag.style.cssText = 'font-size:9px; padding:1px 4px; border-radius:3px; background:rgba(255,255,255,0.07); color:var(--text-muted);';
+                 tag.textContent = cat;
+                 row2.appendChild(tag);
+              });
+
+              // Row 3: description (if available)
+              const row3 = document.createElement('div');
+              if (script.description) {
+                 row3.style.cssText = 'font-size:10px; color:var(--text-muted); line-height:1.4;';
+                 row3.textContent = script.description.length > 120
+                    ? script.description.slice(0, 120) + '…'
+                    : script.description;
+              }
+
+              item.append(row1, row2, row3);
               item.addEventListener('click', () => {
                  selectedNseScript = script.id;
                  nseSearchInput.value = script.id;
@@ -1201,6 +1323,77 @@ function attachDetailsPanelListeners(host) {
 }
 
 let _cloudEnum = null;
+
+// ─── Cloud Findings section in host details ───────────────────────────────────
+
+function renderCloudFindingsSection(host, container) {
+  const findings = host.cloudFindings;
+  if (!findings || findings.length === 0) return;
+
+  const SEVERITY_COLORS = {
+    critical: 'var(--cloudenum-critical)',
+    warning:  'var(--cloudenum-warning)',
+    info:     'var(--cloudenum-info)',
+  };
+
+  const section = document.createElement('div');
+  section.className = 'dp-section';
+  section.style.cssText = 'margin-top:12px; border-top:1px solid var(--border-glass); padding-top:12px;';
+
+  const label = document.createElement('div');
+  label.className = 'dp-section-label';
+  label.style.cssText = 'font-weight:500; font-size:14px; color:var(--cloudenum-btn); display:flex; align-items:center; gap:6px; margin-bottom:8px;';
+  label.textContent = '🐳 Cloud / Container Evidence';
+  section.appendChild(label);
+
+  // Summary badge row
+  const summaryRow = document.createElement('div');
+  summaryRow.style.cssText = 'display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap;';
+  ['critical', 'warning', 'info'].forEach(sev => {
+    const count = findings.filter(f => f.severity === sev).length;
+    if (count === 0) return;
+    const badge = document.createElement('span');
+    badge.style.cssText = `font-size:10px; padding:2px 8px; border-radius:8px; font-weight:700; border:1px solid ${SEVERITY_COLORS[sev]}; color:${SEVERITY_COLORS[sev]};`;
+    badge.textContent = `${count} ${sev.toUpperCase()}`;
+    summaryRow.appendChild(badge);
+  });
+  section.appendChild(summaryRow);
+
+  // Individual finding cards (collapsed by default)
+  findings.forEach(f => {
+    const sevColor = SEVERITY_COLORS[f.severity] || SEVERITY_COLORS.info;
+    const details = document.createElement('details');
+    details.style.cssText = `margin-top:6px; border-left:3px solid ${sevColor}; padding:4px 8px; border-radius:2px; background:rgba(56,189,248,0.04);`;
+
+    const summary = document.createElement('summary');
+    summary.style.cssText = 'cursor:pointer; font-size:11px; font-weight:600; color:var(--text-main); user-select:none;';
+    summary.textContent = `[${f.service}:${f.port}] ${f.title}`;
+    details.appendChild(summary);
+
+    const body = document.createElement('div');
+    body.style.cssText = 'padding:6px 0; font-size:11px; color:var(--text-muted); font-family:monospace; word-break:break-all;';
+    body.textContent = f.evidence;
+    details.appendChild(body);
+
+    const remDiv = document.createElement('div');
+    remDiv.style.cssText = 'font-size:10px; color:var(--text-secondary); margin-top:4px; line-height:1.4;';
+    remDiv.textContent = f.remediation;
+    details.appendChild(remDiv);
+
+    const viewBtn = document.createElement('button');
+    viewBtn.className = 'btn-action';
+    viewBtn.style.cssText = 'font-size:10px; padding:2px 8px; margin-top:6px; border-color:var(--cloudenum-btn); color:var(--cloudenum-btn);';
+    viewBtn.textContent = '🐳 View in Cloud Panel';
+    viewBtn.addEventListener('click', () => {
+      if (window.__openCloudEnumPanel) window.__openCloudEnumPanel(f.ip);
+    });
+    details.appendChild(viewBtn);
+
+    section.appendChild(details);
+  });
+
+  container.appendChild(section);
+}
 
 export function init({ bruteForce, dirFuzz, shareEnum, credSpray, hardeningMonitor, cloudEnum, applySettingsUI, updateSecurityBadgeDOM } = {}) {
   _bruteForce = bruteForce || null;

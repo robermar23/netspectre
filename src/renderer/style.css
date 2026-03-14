@@ -453,10 +453,10 @@ body {
 }
 
 .nse-dropdown-item {
-  padding: 8px 12px;
+  padding: 8px 10px;
   cursor: pointer;
   border-bottom: 1px solid var(--border-glass);
-  transition: background 0.1s ease;
+  transition: background 0.15s ease;
 }
 
 .nse-dropdown-item:last-child {
@@ -464,7 +464,7 @@ body {
 }
 
 .nse-dropdown-item:hover {
-  background: rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.07);
 }
 
 /* Main Dashboard Area */
