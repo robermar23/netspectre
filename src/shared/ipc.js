@@ -178,4 +178,23 @@ export const IPC_CHANNELS = {
   CLOUDENUM_PROGRESS: 'cloudenum-progress',   // main -> renderer
   CLOUDENUM_COMPLETE: 'cloudenum-complete',   // main -> renderer
   CLOUDENUM_ERROR:    'cloudenum-error',      // main -> renderer
+
+  // ─── Feature 7A — Intercepting Proxy ─────────────────────────────────────────
+  PROXY_START:             'proxy-start',
+  PROXY_STOP:              'proxy-stop',
+  PROXY_STATUS:            'proxy-status',            // main -> renderer
+  PROXY_REQUEST:           'proxy-request',           // main -> renderer (new entry)
+  PROXY_INTERCEPTED:       'proxy-intercepted',       // main -> renderer (paused req)
+  PROXY_FORWARD:           'proxy-forward',           // renderer -> main
+  PROXY_DROP:              'proxy-drop',              // renderer -> main
+  PROXY_SET_INTERCEPT:     'proxy-set-intercept',
+  PROXY_GET_HISTORY:       'proxy-get-history',
+  PROXY_GET_REQUEST:       'proxy-get-request',
+  PROXY_CLEAR_HISTORY:     'proxy-clear-history',
+  PROXY_INSTALL_CA:        'proxy-install-ca',
+  PROXY_EXPORT_HAR:        'proxy-export-har',
+  PROXY_WS_FRAME:          'proxy-ws-frame',          // main -> renderer
+  PROXY_GET_STATUS:        'proxy-get-status',
+  PROXY_DELETE_REQUEST:    'proxy-delete-request',
+  PROXY_GET_CA_PATH:       'proxy-get-ca-path',
 };

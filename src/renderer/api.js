@@ -84,4 +84,7 @@ export const api = {
 
   // Feature 5C: Container & Cloud Enumeration
   cloudEnum: window.electronAPI.cloudEnum,
+
+  // Feature 7A: Intercepting Proxy
+  proxy: window.electronAPI.proxy,
 };
