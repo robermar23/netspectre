@@ -269,9 +269,17 @@ export async function getNmapScripts() {
              .filter(c => c.length > 0);
         }
 
+        // Parse description = [[ ... ]] (Lua long string, dotAll for multi-line)
+        let description = '';
+        const descMatch = content.match(/description\s*=\s*\[\[([^\]]*(?:\][^\]]+)*)\]\]/s);
+        if (descMatch && descMatch[1]) {
+          description = descMatch[1].trim().replace(/\s+/g, ' ').slice(0, 200);
+        }
+
         scripts.push({
           id,
-          categories
+          categories,
+          description
         });
       }
     }

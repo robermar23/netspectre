@@ -26,6 +26,7 @@ function fmtTime(ts) {
 let discoverHostCount = 0; // Tracks hosts found during current modal discover session
 let renderTimeout;
 let scanAllType = 'native'; // 'native' | 'nmap-host' | 'nmap-vuln' | 'nmap-deep'
+let _onHostsRendered = null; // Post-render callback (e.g. re-apply cloud-enum badges)
 
 // Exposed for use by deepScan module
 export let scanAll;
@@ -495,6 +496,9 @@ export function renderAllHosts() {
     }
     elements.hostGrid.appendChild(card);
   });
+
+  // Post-render hook — e.g. re-apply cloud-enum severity badges after card rebuild
+  if (typeof _onHostsRendered === 'function') _onHostsRendered();
 }
 
 export function debouncedRenderAllHosts() {
@@ -512,9 +516,12 @@ export function clearGrid() {
   domUtils.setScanningState(false, state);
 }
 
-export function init({ openDetailsPanel } = {}) {
+export function init({ openDetailsPanel, onHostsRendered } = {}) {
   if (openDetailsPanel) {
     _openDetailsPanel = openDetailsPanel;
+  }
+  if (onHostsRendered) {
+    _onHostsRendered = onHostsRendered;
   }
 
   // View toggles

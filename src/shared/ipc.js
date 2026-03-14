@@ -170,4 +170,12 @@ export const IPC_CHANNELS = {
   CREDSPRAY_PROGRESS: 'credspray-progress',   // main -> renderer
   CREDSPRAY_COMPLETE: 'credspray-complete',   // main -> renderer
   CREDSPRAY_ERROR:    'credspray-error',      // main -> renderer
+
+  // Feature 5C: Container & Cloud Enumeration
+  CLOUDENUM_START:    'cloudenum-start',
+  CLOUDENUM_STOP:     'cloudenum-stop',
+  CLOUDENUM_FINDING:  'cloudenum-finding',    // main -> renderer
+  CLOUDENUM_PROGRESS: 'cloudenum-progress',   // main -> renderer
+  CLOUDENUM_COMPLETE: 'cloudenum-complete',   // main -> renderer
+  CLOUDENUM_ERROR:    'cloudenum-error',      // main -> renderer
 };

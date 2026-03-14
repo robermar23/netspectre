@@ -33,16 +33,20 @@
 - [x] The import .pcap button does nothing  
 - [x] Not necessary to add "host" to the capture filter as it seems to be redundant: "[1] tshark: Invalid capture filter "host host 192.168.1.162" for interface 'Ethernet 2'."
 - [x] No packets are being captured, even no error is shown in the console: "[1] Starting passive capture module: pcap on Ethernet 2"
-- [ ] When smb/nfs shares scanning is enabled, smb or nfs related ports found open for each host, should be able to launch the smb/nfs shared browser right from the host details just like you can with nmap scan and brute force and dir fuzzing.
-- [ ] A user should be able to add an individual already discovered host to the hardening monitor right from its host details
-- [ ] A user, from the hardening monitor panel, should be able to add all existing discovered hosts instead of having to input a cidr
-- [ ] On the hardening monitor panel, when a new host appears, the investigate button does nothing
-- [ ] On the hardening monitor panel, when a new host appears, the investigate button should show the host details panel for that host
-- [ ] On the hardening monitor panel, after I add a baseline from monitoring a subnet, the host details panels does not always show that the host has being monitored
-- [ ] On the passive intelligence panel, capture creds shows this error: "tshark: some fields are not valid: pop.request.org" and console output shows: "Starting passive capture     module: arp on Ethernet 2
+- [x] When smb/nfs shares scanning is enabled, smb or nfs related ports found open for each host, should be able to launch the smb/nfs shared browser right from the host details just like you can with nmap scan and brute force and dir fuzzing.
+- [x] A user should be able to add an individual already discovered host to the hardening monitor right from its host details
+- [x] A user, from the hardening monitor panel, should be able to add all existing discovered hosts instead of having to input a cidr
+- [x] On the hardening monitor panel, when a new host appears, the investigate button does nothing
+- [x] On the hardening monitor panel, when a new host appears, the investigate button should show the host details panel for that host
+- [x] On the hardening monitor panel, after I add a baseline from monitoring a subnet, the host details panels does not always show that the host has being monitored
+- [x] On the passive intelligence panel, capture creds shows this error: "tshark: some fields are not valid: pop.request.org" and console output shows: "Starting passive capture     module: arp on Ethernet 2
   Starting passive module arp at tshark with args: -l -i Ethernet 2 -Y arp.opcode == 2 -T fields -e arp.src.proto_ipv4 -e arp.src.hw_mac -e arp.dst.proto_ipv4 -e arp.dst.hw_mac
   Starting passive capture module: creds on Ethernet 2
   Starting passive module creds at tshark with args: -l -i Ethernet 2 -Y ftp.request.command == USER or ftp.request.command == PASS or telnet.data or http.authorization contains     "Basic" or pop.request.command == USER or pop.request.command == PASS or imap.request contains "LOGIN" -T fields -e ip.src -e ip.dst -e tcp.dstport -e ftp.request.command -e ftp.request.arg -e http.authorization -e pop.request.command -e pop.request.arg -e imap.request   Passive module creds exited with code 1"
+- [ ] On the CloudEnum Panel, after you have discovered some hosts, the "scan host" button on each does nothing.
+- [ ] on the host details panel, under nmap, nmap-scripts.  It used to show info on each script, including it risk and what not.  All that no longer shows up
+- [ ] For the Cloud Enum feature, once a host is discovered, the cloud evidence needs to be stored with the host and show on the host detais panel. The host on the dashboard should get a badge as well signifying that cloud enum found data on it
+- [ ] On the host details panel, only the native port scan, shows options to connect to ports like 22,3389,443,80, etc.  Those ports, discovered by ANY means/tool should be an option under the main ports section where we already offer other netspectre feature quick access buttons.
 
 
 

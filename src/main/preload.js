@@ -168,6 +168,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onCredSprayComplete: (cb) => ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_COMPLETE, (_e, v) => cb(v)),
   onCredSprayError: (cb) => ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_ERROR, (_e, v) => cb(v)),
 
+  // Feature 5C: Container & Cloud Enumeration
+  cloudEnum: {
+    start:      (opts) => ipcRenderer.invoke(IPC_CHANNELS.CLOUDENUM_START, opts),
+    stop:       ()     => ipcRenderer.invoke(IPC_CHANNELS.CLOUDENUM_STOP),
+    onFinding:  (cb)   => ipcRenderer.on(IPC_CHANNELS.CLOUDENUM_FINDING,  (_e, v) => cb(v)),
+    onProgress: (cb)   => ipcRenderer.on(IPC_CHANNELS.CLOUDENUM_PROGRESS, (_e, v) => cb(v)),
+    onComplete: (cb)   => ipcRenderer.on(IPC_CHANNELS.CLOUDENUM_COMPLETE, (_e, v) => cb(v)),
+    onError:    (cb)   => ipcRenderer.on(IPC_CHANNELS.CLOUDENUM_ERROR,    (_e, v) => cb(v)),
+  },
 
   // Cleanup listeners
   removeListeners: () => {
@@ -232,5 +241,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_PROGRESS);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_COMPLETE);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_ERROR);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_FINDING);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_PROGRESS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_COMPLETE);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_ERROR);
   }
 });

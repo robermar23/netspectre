@@ -151,7 +151,18 @@ var IPC_CHANNELS = {
   // main -> renderer
   CREDSPRAY_COMPLETE: "credspray-complete",
   // main -> renderer
-  CREDSPRAY_ERROR: "credspray-error"
+  CREDSPRAY_ERROR: "credspray-error",
+  // main -> renderer
+  // Feature 5C: Container & Cloud Enumeration
+  CLOUDENUM_START: "cloudenum-start",
+  CLOUDENUM_STOP: "cloudenum-stop",
+  CLOUDENUM_FINDING: "cloudenum-finding",
+  // main -> renderer
+  CLOUDENUM_PROGRESS: "cloudenum-progress",
+  // main -> renderer
+  CLOUDENUM_COMPLETE: "cloudenum-complete",
+  // main -> renderer
+  CLOUDENUM_ERROR: "cloudenum-error"
   // main -> renderer
 };
 
@@ -302,6 +313,15 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   onCredSprayProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_PROGRESS, (_e, v) => cb(v)),
   onCredSprayComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_COMPLETE, (_e, v) => cb(v)),
   onCredSprayError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CREDSPRAY_ERROR, (_e, v) => cb(v)),
+  // Feature 5C: Container & Cloud Enumeration
+  cloudEnum: {
+    start: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.CLOUDENUM_START, opts),
+    stop: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.CLOUDENUM_STOP),
+    onFinding: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CLOUDENUM_FINDING, (_e, v) => cb(v)),
+    onProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CLOUDENUM_PROGRESS, (_e, v) => cb(v)),
+    onComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CLOUDENUM_COMPLETE, (_e, v) => cb(v)),
+    onError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CLOUDENUM_ERROR, (_e, v) => cb(v))
+  },
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -365,5 +385,9 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_PROGRESS);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_COMPLETE);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CREDSPRAY_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_FINDING);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_PROGRESS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_COMPLETE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_ERROR);
   }
 });

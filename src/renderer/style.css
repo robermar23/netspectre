@@ -453,10 +453,10 @@ body {
 }
 
 .nse-dropdown-item {
-  padding: 8px 12px;
+  padding: 8px 10px;
   cursor: pointer;
   border-bottom: 1px solid var(--border-glass);
-  transition: background 0.1s ease;
+  transition: background 0.15s ease;
 }
 
 .nse-dropdown-item:last-child {
@@ -464,7 +464,7 @@ body {
 }
 
 .nse-dropdown-item:hover {
-  background: rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.07);
 }
 
 /* Main Dashboard Area */
@@ -2418,3 +2418,123 @@ body {
   100% { box-shadow: 0 0 0 0 rgba(235, 94, 94, 0); }
 }
 
+
+/* ============================================================
+   Feature 5C — Container & Cloud Enumeration
+   ============================================================ */
+
+:root {
+  --cloudenum-btn:      #38bdf8;  /* sky-400 — Docker/K8s blue */
+  --cloudenum-hover:    #7dd3fc;
+  --cloudenum-glow:     rgba(56, 189, 248, 0.3);
+  --cloudenum-dim:      rgba(56, 189, 248, 0.12);
+  --cloudenum-critical: #ef4444;  /* red */
+  --cloudenum-warning:  #f97316;  /* orange */
+  --cloudenum-info:     #3b82f6;  /* blue */
+}
+
+/* Header button */
+.btn.cloudenum {
+  background: var(--cloudenum-dim);
+  color: var(--cloudenum-btn);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn.cloudenum:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: var(--cloudenum-btn);
+  box-shadow: 0 0 12px var(--cloudenum-glow);
+}
+
+.btn.cloudenum:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Badge on header button — shows finding count */
+.cloudenum-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--cloudenum-critical);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 0 4px;
+  margin-left: 4px;
+  animation: cloudenumBadgePulse 2s ease-in-out infinite;
+}
+
+@keyframes cloudenumBadgePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50%       { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+
+/* Finding cards in the panel */
+.cloudenum-finding-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  padding: 10px 12px;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.cloudenum-finding-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cloudenum-finding-card.finding-critical {
+  border-left: 4px solid var(--cloudenum-critical);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.cloudenum-finding-card.finding-warning {
+  border-left: 4px solid var(--cloudenum-warning);
+  background: rgba(249, 115, 22, 0.05);
+}
+
+.cloudenum-finding-card.finding-info {
+  border-left: 4px solid var(--cloudenum-info);
+  background: rgba(59, 130, 246, 0.04);
+}
+
+/* Severity badge (reusable across features) */
+.severity-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.severity-badge.critical {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--cloudenum-critical);
+}
+
+.severity-badge.warning {
+  background: rgba(249, 115, 22, 0.2);
+  color: var(--cloudenum-warning);
+}
+
+.severity-badge.info {
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--cloudenum-info);
+}
+
+/* Animate new finding card in */
+.cloudenum-finding-card {
+  animation: cloudenumCardIn 0.25s ease-out;
+}
+
+@keyframes cloudenumCardIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

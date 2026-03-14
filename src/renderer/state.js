@@ -19,5 +19,9 @@ export const state = {
 
   // Feature 5B: Credential Spray
   isCredSprayRunning: false,
-  credSprayHits: []
+  credSprayHits: [],
+
+  // Feature 5C: Container & Cloud Enumeration
+  isCloudEnumRunning: false,
+  cloudFindings: [],         // [{ ip, service, port, severity, title, description, evidence, remediation }]
 };
