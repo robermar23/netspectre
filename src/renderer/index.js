@@ -23,6 +23,7 @@ import { init as initShareEnum } from './modules/shareEnum.js';
 import { init as initDirFuzz } from './modules/dirFuzz.js';
 import { init as initCredSpray } from './modules/credSpray.js';
 import { init as initHardeningMonitor, setOpenDetailsPanelRef as setHardeningDetailsPanelRef } from './modules/hardeningMonitor.js';
+import { init as initCloudEnum } from './modules/cloudEnum.js';
 import { init as initHostDetails } from './modules/hostDetails.js';
 import { init as initDeepScan } from './modules/deepScan.js';
 import { init as initPassiveIntel } from './modules/passiveIntel.js';
@@ -44,6 +45,7 @@ async function boot() {
   const shareEnum    = initShareEnum();
   const dirFuzz      = initDirFuzz();
   const credSpray    = initCredSpray();
+  const cloudEnum    = initCloudEnum();    // eslint-disable-line no-unused-vars
 
   // 4. Hardening monitor (needs renderAllHosts helpers)
   const hardeningMonitor = initHardeningMonitor({
@@ -59,6 +61,7 @@ async function boot() {
     shareEnum,
     credSpray,
     hardeningMonitor,
+    cloudEnum,
     applySettingsUI,
     updateSecurityBadgeDOM,
   });

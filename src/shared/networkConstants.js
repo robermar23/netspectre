@@ -236,6 +236,33 @@ export const TIMEOUTS = {
   TELNET_BANNER_MS:  3_000,
 };
 
+// Feature 5C — Container/Cloud indicator ports
+export const CONTAINER_INDICATOR_PORTS = {
+  DOCKER_DAEMON:     2375,  // Docker remote API (unencrypted) — CRITICAL
+  DOCKER_DAEMON_TLS: 2376,  // Docker remote API (TLS)
+  KUBELET:           10250, // Kubernetes Kubelet API — CRITICAL
+  KUBELET_RO:        10255, // Kubernetes Kubelet read-only API (deprecated)
+  KUBE_API:          6443,  // Kubernetes API server (TLS)
+  KUBE_API_HTTP:     8080,  // Kubernetes API server (insecure, legacy)
+  ETCD:              2379,  // etcd client port
+  ETCD_PEER:         2380,  // etcd peer port
+  CONSUL:            8500,  // HashiCorp Consul HTTP API
+  NOMAD:             4646,  // HashiCorp Nomad HTTP API
+  VAULT:             8200,  // HashiCorp Vault API
+  PORTAINER:         9000,  // Portainer Docker management UI
+  PROMETHEUS:        9090,  // Prometheus metrics
+  GRAFANA:           3000,  // Grafana dashboard
+};
+
+// Feature 5C — Cloud metadata probe paths (SSRF indicators)
+export const CLOUD_METADATA_PATHS = [
+  { path: '/latest/meta-data/',                         provider: 'AWS EC2' },
+  { path: '/metadata/instance?api-version=2021-02-01',  provider: 'Azure IMDS' },
+  { path: '/computeMetadata/v1/',                       provider: 'GCP' },
+  { path: '/opc/v1/instance/',                          provider: 'Oracle Cloud' },
+  { path: '/v1/data-dog',                               provider: 'DigitalOcean' },
+];
+
 export const COMMON_WEB_PATHS = [
   '/admin', '/login', '/logout', '/dashboard', '/api', '/api/v1', '/api/v2',
   '/config', '/configuration', '/setup', '/install', '/backup', '/db',

@@ -644,6 +644,13 @@ function openDetailsPanel(host) {
       const spraySection = createCredSprayQuickAction(host.ip);
       portsList.parentElement.appendChild(spraySection);
     }
+
+    // Container & Cloud Enumeration quick-action
+    // Show when container-indicator ports are detected or as a universal option
+    const containerPorts = [2375, 2376, 6443, 8080, 10250, 10255, 2379, 8500, 8200, 9000, 9090, 3000];
+    const hasContainerPort = host.ports.some(p => containerPorts.includes(p));
+    const cloudSection = createCloudEnumQuickAction(host.ip, hasContainerPort);
+    portsList.parentElement.appendChild(cloudSection);
   }
 
   if (host.nmapData && host.nmapData.vulnerabilities && host.nmapData.vulnerabilities.length > 0) {
@@ -745,6 +752,41 @@ function createCredSprayQuickAction(ip) {
   });
 
   container.append(label, btn);
+  return container;
+}
+
+/**
+ * Creates a Container & Cloud Enumeration quick-action block for the host details panel.
+ * @param {string} ip
+ * @param {boolean} hasContainerPort - if true, shows a highlighted "Container ports detected" indicator
+ */
+function createCloudEnumQuickAction(ip, hasContainerPort) {
+  const container = document.createElement('div');
+  container.style.cssText = 'margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
+
+  const label = document.createElement('span');
+  label.style.cssText = 'font-size: 11px; color: var(--text-muted);';
+  label.textContent = '🐳 Cloud Enum:';
+
+  const btn = document.createElement('button');
+  btn.className = 'btn-action';
+  btn.style.cssText = 'font-size: 10px; padding: 3px 8px; border-color: var(--cloudenum-btn); color: var(--cloudenum-btn);';
+  btn.textContent = hasContainerPort ? 'Scan (container ports detected)' : 'Probe for Containers';
+  btn.title = `Probe ${ip} for Docker, Kubernetes, etcd, Consul, cloud metadata, and more`;
+  btn.addEventListener('click', () => {
+    if (_cloudEnum) _cloudEnum.openPanel(ip);
+    else if (window.__openCloudEnumPanel) window.__openCloudEnumPanel(ip);
+  });
+
+  if (hasContainerPort) {
+    const badge = document.createElement('span');
+    badge.style.cssText = 'font-size: 9px; padding: 1px 5px; border-radius: 8px; background: rgba(239,68,68,0.2); color: #ef4444; font-weight: 700;';
+    badge.textContent = '⚠ CRITICAL PORTS';
+    container.append(label, btn, badge);
+  } else {
+    container.append(label, btn);
+  }
+
   return container;
 }
 
@@ -1158,12 +1200,15 @@ function attachDetailsPanelListeners(host) {
   });
 }
 
-export function init({ bruteForce, dirFuzz, shareEnum, credSpray, hardeningMonitor, applySettingsUI, updateSecurityBadgeDOM } = {}) {
+let _cloudEnum = null;
+
+export function init({ bruteForce, dirFuzz, shareEnum, credSpray, hardeningMonitor, cloudEnum, applySettingsUI, updateSecurityBadgeDOM } = {}) {
   _bruteForce = bruteForce || null;
   _dirFuzz = dirFuzz || null;
   _shareEnum = shareEnum || null;
   _credSpray = credSpray || null;
   _hardeningMonitor = hardeningMonitor || null;
+  _cloudEnum = cloudEnum || null;
   _applySettingsUI = applySettingsUI || null;
   _updateSecurityBadgeDOM = updateSecurityBadgeDOM || null;
 

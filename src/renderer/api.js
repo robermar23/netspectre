@@ -81,4 +81,7 @@ export const api = {
   // Feature 5B: Credential Spray
   startCredSpray: async (opts) => window.electronAPI.startCredSpray(opts),
   stopCredSpray: async () => window.electronAPI.stopCredSpray(),
+
+  // Feature 5C: Container & Cloud Enumeration
+  cloudEnum: window.electronAPI.cloudEnum,
 };

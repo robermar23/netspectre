@@ -23,6 +23,7 @@ import { registerIpcHandlers as registerShareHandlers, cleanupShares } from './s
 import { registerIpcHandlers as registerDirFuzzHandlers, cleanupDirFuzz } from './dirFuzzer.js';
 import { registerIpcHandlers as registerHardeningHandlers, stopAllMonitors } from './hardeningMonitor.js';
 import { registerIpcHandlers as registerCredSprayHandlers, cleanupCredSpray } from './credSpray.js';
+import { registerIpcHandlers as registerCloudEnumHandlers, cleanupCloudEnum } from './cloudEnum.js';
 import { registerIpcHandlers as registerScanHandlers } from './ipc/scanIpc.js';
 import { registerIpcHandlers as registerSettingsHandlers } from './ipc/settingsIpc.js';
 import { registerIpcHandlers as registerFileHandlers } from './ipc/fileIpc.js';
@@ -93,6 +94,7 @@ async function createWindow() {
   registerDirFuzzHandlers(ipcMain, getWindow);
   registerHardeningHandlers(ipcMain, getWindow);
   registerCredSprayHandlers(ipcMain, getWindow);
+  registerCloudEnumHandlers(ipcMain, getWindow);
 }
 
 app.whenReady().then(() => {
@@ -139,5 +141,6 @@ app.on('window-all-closed', function () {
   cleanupDirFuzz();
   stopAllMonitors();
   cleanupCredSpray();
+  cleanupCloudEnum();
   if (process.platform !== 'darwin') app.quit();
 });
