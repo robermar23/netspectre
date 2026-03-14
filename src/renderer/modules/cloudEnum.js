@@ -44,35 +44,9 @@ function closePanelHelper(panel, resizer) {
 }
 
 // ─── UI element cache ─────────────────────────────────────────────────────────
+// Populated in init() so tests can set up the DOM before wiring begins.
 
-const ui = {
-  panel:             document.getElementById('cloudenum-panel'),
-  resizer:           document.getElementById('cloudenum-resizer'),
-  btnOpen:           document.getElementById('btn-cloudenum-open'),
-  btnClose:          document.getElementById('btn-close-cloudenum-panel'),
-  btnStart:          document.getElementById('btn-cloudenum-start'),
-  btnStop:           document.getElementById('btn-cloudenum-stop'),
-  btnClear:          document.getElementById('btn-cloudenum-clear'),
-  btnExport:         document.getElementById('btn-cloudenum-export'),
-  targetMode:        document.getElementById('cloudenum-target-mode'),
-  targetIp:          document.getElementById('cloudenum-target-ip'),
-  targetIpGroup:     document.getElementById('cloudenum-single-ip-group'),
-  concurrencySlider: document.getElementById('cloudenum-concurrency'),
-  concurrencyLabel:  document.getElementById('cloudenum-concurrency-label'),
-  probeCbs:          () => document.querySelectorAll('.cloudenum-probe-cb'),
-  progressBar:       document.getElementById('cloudenum-progress-bar'),
-  progressText:      document.getElementById('cloudenum-progress-text'),
-  progressPct:       document.getElementById('cloudenum-progress-pct'),
-  progressContainer: document.getElementById('cloudenum-progress-container'),
-  errorBanner:       document.getElementById('cloudenum-error-banner'),
-  findingsList:      document.getElementById('cloudenum-findings-list'),
-  statsRow:          document.getElementById('cloudenum-stats-row'),
-  statsCritical:     document.getElementById('cloudenum-stats-critical'),
-  statsWarning:      document.getElementById('cloudenum-stats-warning'),
-  statsInfo:         document.getElementById('cloudenum-stats-info'),
-  footerText:        document.getElementById('cloudenum-footer-text'),
-  noFindings:        document.getElementById('cloudenum-no-findings'),
-};
+let ui = {};
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
@@ -163,6 +137,9 @@ const vm = {
     const card = document.createElement('div');
     card.className = `cloudenum-finding-card finding-${finding.severity}`;
     card.dataset.ip = finding.ip;
+    if (_singleIpFilter && finding.ip !== _singleIpFilter) {
+      card.style.display = 'none';
+    }
 
     // Header row
     const header = document.createElement('div');
@@ -365,7 +342,11 @@ async function runCloudEnum() {
   if (ui.progressText) ui.progressText.textContent = 'Starting enumeration…';
 
   try {
-    await api.cloudEnum.start({ targets, probes, concurrency });
+    const res = await api.cloudEnum.start({ targets, probes, concurrency });
+    if (!res || res.status !== 'started') {
+      vm.setRunning(false);
+      vm.showError(res?.error || 'Failed to start enumeration');
+    }
   } catch (err) {
     vm.showError(`Failed to start: ${err.message}`);
     vm.setRunning(false);
@@ -389,6 +370,36 @@ function exportFindingsJson() {
 // ─── init() ──────────────────────────────────────────────────────────────────
 
 export function init() {
+  // Populate DOM element cache now that the document is ready
+  Object.assign(ui, {
+    panel:             document.getElementById('cloudenum-panel'),
+    resizer:           document.getElementById('cloudenum-resizer'),
+    btnOpen:           document.getElementById('btn-cloudenum-open'),
+    btnClose:          document.getElementById('btn-close-cloudenum-panel'),
+    btnStart:          document.getElementById('btn-cloudenum-start'),
+    btnStop:           document.getElementById('btn-cloudenum-stop'),
+    btnClear:          document.getElementById('btn-cloudenum-clear'),
+    btnExport:         document.getElementById('btn-cloudenum-export'),
+    targetMode:        document.getElementById('cloudenum-target-mode'),
+    targetIp:          document.getElementById('cloudenum-target-ip'),
+    targetIpGroup:     document.getElementById('cloudenum-single-ip-group'),
+    concurrencySlider: document.getElementById('cloudenum-concurrency'),
+    concurrencyLabel:  document.getElementById('cloudenum-concurrency-label'),
+    probeCbs:          () => document.querySelectorAll('.cloudenum-probe-cb'),
+    progressBar:       document.getElementById('cloudenum-progress-bar'),
+    progressText:      document.getElementById('cloudenum-progress-text'),
+    progressPct:       document.getElementById('cloudenum-progress-pct'),
+    progressContainer: document.getElementById('cloudenum-progress-container'),
+    errorBanner:       document.getElementById('cloudenum-error-banner'),
+    findingsList:      document.getElementById('cloudenum-findings-list'),
+    statsRow:          document.getElementById('cloudenum-stats-row'),
+    statsCritical:     document.getElementById('cloudenum-stats-critical'),
+    statsWarning:      document.getElementById('cloudenum-stats-warning'),
+    statsInfo:         document.getElementById('cloudenum-stats-info'),
+    footerText:        document.getElementById('cloudenum-footer-text'),
+    noFindings:        document.getElementById('cloudenum-no-findings'),
+  });
+
   // Panel resize handle
   if (ui.resizer && ui.panel) {
     let startX, startWidth;

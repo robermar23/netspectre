@@ -32,6 +32,7 @@ import {
   startCloudEnum,
   stopCloudEnum,
   cleanupCloudEnum,
+  isCloudEnumRunning,
   registerIpcHandlers,
 } from '../src/main/cloudEnum.js';
 
@@ -395,6 +396,49 @@ describe('probePortainer', () => {
   });
 });
 
+// ─── probeGrafana ─────────────────────────────────────────────────────────────
+
+describe('probeGrafana', () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it('returns an info finding when /api/health responds with database field', async () => {
+    mockHttpRequest(http, 200, '{"database":"ok","version":"10.0.0"}');
+    const result = await probeGrafana('192.168.1.1', null);
+    expect(result).not.toBeNull();
+    expect(result.service).toBe('grafana');
+    expect(result.port).toBe(3000);
+    expect(result.severity).toBe('info');
+    expect(result.title).toBeTruthy();
+    expect(result.evidence).toMatch(/HTTP 200/);
+  });
+
+  it('returns null when /api/health response does not include database field', async () => {
+    mockHttpRequest(http, 200, '{"status":"ok"}');
+    const result = await probeGrafana('192.168.1.1', null);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when port is closed (connection error)', async () => {
+    mockHttpRequestError(http, 'ECONNREFUSED');
+    const result = await probeGrafana('192.168.1.1', null);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when server returns a non-200 status', async () => {
+    mockHttpRequest(http, 404, 'Not Found');
+    const result = await probeGrafana('192.168.1.1', null);
+    expect(result).toBeNull();
+  });
+
+  it('respects AbortSignal and returns null when pre-aborted', async () => {
+    const ctrl = new AbortController();
+    ctrl.abort();
+    // No HTTP mock needed — signal check should short-circuit before any request
+    const result = await probeGrafana('192.168.1.1', ctrl.signal);
+    expect(result).toBeNull();
+  });
+});
+
 // ─── fingerprint (full probe suite) ──────────────────────────────────────────
 
 describe('fingerprint', () => {
@@ -693,6 +737,28 @@ describe('registerIpcHandlers', () => {
     });
     expect(result.status).toBe('started');
     expect(result.targets).toBe(2); // only valid IPs counted
+  });
+
+  it('CLOUDENUM_START returns error status when a session is already running', async () => {
+    // Make HTTP requests hang indefinitely so session stays active
+    http.request.mockImplementation(() => ({
+      on: vi.fn().mockReturnThis(), end: vi.fn(), destroy: vi.fn(),
+    }));
+    https.request.mockImplementation(() => ({
+      on: vi.fn().mockReturnThis(), end: vi.fn(), destroy: vi.fn(),
+    }));
+
+    registerIpcHandlers(ipcMain, () => ({ webContents: { send: vi.fn() } }));
+
+    // Start first session (do not await — it hangs)
+    handlers['cloudenum-start']({}, { targets: ['192.168.1.1'] });
+
+    // Attempt a second session while first is running
+    const result = await handlers['cloudenum-start']({}, { targets: ['192.168.1.2'] });
+    expect(result.status).toBe('error');
+    expect(result.error).toMatch(/already running/i);
+
+    stopCloudEnum();
   });
 
   it('CLOUDENUM_STOP returns stopped status', async () => {

@@ -494,6 +494,10 @@ export async function startCloudEnum(opts, onFinding, onProgress, onComplete, on
   }
 }
 
+export function isCloudEnumRunning() {
+  return activeController !== null;
+}
+
 export function stopCloudEnum() {
   if (activeController) {
     activeController.abort();
@@ -521,6 +525,10 @@ export function registerIpcHandlers(ipcMain, getWindow) {
     const validTargets = options.targets.filter(ip => typeof ip === 'string' && ipRegex.test(ip));
     if (validTargets.length === 0) {
       return { status: 'error', error: 'No valid IP addresses in targets list.' };
+    }
+
+    if (isCloudEnumRunning()) {
+      return { status: 'error', error: 'A cloud enumeration session is already running.' };
     }
 
     startCloudEnum(

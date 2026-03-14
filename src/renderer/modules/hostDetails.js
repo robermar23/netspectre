@@ -1,6 +1,7 @@
 import { elements } from '../ui.js';
 import { api } from '../api.js';
 import { state } from '../state.js';
+import { CONTAINER_INDICATOR_PORTS } from '#shared/networkConstants.js';
 
 function escapeHtml(unsafe) {
   if (unsafe == null) return '';
@@ -651,7 +652,7 @@ function openDetailsPanel(host) {
 
     // Container & Cloud Enumeration quick-action
     // Show when container-indicator ports are detected or as a universal option
-    const containerPorts = [2375, 2376, 6443, 8080, 10250, 10255, 2379, 8500, 8200, 9000, 9090, 3000];
+    const containerPorts = Object.values(CONTAINER_INDICATOR_PORTS);
     const hasContainerPort = host.ports.some(p => containerPorts.includes(p));
     const cloudSection = createCloudEnumQuickAction(host.ip, hasContainerPort);
     portsList.parentElement.appendChild(cloudSection);
