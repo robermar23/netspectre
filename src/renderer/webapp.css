@@ -1990,6 +1990,23 @@
   margin-right: 4px;
   margin-bottom: 4px;
 }
+.ref-chip-link {
+  cursor: pointer;
+  text-decoration: none;
+  background: rgba(139,92,246,0.22);
+  border-color: rgba(139,92,246,0.5);
+  transition: background 0.15s, border-color 0.15s;
+}
+.ref-chip-link::after {
+  content: ' ↗';
+  font-size: 9px;
+  opacity: 0.7;
+}
+.ref-chip-link:hover {
+  background: rgba(139,92,246,0.4);
+  border-color: #a78bfa;
+  color: #fff;
+}
 
 /* ── Network Workspace Web Vuln Badge ─────────────────────────────────────────── */
 .web-vuln-badge {

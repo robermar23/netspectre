@@ -372,6 +372,13 @@ function _buildFindingRow(f) {
     _probeInNetwork(f);
   });
 
+  detail.querySelectorAll('.ref-chip-link[data-href]').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.electronAPI.openUrl(chip.dataset.href);
+    });
+  });
+
   wrapper.appendChild(header);
   wrapper.appendChild(detail);
   return wrapper;
@@ -406,7 +413,12 @@ function _buildDetailHtml(f) {
       </div>
       ${f.references?.length ? `<div class="scanner-detail-section">
         <div class="scanner-detail-label">References</div>
-        <div class="scanner-detail-value">${f.references.map(r => `<span class="ref-chip">${_esc(r)}</span>`).join(' ')}</div>
+        <div class="scanner-detail-value">${f.references.map(r => {
+          const url = _refToUrl(r);
+          return url
+            ? `<a class="ref-chip ref-chip-link" data-href="${_esc(url)}" title="${_esc(url)}">${_esc(r)}</a>`
+            : `<span class="ref-chip">${_esc(r)}</span>`;
+        }).join(' ')}</div>
       </div>` : ''}
       ${hostname ? `<div class="scanner-detail-section scanner-detail-actions">
         <button class="btn-probe-network" data-id="${_esc(f.id)}" title="Resolve ${_esc(hostname)} to IP and add to Network workspace">
@@ -795,6 +807,39 @@ function _synthesizeBody(node, method) {
     return { data: '{}', contentType: 'application/json' };
   }
   return { data: null, contentType: null };
+}
+
+// ─── Reference URL resolver ───────────────────────────────────────────────────
+
+/** OWASP Top 10 2021 category → canonical URL */
+const OWASP_URLS = {
+  'OWASP A01:2021': 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/',
+  'OWASP A02:2021': 'https://owasp.org/Top10/A02_2021-Cryptographic_Failures/',
+  'OWASP A03:2021': 'https://owasp.org/Top10/A03_2021-Injection/',
+  'OWASP A04:2021': 'https://owasp.org/Top10/A04_2021-Insecure_Design/',
+  'OWASP A05:2021': 'https://owasp.org/Top10/A05_2021-Security_Misconfiguration/',
+  'OWASP A06:2021': 'https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/',
+  'OWASP A07:2021': 'https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/',
+  'OWASP A08:2021': 'https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/',
+  'OWASP A09:2021': 'https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/',
+  'OWASP A10:2021': 'https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/',
+  'OWASP Secure Headers Project': 'https://owasp.org/www-project-secure-headers/',
+};
+
+/**
+ * Resolve a reference string to a canonical URL, or null if unknown.
+ * Handles: CWE-NNN, OWASP ANN:YYYY, named strings, and bare https:// URLs.
+ */
+function _refToUrl(ref) {
+  if (!ref) return null;
+  // Already a full URL
+  if (ref.startsWith('https://') || ref.startsWith('http://')) return ref;
+  // CWE-NNN → MITRE CWE entry
+  const cweMatch = ref.match(/^CWE-(\d+)$/i);
+  if (cweMatch) return `https://cwe.mitre.org/data/definitions/${cweMatch[1]}.html`;
+  // OWASP named entries
+  if (OWASP_URLS[ref]) return OWASP_URLS[ref];
+  return null;
 }
 
 // ─── Public: pre-fill from Network workspace ──────────────────────────────────
