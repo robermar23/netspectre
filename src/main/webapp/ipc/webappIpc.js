@@ -6,6 +6,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import dns from 'dns';
 import { app, shell } from 'electron';
 import { IPC_CHANNELS } from '#shared/ipc.js';
 import {
@@ -24,6 +25,10 @@ import {
   startActiveCrawl, stopActiveCrawl, isActiveCrawlRunning, isPlaywrightAvailable,
 } from '../activeCrawler.js';
 import { detectApiSchemas } from '../apiDetector.js';
+import {
+  startScan, stopScan, isScanRunning, cleanupScan,
+  getFindings, clearFindings,
+} from '../scanner/index.js';
 
 export function registerIpcHandlers(ipcMain, getWindow) {
 
@@ -340,6 +345,97 @@ export function registerIpcHandlers(ipcMain, getWindow) {
     return { success: true };
   });
 
+  // ─── Feature 7C — Active Vulnerability Scanner ────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.SCANNER_START, async (_event, opts = {}) => {
+    if (isScanRunning()) {
+      return { success: false, error: 'Scan already running.' };
+    }
+
+    // Validate targets
+    if (!Array.isArray(opts.targets) || !opts.targets.length) {
+      return { success: false, error: 'No scan targets provided.' };
+    }
+    for (const t of opts.targets) {
+      try { new URL(t.url); } catch {
+        return { success: false, error: `Invalid target URL: ${t.url}` };
+      }
+    }
+
+    const win = getWindow();
+
+    startScan(
+      opts,
+      // onFinding
+      (finding) => {
+        win?.webContents.send(IPC_CHANNELS.SCANNER_FINDING, finding);
+      },
+      // onProgress
+      (progress) => {
+        win?.webContents.send(IPC_CHANNELS.SCANNER_PROGRESS, progress);
+      },
+      // onComplete
+      (result) => {
+        win?.webContents.send(IPC_CHANNELS.SCANNER_COMPLETE, result);
+      },
+      // onError
+      (err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        win?.webContents.send(IPC_CHANNELS.SCANNER_ERROR, { message });
+      },
+    );
+
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SCANNER_STOP, async () => {
+    stopScan();
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SCANNER_GET_FINDINGS, async () => {
+    return { success: true, findings: getFindings() };
+  });
+
+  // ─── DNS Resolution (hostname → IP for cross-workspace pivot) ────────────────
+
+  ipcMain.handle(IPC_CHANNELS.DNS_RESOLVE, async (_event, hostname) => {
+    if (!hostname || typeof hostname !== 'string') {
+      return { success: false, error: 'Invalid hostname' };
+    }
+    // Already an IPv4 address — return as-is
+    if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname)) {
+      return { success: true, ip: hostname, hostname };
+    }
+    try {
+      const result = await dns.promises.lookup(hostname, { family: 4 });
+      return { success: true, ip: result.address, hostname };
+    } catch (err) {
+      return { success: false, error: err.message, hostname };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SCANNER_CLEAR, async () => {
+    clearFindings();
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SCANNER_EXPORT, async (_event, { format = 'json', findings = [] } = {}) => {
+    try {
+      let content;
+      if (format === 'csv') {
+        content = _findingsToCsv(findings);
+      } else if (format === 'html') {
+        content = _findingsToHtml(findings);
+      } else {
+        content = JSON.stringify(findings, null, 2);
+      }
+      return { success: true, content };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // ─── Playwright availability check ────────────────────────────────────────────
 
   ipcMain.handle(IPC_CHANNELS.PLAYWRIGHT_CHECK, async () => {
@@ -356,6 +452,7 @@ export function registerIpcHandlers(ipcMain, getWindow) {
 export function cleanupWebapp() {
   stopProxy();
   stopActiveCrawl();
+  cleanupScan();
   closeRequestStore();
 }
 
@@ -387,6 +484,49 @@ function _toSummary(record) {
     responseHeaders: record.responseHeaders,
   };
 }
+
+function _findingsToCsv(findings) {
+  const headers = ['id','severity','type','title','url','parameter','payload','timestamp'];
+  const rows = findings.map(f => headers.map(h => {
+    const v = f[h] ?? '';
+    return `"${String(v).replace(/"/g, '""')}"`;
+  }).join(','));
+  return [headers.join(','), ...rows].join('\r\n');
+}
+
+function _findingsToHtml(findings) {
+  const SEVERITY_COLORS = {
+    critical: '#ef4444', high: '#f97316', medium: '#eab308',
+    low: '#3b82f6', info: '#6b7280',
+  };
+  const rows = findings.map(f => {
+    const color = SEVERITY_COLORS[f.severity] || '#6b7280';
+    return `<tr>
+      <td><span style="background:${color};color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:700">${f.severity.toUpperCase()}</span></td>
+      <td>${_esc(f.type)}</td>
+      <td>${_esc(f.title)}</td>
+      <td style="word-break:break-all">${_esc(f.url)}</td>
+      <td>${_esc(f.parameter || '')}</td>
+      <td>${_esc(f.remediation || '')}</td>
+    </tr>`;
+  }).join('');
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>NetSpecter Scan Report</title>
+<style>body{font-family:system-ui,sans-serif;background:#0f0f14;color:#e2e8f0;padding:24px}
+h1{color:#8b5cf6;margin-bottom:4px}
+.meta{color:#6b7280;font-size:13px;margin-bottom:24px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#1e1e2e;color:#a0aec0;padding:8px 12px;text-align:left;border-bottom:1px solid #2d2d3f}
+td{padding:8px 12px;border-bottom:1px solid #1a1a2e;vertical-align:top}
+tr:hover td{background:rgba(139,92,246,.08)}</style></head>
+<body>
+<h1>🕷️ NetSpecter Vulnerability Report</h1>
+<div class="meta">Generated: ${new Date().toISOString()} — ${findings.length} finding(s)</div>
+<table><thead><tr><th>Severity</th><th>Type</th><th>Title</th><th>URL</th><th>Parameter</th><th>Remediation</th></tr></thead>
+<tbody>${rows}</tbody></table></body></html>`;
+}
+
+function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function _spawnSafe(cmd, args) {
   return new Promise((resolve, reject) => {

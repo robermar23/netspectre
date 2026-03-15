@@ -7,6 +7,7 @@
 import { state } from '../../state.js';
 import { init as initProxy } from './proxy.js';
 import { init as initSitemap, setTargetUrl as setSitemapTarget } from './sitemap.js';
+import { init as initScanner, scanUrl } from './scanner.js';
 
 // ─── Workspace Switcher ────────────────────────────────────────────────────────
 
@@ -96,6 +97,20 @@ export function openInWebApp(url) {
   setSitemapTarget(url);
 }
 
+/**
+ * Open the Scanner panel and pre-fill a URL target.
+ * Called from hostDetails.js via window.__openScannerPanel(url).
+ */
+export function openInScanner(url) {
+  const webappTab = document.querySelector('.workspace-tab[data-workspace="webapp"]');
+  webappTab?.click();
+
+  const scannerItem = document.querySelector('#webapp-sidebar .sidebar-item[data-panel="scanner"]');
+  scannerItem?.click();
+
+  scanUrl(url);
+}
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
 export function init() {
@@ -103,7 +118,9 @@ export function init() {
   _initSidebar();
   initProxy();
   initSitemap();
+  initScanner();
 
-  // Expose pivot function globally for hostDetails integration
+  // Expose pivot functions globally for hostDetails / Network workspace integration
   window.__openWebAppWorkspace = openInWebApp;
+  window.__openScannerPanel    = openInScanner;
 }

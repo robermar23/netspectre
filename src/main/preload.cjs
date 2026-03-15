@@ -213,7 +213,23 @@ var IPC_CHANNELS = {
   // main -> renderer
   API_DETECT_COMPLETE: "api-detect-complete",
   // main -> renderer { found: number }
-  PLAYWRIGHT_CHECK: "playwright-check"
+  PLAYWRIGHT_CHECK: "playwright-check",
+  // ─── Feature 7B/7C — DNS resolution (hostname → IP for cross-workspace pivot)
+  DNS_RESOLVE: "dns-resolve",
+  // ─── Feature 7C — Active Vulnerability Scanner ────────────────────────────
+  SCANNER_START: "scanner-start",
+  SCANNER_STOP: "scanner-stop",
+  SCANNER_FINDING: "scanner-finding",
+  // main -> renderer
+  SCANNER_PROGRESS: "scanner-progress",
+  // main -> renderer
+  SCANNER_COMPLETE: "scanner-complete",
+  // main -> renderer
+  SCANNER_ERROR: "scanner-error",
+  // main -> renderer
+  SCANNER_GET_FINDINGS: "scanner-get-findings",
+  SCANNER_EXPORT: "scanner-export",
+  SCANNER_CLEAR: "scanner-clear"
 };
 
 // src/main/preload.js
@@ -411,6 +427,20 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     onApiSchemaFound: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.API_SCHEMA_FOUND, (_e, v) => cb(v)),
     onApiDetectComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.API_DETECT_COMPLETE, (_e, v) => cb(v))
   },
+  // Feature 7B/7C: DNS resolution (hostname → IP, for cross-workspace pivot)
+  resolveHostname: (hostname) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.DNS_RESOLVE, hostname),
+  // Feature 7C: Active Vulnerability Scanner
+  scanner: {
+    start: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SCANNER_START, opts),
+    stop: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SCANNER_STOP),
+    getFindings: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SCANNER_GET_FINDINGS),
+    clear: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SCANNER_CLEAR),
+    export: (format, findings) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SCANNER_EXPORT, { format, findings }),
+    onFinding: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SCANNER_FINDING, (_e, v) => cb(v)),
+    onProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SCANNER_PROGRESS, (_e, v) => cb(v)),
+    onComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SCANNER_COMPLETE, (_e, v) => cb(v)),
+    onError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SCANNER_ERROR, (_e, v) => cb(v))
+  },
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -489,5 +519,9 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CRAWLER_ERROR);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CRAWLER_DEPENDENCY_MISSING);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.API_SCHEMA_FOUND);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_FINDING);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_PROGRESS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_COMPLETE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_ERROR);
   }
 });

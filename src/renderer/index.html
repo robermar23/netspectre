@@ -1794,9 +1794,158 @@
             </div>
 
           </section><!-- end #webapp-panel-sitemap -->
-          <section id="webapp-panel-scanner"  class="webapp-panel" style="display:none;">
-            <div class="proxy-empty-state" style="margin:40px auto;">🔍 Scanner — Phase 7C</div>
-          </section>
+          <!-- ═══════════════════════════════════════════════════════════════
+               Vulnerability Scanner Panel (Feature 7C)
+               ═══════════════════════════════════════════════════════════════ -->
+          <section id="webapp-panel-scanner" class="webapp-panel scanner-panel" style="display:none;">
+
+            <!-- Controls Bar -->
+            <div class="scanner-controls-bar">
+              <div class="scanner-controls-left">
+                <span class="scanner-icon">🔍</span>
+                <span class="scanner-title">Vulnerability Scanner</span>
+              </div>
+              <div class="scanner-controls-right">
+                <button id="scanner-start-btn" class="btn webapp scanner-start-btn">▶ Start Scan</button>
+                <button id="scanner-stop-btn"  class="btn secondary" disabled>⏹ Stop</button>
+                <button id="scanner-clear-btn" class="btn secondary">🗑 Clear</button>
+                <div class="scanner-export-wrap">
+                  <button id="scanner-export-btn" class="btn secondary" title="Export findings">⬇ Export ▾</button>
+                  <div id="scanner-export-dropdown" class="scanner-export-dropdown">
+                    <button id="scanner-export-json" class="ctx-item">Export JSON</button>
+                    <button id="scanner-export-csv"  class="ctx-item">Export CSV</button>
+                    <button id="scanner-export-html" class="ctx-item">Export HTML Report</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Config + Progress Row -->
+            <div class="scanner-config-row">
+              <!-- Left: Target + Module config -->
+              <div class="scanner-config-left">
+
+                <!-- Target Mode -->
+                <div class="scanner-config-group">
+                  <div class="scanner-config-label">Target</div>
+                  <div class="scanner-target-modes">
+                    <label class="scanner-radio-label">
+                      <input type="radio" name="scanner-target-mode" value="url" checked>
+                      <span>URL</span>
+                    </label>
+                    <label class="scanner-radio-label">
+                      <input type="radio" name="scanner-target-mode" value="history">
+                      <span>Proxy History</span>
+                    </label>
+                    <label class="scanner-radio-label">
+                      <input type="radio" name="scanner-target-mode" value="sitemap">
+                      <span>Sitemap</span>
+                    </label>
+                  </div>
+                  <input id="scanner-url-input" class="scanner-url-input" type="text"
+                    placeholder="https://target.com/api/endpoint" spellcheck="false">
+                </div>
+
+                <!-- Module Selection -->
+                <div class="scanner-config-group">
+                  <div class="scanner-config-label">Scan Modules</div>
+                  <div class="scanner-modules-grid">
+                    <label class="scanner-module-label" title="SQL Injection">
+                      <input type="checkbox" class="scanner-module-cb" value="sqli" checked>
+                      <span class="scanner-module-chip severity-high">SQLi</span>
+                    </label>
+                    <label class="scanner-module-label" title="Cross-Site Scripting">
+                      <input type="checkbox" class="scanner-module-cb" value="xss" checked>
+                      <span class="scanner-module-chip severity-high">XSS</span>
+                    </label>
+                    <label class="scanner-module-label" title="Server-Side Request Forgery">
+                      <input type="checkbox" class="scanner-module-cb" value="ssrf" checked>
+                      <span class="scanner-module-chip severity-critical">SSRF</span>
+                    </label>
+                    <label class="scanner-module-label" title="XML External Entity">
+                      <input type="checkbox" class="scanner-module-cb" value="xxe" checked>
+                      <span class="scanner-module-chip severity-critical">XXE</span>
+                    </label>
+                    <label class="scanner-module-label" title="OS Command Injection">
+                      <input type="checkbox" class="scanner-module-cb" value="cmdInjection" checked>
+                      <span class="scanner-module-chip severity-critical">CMDi</span>
+                    </label>
+                    <label class="scanner-module-label" title="Path Traversal / LFI">
+                      <input type="checkbox" class="scanner-module-cb" value="pathTraversal" checked>
+                      <span class="scanner-module-chip severity-high">LFI</span>
+                    </label>
+                    <label class="scanner-module-label" title="CORS Misconfiguration">
+                      <input type="checkbox" class="scanner-module-cb" value="cors" checked>
+                      <span class="scanner-module-chip severity-medium">CORS</span>
+                    </label>
+                    <label class="scanner-module-label" title="HTTP Security Headers">
+                      <input type="checkbox" class="scanner-module-cb" value="headers" checked>
+                      <span class="scanner-module-chip severity-medium">Headers</span>
+                    </label>
+                    <label class="scanner-module-label" title="Broken Authentication">
+                      <input type="checkbox" class="scanner-module-cb" value="brokenAuth" checked>
+                      <span class="scanner-module-chip severity-high">Auth</span>
+                    </label>
+                    <label class="scanner-module-label" title="Insecure Deserialization">
+                      <input type="checkbox" class="scanner-module-cb" value="deserialize" checked>
+                      <span class="scanner-module-chip severity-medium">Deserial.</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Concurrency + Timeout -->
+              <div class="scanner-config-right">
+                <div class="scanner-config-group">
+                  <div class="scanner-config-label">Concurrency: <span id="scanner-concurrency-val">5</span></div>
+                  <input id="scanner-concurrency" type="range" min="1" max="20" value="5" class="scanner-slider">
+                </div>
+                <div class="scanner-config-group">
+                  <div class="scanner-config-label">Timeout (ms)</div>
+                  <input id="scanner-timeout" type="number" min="1000" max="30000" step="1000" value="10000"
+                    class="scanner-timeout-input">
+                </div>
+              </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="scanner-progress-wrap">
+              <div class="scanner-progress-track">
+                <div id="scanner-progress-bar" class="scanner-progress-fill" style="width:0%"></div>
+              </div>
+              <span id="scanner-progress-label" class="scanner-progress-label"></span>
+            </div>
+
+            <!-- Error Message -->
+            <div id="scanner-error-msg" class="scanner-error-msg" style="display:none;"></div>
+
+            <!-- Summary -->
+            <div id="scanner-summary-line" class="scanner-summary-line"></div>
+
+            <!-- Findings Table Header -->
+            <div class="scanner-table-header">
+              <span class="sf-col sf-sev">Severity</span>
+              <span class="sf-col sf-type">Type</span>
+              <span class="sf-col sf-title">Title</span>
+              <span class="sf-col sf-url">URL</span>
+              <span class="sf-col sf-param">Parameter</span>
+              <span class="sf-col sf-time">Time</span>
+              <span class="sf-col sf-actions"></span>
+            </div>
+
+            <!-- Findings Body -->
+            <div class="scanner-findings-wrap">
+              <!-- Empty State -->
+              <div id="scanner-empty-state" class="scanner-empty-state">
+                <div class="scanner-empty-icon">🔍</div>
+                <div class="scanner-empty-title">No findings yet</div>
+                <div class="scanner-empty-sub">Configure a target and start a scan to detect web vulnerabilities.</div>
+              </div>
+              <!-- Findings rows injected here by scanner.js -->
+              <div id="scanner-findings-body" class="scanner-findings-body"></div>
+            </div>
+
+          </section><!-- end #webapp-panel-scanner -->
           <section id="webapp-panel-repeater" class="webapp-panel" style="display:none;">
             <div class="proxy-empty-state" style="margin:40px auto;">↩️ Repeater — Phase 7D</div>
           </section>

@@ -109,6 +109,9 @@ let activeView       = 'raw';  // inspector view: raw | headers | params | body
 let wsBySession      = new Map();  // sessionId -> {hostname, frames[]}
 let selectedWsSession = null;
 
+/** DNS resolution cache shared within this module: hostname → IPv4 (or null) */
+const _dnsCache = new Map();
+
 // ─── Public API ────────────────────────────────────────────────────────────────
 
 export function init() {
@@ -323,6 +326,42 @@ function _applyFilter() {
   _renderVirtualRows();
 }
 
+// ─── Network Workspace Pivot ───────────────────────────────────────────────────
+
+/**
+ * Resolve a proxy row's host to an IPv4 address, inject it into the network
+ * workspace host list, and switch to the Network tab.
+ */
+async function _probeHostInNetwork(host) {
+  if (!host) return;
+
+  let ip = _dnsCache.get(host);
+  if (ip === undefined) {
+    try {
+      const res = await api.resolveHostname(host);
+      ip = res?.success ? res.ip : null;
+    } catch { ip = null; }
+    _dnsCache.set(host, ip);
+  }
+
+  const resolvedIp = ip || host; // fall back to treating host as an IP
+
+  const existing = (state.hosts || []).find(h => h.ip === resolvedIp);
+  if (!existing) {
+    const newHost = {
+      ip:       resolvedIp,
+      hostname: resolvedIp !== host ? host : null,
+      source:   'proxy',
+      ports:    [],
+    };
+    if (!state.hosts) state.hosts = [];
+    state.hosts.push(newHost);
+    window.dispatchEvent(new CustomEvent('network:hostAdded', { detail: newHost }));
+  }
+
+  document.querySelector('.workspace-tab[data-workspace="network"]')?.click();
+}
+
 // ─── Virtual Scroll History Table ──────────────────────────────────────────────
 
 function _wireHistoryTable() {
@@ -346,6 +385,15 @@ function _wireHistoryTable() {
 
   document.addEventListener('click', () => contextMenu?.classList.add('hidden'));
 
+  // Inject "Probe in Network" item into context menu
+  if (contextMenu) {
+    const probeItem = document.createElement('div');
+    probeItem.className = 'context-menu-item';
+    probeItem.dataset.action = 'probe-network';
+    probeItem.textContent = '🌐 Probe in Network';
+    contextMenu.appendChild(probeItem);
+  }
+
   contextMenu?.addEventListener('click', (e) => {
     const action = e.target.closest('[data-action]')?.dataset.action;
     if (!action || !selectedRowId) return;
@@ -355,6 +403,9 @@ function _wireHistoryTable() {
       allRows = allRows.filter(r => r.id !== selectedRowId);
       filteredRows = filteredRows.filter(r => r.id !== selectedRowId);
       _renderVirtualRows();
+    } else if (action === 'probe-network') {
+      const row = allRows.find(r => r.id === selectedRowId);
+      if (row?.host) _probeHostInNetwork(row.host);
     }
     // repeater / intruder: to be wired in Phase 7D
   });
@@ -459,6 +510,19 @@ async function _selectRow(id) {
 // ─── Inspector ─────────────────────────────────────────────────────────────────
 
 function _wireInspector() {
+  // Add "Probe in Network" button to the inspector toolbar, before the close button
+  if (btnCloseInspector?.parentElement) {
+    const probeBtn = document.createElement('button');
+    probeBtn.className = 'btn-probe-network';
+    probeBtn.title = 'Resolve this host to IP and add to Network workspace';
+    probeBtn.innerHTML = '&#127760; Probe in Network';
+    probeBtn.addEventListener('click', () => {
+      const host = state.selectedRequest?.host;
+      if (host) _probeHostInNetwork(host);
+    });
+    btnCloseInspector.parentElement.insertBefore(probeBtn, btnCloseInspector);
+  }
+
   btnCloseInspector?.addEventListener('click', () => {
     inspector?.classList.add('hidden');
     selectedRowId = null;

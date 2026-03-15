@@ -7,6 +7,7 @@
  */
 
 import { api } from '../../api.js';
+import { state } from '../../state.js';
 import { openPanel as openDirFuzzPanel } from '../dirFuzz.js';
 
 // ─── Local State ──────────────────────────────────────────────────────────────
@@ -20,6 +21,9 @@ let _contextTarget = null; // URL string for context menu
 
 /** Deduplication set — avoids double-counting repeated URL events. */
 const _seenUrls = new Set();
+
+/** DNS resolution cache: hostname → resolved IPv4 (or null if failed) */
+const _dnsCache = new Map();
 
 /** Pending render timer — coalesces rapid URL events into one DOM rebuild. */
 let _renderTimer = null;
@@ -76,6 +80,16 @@ function _bindDomRefs() {
   $detailParamsList= document.getElementById('sitemap-detail-params-list');
   $detailFormsList = document.getElementById('sitemap-detail-forms-list');
   $contextMenu     = document.getElementById('sitemap-context-menu');
+
+  // Inject "Probe in Network" item into the sitemap context menu
+  if ($contextMenu) {
+    const probeItem = document.createElement('div');
+    probeItem.className = 'context-menu-item';
+    probeItem.dataset.action = 'probe-network';
+    probeItem.textContent = '🌐 Probe in Network';
+    $contextMenu.appendChild(probeItem);
+  }
+
   $apiPanel        = document.getElementById('sitemap-api-panel');
   $apiContent      = document.getElementById('sitemap-api-content');
   $playwrightBanner= document.getElementById('sitemap-playwright-missing');
@@ -192,6 +206,20 @@ function _bindEvents() {
   document.getElementById('btn-sitemap-open-browser')?.addEventListener('click', () => {
     if (_selectedNode) _handleContextAction('open-browser', _selectedNode.url);
   });
+
+  // Inject "Probe in Network" button next to the existing detail action buttons
+  const openBrowserBtn = document.getElementById('btn-sitemap-open-browser');
+  if (openBrowserBtn?.parentElement) {
+    const probeBtn = document.createElement('button');
+    probeBtn.id = 'btn-sitemap-probe-network';
+    probeBtn.className = 'btn-probe-network';
+    probeBtn.title = 'Resolve hostname to IP and add to Network workspace';
+    probeBtn.innerHTML = '&#127760; Probe in Network';
+    probeBtn.addEventListener('click', () => {
+      if (_selectedNode) _probeHostInNetwork(_selectedNode.url);
+    });
+    openBrowserBtn.parentElement.insertBefore(probeBtn, openBrowserBtn.nextSibling);
+  }
 }
 
 function _scheduleRender() {
@@ -262,6 +290,44 @@ function _subscribeIpc() {
     _renderTree();
     _updateStats();
   });
+}
+
+// ─── Network Workspace Pivot ──────────────────────────────────────────────────
+
+/**
+ * Resolve the hostname in `url` to an IPv4 address, inject it into the network
+ * workspace host list, and switch to the Network tab.
+ */
+async function _probeHostInNetwork(url) {
+  if (!url) return;
+  let hostname;
+  try { hostname = new URL(url).hostname; } catch { return; }
+
+  let ip = _dnsCache.get(hostname);
+  if (ip === undefined) {
+    try {
+      const res = await api.resolveHostname(hostname);
+      ip = res?.success ? res.ip : null;
+    } catch { ip = null; }
+    _dnsCache.set(hostname, ip);
+  }
+
+  const resolvedIp = ip || hostname;
+
+  const existing = (state.hosts || []).find(h => h.ip === resolvedIp);
+  if (!existing) {
+    const newHost = {
+      ip:       resolvedIp,
+      hostname: resolvedIp !== hostname ? hostname : null,
+      source:   'sitemap',
+      ports:    [],
+    };
+    if (!state.hosts) state.hosts = [];
+    state.hosts.push(newHost);
+    window.dispatchEvent(new CustomEvent('network:hostAdded', { detail: newHost }));
+  }
+
+  document.querySelector('.workspace-tab[data-workspace="network"]')?.click();
 }
 
 // ─── Crawl Lifecycle ──────────────────────────────────────────────────────────
@@ -652,6 +718,9 @@ function _handleContextAction(action, url) {
       break;
     case 'api-detect':
       api.crawler.detectApis(url);
+      break;
+    case 'probe-network':
+      _probeHostInNetwork(url);
       break;
   }
 }

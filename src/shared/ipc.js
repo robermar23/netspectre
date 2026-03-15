@@ -215,4 +215,18 @@ export const IPC_CHANNELS = {
   API_SCHEMA_FOUND:           'api-schema-found',           // main -> renderer
   API_DETECT_COMPLETE:        'api-detect-complete',        // main -> renderer { found: number }
   PLAYWRIGHT_CHECK:           'playwright-check',
+
+  // ─── Feature 7B/7C — DNS resolution (hostname → IP for cross-workspace pivot)
+  DNS_RESOLVE:                'dns-resolve',
+
+  // ─── Feature 7C — Active Vulnerability Scanner ────────────────────────────
+  SCANNER_START:              'scanner-start',
+  SCANNER_STOP:               'scanner-stop',
+  SCANNER_FINDING:            'scanner-finding',           // main -> renderer
+  SCANNER_PROGRESS:           'scanner-progress',          // main -> renderer
+  SCANNER_COMPLETE:           'scanner-complete',          // main -> renderer
+  SCANNER_ERROR:              'scanner-error',             // main -> renderer
+  SCANNER_GET_FINDINGS:       'scanner-get-findings',
+  SCANNER_EXPORT:             'scanner-export',
+  SCANNER_CLEAR:              'scanner-clear',
 };
