@@ -226,6 +226,7 @@ export const IPC_CHANNELS = {
   SCANNER_PROGRESS:           'scanner-progress',          // main -> renderer
   SCANNER_COMPLETE:           'scanner-complete',          // main -> renderer
   SCANNER_ERROR:              'scanner-error',             // main -> renderer
+  SCANNER_ACTIVITY:           'scanner-activity',           // main -> renderer
   SCANNER_GET_FINDINGS:       'scanner-get-findings',
   SCANNER_EXPORT:             'scanner-export',
   SCANNER_CLEAR:              'scanner-clear',

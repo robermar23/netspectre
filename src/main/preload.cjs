@@ -227,6 +227,8 @@ var IPC_CHANNELS = {
   // main -> renderer
   SCANNER_ERROR: "scanner-error",
   // main -> renderer
+  SCANNER_ACTIVITY: "scanner-activity",
+  // main -> renderer
   SCANNER_GET_FINDINGS: "scanner-get-findings",
   SCANNER_EXPORT: "scanner-export",
   SCANNER_CLEAR: "scanner-clear",
@@ -466,7 +468,8 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     onFinding: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SCANNER_FINDING, (_e, v) => cb(v)),
     onProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SCANNER_PROGRESS, (_e, v) => cb(v)),
     onComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SCANNER_COMPLETE, (_e, v) => cb(v)),
-    onError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SCANNER_ERROR, (_e, v) => cb(v))
+    onError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SCANNER_ERROR, (_e, v) => cb(v)),
+    onActivity: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SCANNER_ACTIVITY, (_e, v) => cb(v))
   },
   // Feature 7D: Repeater
   repeater: {

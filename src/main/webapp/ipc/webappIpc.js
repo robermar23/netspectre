@@ -396,6 +396,10 @@ export function registerIpcHandlers(ipcMain, getWindow) {
         const message = err instanceof Error ? err.message : String(err);
         win?.webContents.send(IPC_CHANNELS.SCANNER_ERROR, { message });
       },
+      // onActivity
+      (activity) => {
+        win?.webContents.send(IPC_CHANNELS.SCANNER_ACTIVITY, activity);
+      },
     );
 
     return { success: true };

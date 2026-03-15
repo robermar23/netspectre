@@ -16,11 +16,13 @@ import { SEVERITY_ORDER } from '#shared/webConstants.js';
 
 // ─── Local State ──────────────────────────────────────────────────────────────
 
-let _findings   = [];
-let _scanning   = false;
-let _tested     = 0;
-let _total      = 0;
-let _expandedId = null;
+let _findings    = [];
+let _scanning    = false;
+let _tested      = 0;
+let _total       = 0;
+let _expandedId  = null;
+let _activityLog = [];   // capped ring buffer of activity events
+const ACTIVITY_MAX = 500;
 
 /** DNS resolution cache: hostname → resolved IPv4 (or null if failed) */
 const _dnsCache = new Map();
@@ -37,6 +39,7 @@ let $targetModeRadios;
 let $urlInput;
 let $scanError;
 let $exportDropdown;
+let $activityWrap, $activityList, $activityToggleBtn, $activityClearBtn;
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 
@@ -64,6 +67,10 @@ function _bindDomRefs() {
   $exportDropdown    = document.getElementById('scanner-export-dropdown');
   $moduleCheckboxes  = document.querySelectorAll('.scanner-module-cb');
   $targetModeRadios  = document.querySelectorAll('input[name="scanner-target-mode"]');
+  $activityWrap      = document.getElementById('scanner-activity-wrap');
+  $activityList      = document.getElementById('scanner-activity-list');
+  $activityToggleBtn = document.getElementById('scanner-activity-toggle');
+  $activityClearBtn  = document.getElementById('scanner-activity-clear');
 }
 
 function _bindEvents() {
@@ -85,6 +92,16 @@ function _bindEvents() {
   document.getElementById('scanner-export-json')?.addEventListener('click', () => _exportFindings('json'));
   document.getElementById('scanner-export-csv')?.addEventListener('click',  () => _exportFindings('csv'));
   document.getElementById('scanner-export-html')?.addEventListener('click', () => _exportFindings('html'));
+
+  // Activity log toggle / clear
+  $activityToggleBtn?.addEventListener('click', () => {
+    const collapsed = $activityWrap?.classList.toggle('activity-collapsed');
+    if ($activityToggleBtn) $activityToggleBtn.textContent = collapsed ? '▸ Activity Log' : '▾ Activity Log';
+  });
+  $activityClearBtn?.addEventListener('click', () => {
+    _activityLog = [];
+    _renderActivityLog();
+  });
 }
 
 function _subscribeIpc() {
@@ -92,6 +109,7 @@ function _subscribeIpc() {
   api.scanner.onProgress(_onProgress);
   api.scanner.onComplete(_onComplete);
   api.scanner.onError(_onError);
+  api.scanner.onActivity(_onActivity);
 }
 
 // ─── Scan Controls ────────────────────────────────────────────────────────────
@@ -144,12 +162,14 @@ async function _stopScan() {
 }
 
 function _clearFindings() {
-  _findings   = [];
-  _tested     = 0;
-  _total      = 0;
-  _expandedId = null;
+  _findings    = [];
+  _activityLog = [];
+  _tested      = 0;
+  _total       = 0;
+  _expandedId  = null;
   api.scanner.clear();
   _renderFindings();
+  _renderActivityLog();
   _updateProgress(0, 0);
   _setSummary('');
 }
@@ -485,6 +505,54 @@ async function _exportFindings(format) {
   a.download  = `netspecter-scan-${Date.now()}.${ext}`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ─── Activity Log ─────────────────────────────────────────────────────────────
+
+function _onActivity(ev) {
+  _activityLog.push(ev);
+  if (_activityLog.length > ACTIVITY_MAX) _activityLog.shift();
+  _appendActivityEntry(ev);
+  // Expand the log automatically when the scan starts
+  if (ev.status === 'start' && $activityWrap?.classList.contains('activity-collapsed')) {
+    $activityWrap.classList.remove('activity-collapsed');
+    if ($activityToggleBtn) $activityToggleBtn.textContent = '▾ Activity Log';
+  }
+}
+
+function _appendActivityEntry(ev) {
+  if (!$activityList) return;
+  const isDone = ev.status === 'done';
+  const entry  = document.createElement('div');
+  entry.className = `activity-entry activity-${isDone ? 'done' : 'start'}`;
+
+  const shortUrl = (() => {
+    try {
+      const u = new URL(ev.url);
+      return u.hostname + (u.pathname.length > 35 ? u.pathname.slice(0, 35) + '…' : u.pathname);
+    } catch { return ev.url; }
+  })();
+
+  entry.innerHTML = `
+    <span class="activity-ts">${new Date(ev.timestamp).toLocaleTimeString()}</span>
+    <span class="activity-status-icon">${isDone ? '✓' : '→'}</span>
+    <span class="activity-method">${_esc(ev.method)}</span>
+    <span class="activity-module-chip activity-chip-${_esc(ev.module)}">${_esc(ev.moduleLabel)}</span>
+    <span class="activity-url" title="${_esc(ev.url)}">${_esc(shortUrl)}</span>
+    ${isDone && ev.findings > 0
+      ? `<span class="activity-hit">⚠ ${ev.findings} finding${ev.findings > 1 ? 's' : ''}</span>`
+      : ''}
+    <span class="activity-desc" title="${_esc(ev.description)}">${isDone ? '' : _esc(ev.description)}</span>
+  `;
+  $activityList.appendChild(entry);
+  // Auto-scroll to bottom
+  $activityList.scrollTop = $activityList.scrollHeight;
+}
+
+function _renderActivityLog() {
+  if (!$activityList) return;
+  $activityList.innerHTML = '';
+  for (const ev of _activityLog) _appendActivityEntry(ev);
 }
 
 // ─── UI helpers ───────────────────────────────────────────────────────────────

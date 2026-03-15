@@ -233,6 +233,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onProgress:  (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_PROGRESS,  (_e, v) => cb(v)),
     onComplete:  (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_COMPLETE,  (_e, v) => cb(v)),
     onError:     (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_ERROR,     (_e, v) => cb(v)),
+    onActivity:  (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_ACTIVITY,  (_e, v) => cb(v)),
   },
 
   // Feature 7D: Repeater

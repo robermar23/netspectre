@@ -49,6 +49,94 @@ const MODULE_RUNNERS = {
   deserialize:   runDeserialize,
 };
 
+/**
+ * Human-readable label and description for each scan module.
+ * Shown live in the renderer activity log as each test runs.
+ */
+const MODULE_META = {
+  sqli: {
+    label: 'SQL Injection',
+    description:
+      'Injects time-based blind (SLEEP/WAITFOR), error-based (DB fingerprint via syntax errors), ' +
+      'boolean-based (AND 1=1 vs AND 1=2 response delta), and UNION-based payloads into every ' +
+      'query-string, POST body, JSON, and cookie parameter. Identifies MySQL, MSSQL, PostgreSQL, ' +
+      'Oracle, and SQLite from error message patterns.',
+  },
+  xss: {
+    label: 'Cross-Site Scripting (XSS)',
+    description:
+      'Injects a unique canary string into each parameter and checks whether it reflects unencoded ' +
+      'in the HTML response (reflected XSS). Also probes JavaScript sink patterns (innerHTML, ' +
+      'document.write, eval) in the response body for DOM-based indicators. Sends encoded bypass ' +
+      'variants (HTML entity, URL encoding, mixed case) for WAF evasion detection.',
+  },
+  ssrf: {
+    label: 'Server-Side Request Forgery (SSRF)',
+    description:
+      'Substitutes parameter values with internal addresses (127.0.0.1, 169.254.169.254 AWS ' +
+      'metadata, 192.168.x.x) and cloud metadata paths (/latest/meta-data/iam/security-credentials). ' +
+      'Uses response timing differences for blind SSRF detection. Optionally sends OAST callback ' +
+      'probes when a callback URL is configured.',
+  },
+  xxe: {
+    label: 'XML External Entity (XXE)',
+    description:
+      'Sends ENTITY payloads targeting /etc/passwd (Unix) and C:\\Windows\\win.ini (Windows) via ' +
+      'SYSTEM file URIs in XML request bodies. Compares response content against known file patterns ' +
+      'and measures response size delta against a baseline for blind XXE. Also includes an OAST ' +
+      'out-of-band probe for firewalled environments.',
+  },
+  cmdInjection: {
+    label: 'OS Command Injection',
+    description:
+      'Appends OS command separators (;, &&, ||, |, backtick, $()) followed by echo/id/whoami ' +
+      'commands to parameter values. Checks responses for typical Unix/Windows command output ' +
+      'patterns. Also performs time-based blind detection using sleep 5 / ping -n 5, measuring ' +
+      'whether response latency increases by the expected delay.',
+  },
+  pathTraversal: {
+    label: 'Path Traversal / Local File Inclusion',
+    description:
+      'Constructs ../ sequences (2–8 levels deep) and absolute paths for /etc/passwd, /etc/shadow, ' +
+      'C:\\Windows\\system32\\drivers\\etc\\hosts in parameter values. Matches response content ' +
+      'against known file content patterns (root:x:, [boot loader]). Uses response-size delta ' +
+      'against a baseline to detect blind traversal when content is not directly reflected.',
+  },
+  cors: {
+    label: 'CORS Misconfiguration',
+    description:
+      'Sends probes with forged Origin headers: an arbitrary external domain, null origin, a ' +
+      'trusted-subdomain prefix bypass, and a trusted-domain suffix bypass. Checks whether the ' +
+      'Access-Control-Allow-Origin response header reflects the attacker origin. Flags the ' +
+      'combination of ACAO:* plus Access-Control-Allow-Credentials:true as critical.',
+  },
+  headers: {
+    label: 'HTTP Security Headers Audit',
+    description:
+      'Sends a plain GET to the URL and inspects response headers. Checks for presence and ' +
+      'correctness of: Content-Security-Policy, Strict-Transport-Security (HSTS), X-Frame-Options, ' +
+      'X-Content-Type-Options, Referrer-Policy, Permissions-Policy. Flags version disclosure ' +
+      'in Server/X-Powered-By headers. Checks Set-Cookie flags (Secure, HttpOnly, SameSite).',
+  },
+  brokenAuth: {
+    label: 'Broken Authentication',
+    description:
+      'Sends 20 rapid identical requests to check whether the server rate-limits or locks out. ' +
+      'Probes for username enumeration by comparing response bodies/sizes for valid vs. invalid ' +
+      'usernames. Inspects Authorization/JWT headers for the alg:none attack and decodes the ' +
+      'payload. Attempts common weak credential pairs (admin/admin, admin/password, etc.) ' +
+      'against detected login endpoints.',
+  },
+  deserialize: {
+    label: 'Insecure Deserialization',
+    description:
+      'Scans request Content-Type headers and response bodies for serialization format markers: ' +
+      'PHP serialize() strings (a:N:{...}, O:N:), Java serialized object magic bytes (aced0005 in ' +
+      'Base64: rO0AB), Python pickle opcodes (\\x80\\x02), and ASP.NET ViewState (__VIEWSTATE). ' +
+      'Flags endpoints passing serialized objects directly to the server as high-risk.',
+  },
+};
+
 // ─── Semaphore ────────────────────────────────────────────────────────────────
 
 function createSemaphore(max) {
@@ -293,8 +381,9 @@ export function makeFinding(fields) {
  * @param {function({tested, total, findings})} onProgress
  * @param {function({findings, total})} onComplete
  * @param {function(Error)} onError
+ * @param {function({url, method, module, moduleLabel, description, status, timestamp})} [onActivity]
  */
-export async function startScan(opts, onFinding, onProgress, onComplete, onError) {
+export async function startScan(opts, onFinding, onProgress, onComplete, onError, onActivity) {
   if (_running) {
     onError(new Error('Scan already running'));
     return;
@@ -324,10 +413,10 @@ export async function startScan(opts, onFinding, onProgress, onComplete, onError
 
   const scanOpts  = { timeoutMs, oastCallbackUrl, signal };
 
-  // Resolve runners for selected modules
+  // Resolve runners for selected modules — array of [moduleKey, runnerFn] pairs
   const runners = modules
     .filter(m => MODULE_RUNNERS[m])
-    .map(m => MODULE_RUNNERS[m]);
+    .map(m => [m, MODULE_RUNNERS[m]]);
 
   if (!runners.length) {
     onError(new Error('No valid scan modules selected'));
@@ -341,10 +430,30 @@ export async function startScan(opts, onFinding, onProgress, onComplete, onError
       if (signal.aborted) return;
 
       // Run each module sequentially against this target
-      for (const runner of runners) {
+      for (const [moduleKey, runner] of runners) {
         if (signal.aborted) break;
+        const meta = MODULE_META[moduleKey] ?? { label: moduleKey, description: '' };
+        onActivity?.({
+          status:      'start',
+          url:         target.url,
+          method:      target.method ?? 'GET',
+          module:      moduleKey,
+          moduleLabel: meta.label,
+          description: meta.description,
+          timestamp:   Date.now(),
+        });
         try {
           const found = await runner(target, scanOpts);
+          onActivity?.({
+            status:      'done',
+            url:         target.url,
+            method:      target.method ?? 'GET',
+            module:      moduleKey,
+            moduleLabel: meta.label,
+            description: meta.description,
+            findings:    found.length,
+            timestamp:   Date.now(),
+          });
           for (const f of found) {
             _findings.push(f);
             onFinding(f);
