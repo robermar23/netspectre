@@ -87,4 +87,7 @@ export const api = {
 
   // Feature 7A: Intercepting Proxy
   proxy: window.electronAPI.proxy,
+
+  // Feature 7B: Web Crawler & Attack Surface
+  crawler: window.electronAPI.crawler,
 };

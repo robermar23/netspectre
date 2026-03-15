@@ -6,6 +6,7 @@
 
 import { state } from '../../state.js';
 import { init as initProxy } from './proxy.js';
+import { init as initSitemap, setTargetUrl as setSitemapTarget } from './sitemap.js';
 
 // ─── Workspace Switcher ────────────────────────────────────────────────────────
 
@@ -90,6 +91,9 @@ export function openInWebApp(url) {
     const portInput = document.getElementById('proxy-port-input');
     if (portInput && parsed.port) portInput.value = parsed.port;
   } catch {}
+
+  // Also pre-fill the sitemap target input
+  setSitemapTarget(url);
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
@@ -98,6 +102,7 @@ export function init() {
   _initWorkspaceSwitcher();
   _initSidebar();
   initProxy();
+  initSitemap();
 
   // Expose pivot function globally for hostDetails integration
   window.__openWebAppWorkspace = openInWebApp;

@@ -1630,10 +1630,170 @@
             </div>
           </section>
 
-          <!-- FUTURE PANELS (placeholders) -->
-          <section id="webapp-panel-sitemap"  class="webapp-panel" style="display:none;">
-            <div class="proxy-empty-state" style="margin:40px auto;">🗺️ Site Map — Phase 7B</div>
-          </section>
+          <!-- ═══════════════════════════════════════════════════════════════
+               Site Map Panel (Feature 7B)
+               ═══════════════════════════════════════════════════════════════ -->
+          <section id="webapp-panel-sitemap" class="webapp-panel sitemap-panel" style="display:none;">
+
+            <!-- Controls Bar -->
+            <div class="sitemap-controls-bar">
+              <input type="text" id="sitemap-target-input" class="form-control sitemap-target-input"
+                     placeholder="https://target.com" title="Target URL for active crawl or API detection" />
+              <button id="btn-sitemap-crawl-start" class="btn webapp-btn sitemap-btn" title="Start active crawl (requires Playwright)">
+                ▶ Crawl
+              </button>
+              <button id="btn-sitemap-crawl-stop" class="btn secondary sitemap-btn" style="display:none;" title="Stop crawl">
+                ■ Stop
+              </button>
+              <button id="btn-sitemap-api-detect" class="btn secondary sitemap-btn" title="Probe for OpenAPI/Swagger/GraphQL schemas">
+                🔍 Detect APIs
+              </button>
+              <div class="sitemap-stats-group">
+                <span class="sitemap-stat" id="sitemap-stat-hosts" title="Unique hosts">0 hosts</span>
+                <span class="sitemap-stat-sep">·</span>
+                <span class="sitemap-stat" id="sitemap-stat-urls"  title="Total URLs">0 URLs</span>
+                <span class="sitemap-stat-sep">·</span>
+                <span class="sitemap-stat" id="sitemap-stat-forms" title="Forms with inputs">0 forms</span>
+              </div>
+              <div class="sitemap-controls-right">
+                <button id="btn-sitemap-expand-all"   class="btn secondary icon-only micro" title="Expand all">⊞</button>
+                <button id="btn-sitemap-collapse-all" class="btn secondary icon-only micro" title="Collapse all">⊟</button>
+                <button id="btn-sitemap-export"       class="btn secondary icon-only" title="Export sitemap as JSON">📤</button>
+                <button id="btn-sitemap-clear"        class="btn secondary icon-only" title="Clear sitemap">🗑️</button>
+              </div>
+            </div>
+
+            <!-- Playwright dependency missing banner -->
+            <div id="sitemap-playwright-missing" class="sitemap-dependency-banner" style="display:none;">
+              <span>⚠️ <strong>playwright-core</strong> is not installed. Active crawl requires it.</span>
+              <button id="btn-sitemap-install-playwright" class="btn webapp-btn micro">How to Install</button>
+            </div>
+
+            <div id="sitemap-proxy-notice" class="sitemap-dependency-banner sitemap-notice-banner" style="display:none;">
+              <span>ℹ️ Proxy not running — crawling directly. URLs won't appear in request history.</span>
+            </div>
+
+            <div id="sitemap-crawl-error" class="sitemap-dependency-banner sitemap-error-banner" style="display:none;">
+              <span id="sitemap-crawl-error-text"></span>
+              <button id="btn-sitemap-dismiss-error" class="btn webapp-btn micro">Dismiss</button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div id="sitemap-progress-wrap" class="sitemap-progress-wrap" style="display:none;">
+              <div class="sitemap-progress-track">
+                <div id="sitemap-progress-bar" class="sitemap-progress-bar" style="width:0%"></div>
+              </div>
+              <span id="sitemap-progress-label" class="sitemap-progress-label">Starting…</span>
+            </div>
+
+            <!-- Main Split: Tree + Detail -->
+            <div class="sitemap-body">
+
+              <!-- Left: Tree Panel -->
+              <div class="sitemap-tree-panel glass-panel">
+                <div class="sitemap-tree-header">
+                  <span class="sitemap-panel-title">Site Map</span>
+                </div>
+                <div id="sitemap-tree-container" class="sitemap-tree-container">
+                  <div class="sitemap-empty-state">
+                    <span class="sitemap-empty-icon">🗺️</span>
+                    <p>No URLs discovered yet.</p>
+                    <p class="sitemap-empty-hint">Start the proxy and browse a target,<br>or use Active Crawl above.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Detail Panel -->
+              <div class="sitemap-detail-panel glass-panel">
+                <div id="sitemap-detail-empty" class="sitemap-detail-empty">
+                  <span class="sitemap-empty-hint">Select a node to inspect</span>
+                </div>
+                <div id="sitemap-detail-content" class="sitemap-detail-content" style="display:none;">
+                  <div class="sitemap-detail-header">
+                    <span id="sitemap-detail-url" class="sitemap-detail-url"></span>
+                    <div id="sitemap-detail-methods" class="sitemap-detail-methods"></div>
+                  </div>
+                  <div class="sitemap-detail-tabs">
+                    <button class="sitemap-detail-tab active" data-tab="params">Params</button>
+                    <button class="sitemap-detail-tab" data-tab="forms">Forms</button>
+                    <button class="sitemap-detail-tab" data-tab="actions">Actions</button>
+                  </div>
+                  <div id="sitemap-detail-tab-params" class="sitemap-detail-tab-pane">
+                    <div id="sitemap-detail-params-list"></div>
+                  </div>
+                  <div id="sitemap-detail-tab-forms" class="sitemap-detail-tab-pane" style="display:none;">
+                    <div id="sitemap-detail-forms-list"></div>
+                  </div>
+                  <div id="sitemap-detail-tab-actions" class="sitemap-detail-tab-pane" style="display:none;">
+                    <div class="sitemap-action-buttons">
+                      <button id="btn-sitemap-send-dirfuzzer" class="btn webapp-btn small">🗂 Send to Dir Fuzzer</button>
+                      <button id="btn-sitemap-open-browser"   class="btn secondary small">🌐 Open in Browser</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- end .sitemap-body -->
+
+            <!-- API Schema Panel (shown when schemas discovered) -->
+            <div id="sitemap-api-panel" class="sitemap-api-panel glass-panel" style="display:none;">
+              <div class="sitemap-api-panel-header">
+                <span class="sitemap-panel-title">🔗 Discovered API Schemas</span>
+                <button id="btn-sitemap-api-close" class="btn secondary icon-only micro">✕</button>
+              </div>
+              <div id="sitemap-api-content" class="sitemap-api-content"></div>
+            </div>
+
+            <!-- Context Menu -->
+            <div id="sitemap-context-menu" class="context-menu hidden">
+              <button class="context-menu-item" data-action="open-browser">🌐 Open in Browser</button>
+              <button class="context-menu-item" data-action="send-dirfuzzer">🗂 Send to Dir Fuzzer</button>
+              <button class="context-menu-item" data-action="api-detect">🔎 Detect APIs</button>
+            </div>
+
+            <!-- Active Crawl Configuration Modal -->
+            <div id="sitemap-crawl-modal" class="modal-overlay hidden">
+              <div class="modal-content sitemap-crawl-modal-content">
+                <div class="modal-header">
+                  <h3>🕷️ Active Crawl</h3>
+                  <button id="btn-sitemap-crawl-modal-close" class="btn icon-only modal-close">✕</button>
+                </div>
+                <div class="modal-body">
+                  <div class="form-group">
+                    <label class="form-label">Start URL</label>
+                    <input type="text" id="crawl-start-url" class="form-control" placeholder="https://target.com" />
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group" style="flex:1;">
+                      <label class="form-label">Max Depth <span class="form-hint">(1–10)</span></label>
+                      <input type="number" id="crawl-max-depth" class="form-control" value="3" min="1" max="10" />
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                      <label class="form-label">Max Pages</label>
+                      <input type="number" id="crawl-max-pages" class="form-control" value="200" min="1" max="5000" />
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <div class="checkbox-group">
+                      <label class="checkbox-label"><input type="checkbox" id="crawl-include-subdomains"> Include subdomains</label>
+                      <label class="checkbox-label"><input type="checkbox" id="crawl-submit-forms" checked> Submit forms</label>
+                      <label class="checkbox-label"><input type="checkbox" id="crawl-click-buttons" checked> Click buttons</label>
+                      <label class="checkbox-label"><input type="checkbox" id="crawl-respect-robots" checked> Respect robots.txt</label>
+                    </div>
+                  </div>
+                  <div class="form-note">
+                    ⚠️ Requires <strong>playwright-core</strong> and proxy running.
+                    All traffic is routed through the MITM proxy automatically.
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button id="btn-crawl-modal-cancel" class="btn secondary">Cancel</button>
+                  <button id="btn-crawl-modal-start"  class="btn webapp-btn">▶ Start Crawl</button>
+                </div>
+              </div>
+            </div>
+
+          </section><!-- end #webapp-panel-sitemap -->
           <section id="webapp-panel-scanner"  class="webapp-panel" style="display:none;">
             <div class="proxy-empty-state" style="margin:40px auto;">🔍 Scanner — Phase 7C</div>
           </section>
@@ -1943,6 +2103,42 @@
               <button class="btn secondary icon-only btn-browse-path" data-target="setting-path-showmount"
                 title="Browse">📁</button>
             </div>
+          </div>
+        </div>
+
+        <!-- Playwright Settings Group -->
+        <div class="settings-group">
+          <div class="settings-group-header">
+            <h3><span class="icon">🎭</span> Playwright (Active Web Crawler)</h3>
+          </div>
+          <p class="settings-description">
+            Enables headless browser-based active crawling in the Web App workspace.
+            Playwright is an <strong>npm package</strong> — not a system binary — and must be
+            installed inside the NetSpecter app directory.
+          </p>
+          <div class="dependency-status" id="status-playwright">
+            <span class="status-dot"></span> <span class="status-text">Checking availability...</span>
+          </div>
+          <div id="playwright-install-steps" style="display:none;">
+            <p class="settings-description" style="margin-top:8px;">
+              Open a terminal, navigate to the directory below, then run the two commands:
+            </p>
+            <div class="install-cmd-row" id="playwright-cmd-cd">
+              <code class="install-cmd-text"></code>
+              <button class="btn-copy-cmd" title="Copy">⧉</button>
+            </div>
+            <div class="install-cmd-row">
+              <code class="install-cmd-text">npm install playwright-core</code>
+              <button class="btn-copy-cmd" title="Copy">⧉</button>
+            </div>
+            <div class="install-cmd-row">
+              <code class="install-cmd-text">npx playwright install chromium</code>
+              <button class="btn-copy-cmd" title="Copy">⧉</button>
+            </div>
+            <p class="settings-description" style="margin-top:6px;" id="playwright-path-note"></p>
+            <p class="settings-description" style="margin-top:4px;">
+              Once installed, restart NetSpecter and this status will update automatically.
+            </p>
           </div>
         </div>
 

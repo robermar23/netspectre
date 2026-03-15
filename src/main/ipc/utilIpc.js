@@ -49,6 +49,27 @@ export function registerIpcHandlers(ipcMain, _getWindow) {
     }
   });
 
+  // Open an http/https URL in the system default browser.
+  // Separate from OPEN_EXTERNAL_ACTION which is IP-based for network tools.
+  ipcMain.handle(IPC_CHANNELS.OPEN_URL, async (_event, { url } = {}) => {
+    if (!url || typeof url !== 'string') {
+      return { success: false, error: 'url is required' };
+    }
+    let parsed;
+    try { parsed = new URL(url); } catch {
+      return { success: false, error: 'Invalid URL' };
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { success: false, error: 'Only http and https URLs are allowed' };
+    }
+    try {
+      await shell.openExternal(url);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.on(IPC_CHANNELS.EXIT_APP, () => {
     app.quit();
   });

@@ -14,6 +14,8 @@ var IPC_CHANNELS = {
   RUN_DEEP_SCAN: "deep-scan-host",
   CANCEL_DEEP_SCAN: "cancel-deep-scan",
   OPEN_EXTERNAL_ACTION: "open-external-action",
+  OPEN_URL: "open-url",
+  // open a full URL in the system browser
   // Renderer Listeners (main -> renderer)
   HOST_FOUND: "host-found",
   SCAN_COMPLETE: "scan-complete",
@@ -187,7 +189,31 @@ var IPC_CHANNELS = {
   // main -> renderer
   PROXY_GET_STATUS: "proxy-get-status",
   PROXY_DELETE_REQUEST: "proxy-delete-request",
-  PROXY_GET_CA_PATH: "proxy-get-ca-path"
+  PROXY_GET_CA_PATH: "proxy-get-ca-path",
+  // ─── Feature 7B — Crawler & Attack Surface ───────────────────────────────────
+  CRAWLER_START: "crawler-start",
+  CRAWLER_STOP: "crawler-stop",
+  CRAWLER_URL_FOUND: "crawler-url-found",
+  // main -> renderer
+  CRAWLER_FORM_FOUND: "crawler-form-found",
+  // main -> renderer
+  CRAWLER_PROGRESS: "crawler-progress",
+  // main -> renderer
+  CRAWLER_COMPLETE: "crawler-complete",
+  // main -> renderer
+  CRAWLER_ERROR: "crawler-error",
+  // main -> renderer
+  CRAWLER_DEPENDENCY_MISSING: "crawler-dep-missing",
+  // main -> renderer
+  SITEMAP_GET: "sitemap-get",
+  SITEMAP_CLEAR: "sitemap-clear",
+  SITEMAP_EXPORT: "sitemap-export",
+  API_DETECT: "api-detect",
+  API_SCHEMA_FOUND: "api-schema-found",
+  // main -> renderer
+  API_DETECT_COMPLETE: "api-detect-complete",
+  // main -> renderer { found: number }
+  PLAYWRIGHT_CHECK: "playwright-check"
 };
 
 // src/main/preload.js
@@ -210,6 +236,7 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   runDeepScan: (ip) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.RUN_DEEP_SCAN, ip),
   cancelDeepScan: (ip) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.CANCEL_DEEP_SCAN, ip),
   openExternalAction: (payload) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL_ACTION, payload),
+  openUrl: (url) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.OPEN_URL, { url }),
   // SNMP Walking
   snmpWalk: (targetIp, options) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SNMP_WALK, { targetIp, options }),
   snmpGet: (targetIp, oids, options) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SNMP_GET, { targetIp, oids, options }),
@@ -366,6 +393,24 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     onIntercepted: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.PROXY_INTERCEPTED, (_e, v) => cb(v)),
     onWsFrame: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.PROXY_WS_FRAME, (_e, v) => cb(v))
   },
+  // Feature 7B: Web Crawler & Attack Surface Mapping
+  crawler: {
+    checkPlaywright: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PLAYWRIGHT_CHECK),
+    start: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.CRAWLER_START, opts),
+    stop: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.CRAWLER_STOP),
+    getSitemap: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SITEMAP_GET),
+    clearSitemap: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SITEMAP_CLEAR),
+    exportSitemap: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SITEMAP_EXPORT),
+    detectApis: (baseUrl) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.API_DETECT, { baseUrl }),
+    onUrlFound: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CRAWLER_URL_FOUND, (_e, v) => cb(v)),
+    onFormFound: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CRAWLER_FORM_FOUND, (_e, v) => cb(v)),
+    onProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CRAWLER_PROGRESS, (_e, v) => cb(v)),
+    onComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CRAWLER_COMPLETE, (_e, v) => cb(v)),
+    onError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CRAWLER_ERROR, (_e, v) => cb(v)),
+    onDependencyMissing: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CRAWLER_DEPENDENCY_MISSING, (_e, v) => cb(v)),
+    onApiSchemaFound: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.API_SCHEMA_FOUND, (_e, v) => cb(v)),
+    onApiDetectComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.API_DETECT_COMPLETE, (_e, v) => cb(v))
+  },
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -437,5 +482,12 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PROXY_REQUEST);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PROXY_INTERCEPTED);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PROXY_WS_FRAME);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CRAWLER_URL_FOUND);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CRAWLER_FORM_FOUND);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CRAWLER_PROGRESS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CRAWLER_COMPLETE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CRAWLER_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CRAWLER_DEPENDENCY_MISSING);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.API_SCHEMA_FOUND);
   }
 });

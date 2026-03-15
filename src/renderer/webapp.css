@@ -744,3 +744,633 @@
 }
 
 .proxy-empty-state strong { color: var(--text-main); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Feature 7B — Site Map Panel
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Sitemap Panel Layout ─────────────────────────────────────────────────── */
+.sitemap-panel {
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* ── Controls Bar ────────────────────────────────────────────────────────── */
+.sitemap-controls-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-glass);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.sitemap-target-input {
+  flex: 1;
+  min-width: 180px;
+  max-width: 340px;
+  font-size: 12px;
+  height: 28px;
+  padding: 0 8px;
+}
+
+.sitemap-target-input.input-error {
+  border-color: var(--severity-critical);
+  animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25%       { transform: translateX(-4px); }
+  75%       { transform: translateX(4px); }
+}
+
+.sitemap-btn {
+  height: 28px;
+  font-size: 12px;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+
+.sitemap-stats-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.sitemap-stat { font-variant-numeric: tabular-nums; }
+.sitemap-stat-sep { opacity: 0.4; }
+
+.sitemap-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Dependency Banner ───────────────────────────────────────────────────── */
+.sitemap-dependency-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(234,179,8,0.12);
+  border-bottom: 1px solid rgba(234,179,8,0.3);
+  font-size: 12px;
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+.sitemap-notice-banner {
+  background: rgba(56,189,248,0.1);
+  border-bottom-color: rgba(56,189,248,0.3);
+  color: #7dd3fc;
+}
+
+.sitemap-error-banner {
+  background: rgba(239,68,68,0.12);
+  border-bottom-color: rgba(239,68,68,0.35);
+  color: #fca5a5;
+}
+
+.sitemap-error-banner span { flex: 1; }
+
+/* ── Progress Bar ────────────────────────────────────────────────────────── */
+.sitemap-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border-glass);
+  flex-shrink: 0;
+}
+
+.sitemap-progress-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.sitemap-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--webapp-btn), #a78bfa);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.sitemap-progress-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 200px;
+}
+
+/* ── Body Split ──────────────────────────────────────────────────────────── */
+.sitemap-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 8px;
+  padding: 8px;
+  overflow: hidden;
+}
+
+/* ── Tree Panel ──────────────────────────────────────────────────────────── */
+.sitemap-tree-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sitemap-tree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-glass);
+  flex-shrink: 0;
+}
+
+.sitemap-panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.sitemap-tree-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+}
+
+/* ── Tree Nodes ──────────────────────────────────────────────────────────── */
+.sitemap-host-group { margin-bottom: 2px; }
+
+.sitemap-host-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(139,92,246,0.08);
+  border-left: 3px solid var(--webapp-btn);
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+  transition: background 0.15s;
+}
+
+.sitemap-host-header:hover { background: rgba(139,92,246,0.15); }
+
+.sitemap-host-icon { font-size: 14px; }
+
+.sitemap-host-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sitemap-expand-icon {
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 12px;
+  display: inline-block;
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sitemap-path-node {}
+
+.sitemap-path-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 6px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  border-left: 3px solid transparent;
+  transition: background 0.1s;
+}
+
+.sitemap-path-row:hover    { background: rgba(255,255,255,0.05); }
+.sitemap-path-row.selected { background: rgba(139,92,246,0.15); border-left-color: var(--webapp-btn); }
+
+/* Color coding by node type */
+.sitemap-path-row.node-normal  { color: var(--text-muted); }
+.sitemap-path-row.node-warning { color: #fbbf24; border-left-color: rgba(251,191,36,0.4); }
+.sitemap-path-row.node-danger  { color: var(--severity-critical); border-left-color: rgba(239,68,68,0.4); }
+
+.sitemap-path-segment {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 11px;
+}
+
+/* ── Sitemap Badges ──────────────────────────────────────────────────────── */
+.sitemap-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.08);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.badge-forms  { background: rgba(251,191,36,0.15); color: #fbbf24; }
+.badge-params { background: rgba(59,130,246,0.15);  color: #60a5fa; }
+.badge-api    { background: rgba(16,185,129,0.15);  color: #34d399; }
+
+/* Re-use proxy method badges for sitemap */
+.sitemap-method-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  letter-spacing: 0.3px;
+}
+
+/* ── Collapsible children ────────────────────────────────────────────────── */
+.sitemap-children { }
+.sitemap-children.collapsed { display: none; }
+
+/* ── Empty State ─────────────────────────────────────────────────────────── */
+.sitemap-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  user-select: none;
+}
+
+.sitemap-empty-icon { font-size: 32px; opacity: 0.4; }
+.sitemap-empty-hint { font-size: 11px; opacity: 0.6; }
+
+/* ── Detail Panel ────────────────────────────────────────────────────────── */
+.sitemap-detail-panel {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  flex-shrink: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sitemap-detail-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.sitemap-detail-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sitemap-detail-header {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-glass);
+  flex-shrink: 0;
+}
+
+.sitemap-detail-url {
+  display: block;
+  font-size: 11px;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  color: var(--text-main);
+  word-break: break-all;
+  margin-bottom: 4px;
+}
+
+.sitemap-detail-methods { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.sitemap-detail-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-glass);
+  flex-shrink: 0;
+}
+
+.sitemap-detail-tab {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-bottom 0.15s;
+  border-bottom: 2px solid transparent;
+}
+
+.sitemap-detail-tab:hover  { color: var(--text-main); }
+.sitemap-detail-tab.active { color: var(--webapp-btn); border-bottom-color: var(--webapp-btn); }
+
+.sitemap-detail-tab-pane {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+/* ── Params Table ────────────────────────────────────────────────────────── */
+.sitemap-params-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.sitemap-params-table th {
+  text-align: left;
+  padding: 4px 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.sitemap-params-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-family: 'Fira Code', 'Courier New', monospace;
+}
+
+/* ── Form Cards ──────────────────────────────────────────────────────────── */
+.sitemap-form-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  margin-bottom: 6px;
+}
+
+.sitemap-form-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.sitemap-form-action {
+  font-size: 11px;
+  font-family: 'Fira Code', monospace;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sitemap-form-inputs { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.sitemap-input-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  background: rgba(139,92,246,0.12);
+  border: 1px solid rgba(139,92,246,0.25);
+  border-radius: 10px;
+  font-size: 10px;
+  color: #c4b5fd;
+}
+
+.sitemap-input-pill em { color: var(--text-muted); font-style: normal; font-size: 9px; }
+
+/* ── Action Buttons ──────────────────────────────────────────────────────── */
+.sitemap-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.btn.small { font-size: 11px; padding: 4px 10px; height: 26px; }
+
+/* ── API Schema Panel ────────────────────────────────────────────────────── */
+.sitemap-api-panel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  max-height: 240px;
+  border-top: 1px solid var(--border-glass);
+  overflow: hidden;
+}
+
+.sitemap-api-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-glass);
+  flex-shrink: 0;
+}
+
+.sitemap-api-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+}
+
+.sitemap-api-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  min-width: 260px;
+  max-width: 380px;
+}
+
+.sitemap-api-card.sitemap-api-openapi { border-left: 3px solid #22c55e; }
+.sitemap-api-card.sitemap-api-graphql { border-left: 3px solid #e879f9; }
+
+.sitemap-api-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.sitemap-api-type-badge {
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #fff;
+  background: #6b7280;
+  flex-shrink: 0;
+}
+
+.sitemap-api-card.sitemap-api-openapi .sitemap-api-type-badge { background: #16a34a; }
+.sitemap-api-card.sitemap-api-graphql .sitemap-api-type-badge { background: #9333ea; }
+
+.sitemap-api-version {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.sitemap-api-url {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: 'Fira Code', monospace;
+  flex-basis: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sitemap-api-endpoints { display: flex; flex-direction: column; gap: 2px; max-height: 120px; overflow-y: auto; }
+
+.sitemap-api-endpoint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 11px;
+}
+
+.sitemap-api-path {
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--text-main);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sitemap-api-summary {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sitemap-api-overflow {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 4px 0;
+}
+
+/* ── Context Menu (shared, used by sitemap) ──────────────────────────────── */
+.context-menu {
+  position: fixed;
+  z-index: 2000;
+  background: rgba(20,20,28,0.97);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(12px);
+  min-width: 190px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+  padding: 4px;
+}
+
+.context-menu.hidden { display: none; }
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+  border-radius: calc(var(--radius-sm) - 2px);
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.context-menu-item:hover { background: rgba(139,92,246,0.18); }
+
+/* ── Crawl Modal Overrides ───────────────────────────────────────────────── */
+.sitemap-crawl-modal-content { max-width: 420px; }
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--webapp-btn);
+}
+
+.form-note {
+  background: rgba(251,191,36,0.08);
+  border: 1px solid rgba(251,191,36,0.2);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #fbbf24;
+  line-height: 1.5;
+}
+
+.form-hint { font-size: 10px; color: var(--text-muted); }
+.form-row  { display: flex; gap: 12px; }
