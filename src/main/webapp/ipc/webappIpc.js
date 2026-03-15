@@ -379,7 +379,8 @@ export function registerIpcHandlers(ipcMain, getWindow) {
       },
       // onError
       (err) => {
-        win?.webContents.send(IPC_CHANNELS.SCANNER_ERROR, { message: err.message });
+        const message = err instanceof Error ? err.message : String(err);
+        win?.webContents.send(IPC_CHANNELS.SCANNER_ERROR, { message });
       },
     );
 
@@ -487,7 +488,7 @@ function _findingsToHtml(findings) {
       <td>${_esc(f.title)}</td>
       <td style="word-break:break-all">${_esc(f.url)}</td>
       <td>${_esc(f.parameter || '')}</td>
-      <td>${_esc(f.remediation)}</td>
+      <td>${_esc(f.remediation || '')}</td>
     </tr>`;
   }).join('');
   return `<!DOCTYPE html>
