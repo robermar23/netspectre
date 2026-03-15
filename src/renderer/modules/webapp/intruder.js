@@ -298,7 +298,8 @@ function _bindEvents() {
     btn.addEventListener('click', async () => {
       const i = Number(btn.dataset.list);
       const browseResult = await window.electronAPI.browseFile({ filters: [{ name: 'Text', extensions: ['txt','csv','lst'] }] });
-      if (!browseResult?.path) return;
+      // BROWSE_FILE returns { status: 'selected', path } on success or { status: 'cancelled' }
+      if (browseResult?.status !== 'selected') return;
       const lines = await _readWordlistFile(browseResult.path);
       if (!lines) return;
       _payloadLists[i] = lines;

@@ -15,7 +15,9 @@ export function registerIpcHandlers(ipcMain, getWindow) {
     }
     try {
       const content = await fs.promises.readFile(filePath, 'utf8');
-      const lines = content.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+      // Split on individual newlines to preserve intentionally empty lines
+      // (blank entries can be meaningful in payload/wordlists, e.g. testing empty values)
+      const lines = content.split(/\r?\n/);
       return { success: true, lines };
     } catch (e) {
       return { success: false, error: e.message };

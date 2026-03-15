@@ -387,7 +387,8 @@ function _addUrlToTree(rawUrl) {
 
   const host = u.hostname;
   if (!_sitemap[host]) {
-    _sitemap[host] = { methods: [], forms: [], params: [], children: {}, statusCode: null };
+    // Store protocol so consumers (e.g. scanner) can reconstruct correct scheme
+    _sitemap[host] = { protocol: u.protocol, methods: [], forms: [], params: [], children: {}, statusCode: null };
   }
 
   const segments = u.pathname.replace(/^\//, '').split('/').filter(Boolean);

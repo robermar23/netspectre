@@ -582,6 +582,14 @@ function _onActivity(ev) {
   }
 }
 
+function _mkSpan(cls, text, title) {
+  const el = document.createElement('span');
+  el.className = cls;
+  el.textContent = text;
+  if (title !== undefined) el.title = title;
+  return el;
+}
+
 function _appendActivityEntry(ev) {
   if (!$activityList) return;
   const isDone = ev.status === 'done';
@@ -595,17 +603,17 @@ function _appendActivityEntry(ev) {
     } catch { return ev.url; }
   })();
 
-  entry.innerHTML = `
-    <span class="activity-ts">${new Date(ev.timestamp).toLocaleTimeString()}</span>
-    <span class="activity-status-icon">${isDone ? '✓' : '→'}</span>
-    <span class="activity-method">${_esc(ev.method)}</span>
-    <span class="activity-module-chip activity-chip-${_esc(ev.module)}">${_esc(ev.moduleLabel)}</span>
-    <span class="activity-url" title="${_esc(ev.url)}">${_esc(shortUrl)}</span>
-    ${isDone && ev.findings > 0
-      ? `<span class="activity-hit">⚠ ${ev.findings} finding${ev.findings > 1 ? 's' : ''}</span>`
-      : ''}
-    <span class="activity-desc" title="${_esc(ev.description)}">${isDone ? '' : _esc(ev.description)}</span>
-  `;
+  entry.appendChild(_mkSpan('activity-ts', new Date(ev.timestamp).toLocaleTimeString()));
+  entry.appendChild(_mkSpan('activity-status-icon', isDone ? '✓' : '→'));
+  entry.appendChild(_mkSpan('activity-method', ev.method || ''));
+  // ev.module is an internal key (e.g. 'sqli'), safe as a CSS class suffix via textContent for label
+  entry.appendChild(_mkSpan(`activity-module-chip activity-chip-${ev.module || ''}`, ev.moduleLabel || ''));
+  entry.appendChild(_mkSpan('activity-url', shortUrl, ev.url || ''));
+  if (isDone && ev.findings > 0) {
+    entry.appendChild(_mkSpan('activity-hit', `⚠ ${ev.findings} finding${ev.findings > 1 ? 's' : ''}`));
+  }
+  entry.appendChild(_mkSpan('activity-desc', isDone ? '' : (ev.description || ''), ev.description || ''));
+
   $activityList.appendChild(entry);
   // Auto-scroll to bottom
   $activityList.scrollTop = $activityList.scrollHeight;
@@ -709,21 +717,22 @@ function _esc(s) {
 function _flattenSitemap(sitemap) {
   const urls = [];
   for (const [host, rootNode] of Object.entries(sitemap || {})) {
-    // Include the root path itself
-    urls.push(`https://${host}/`);
-    // rootNode has shape { methods, forms, params, statusCode, children: { [seg]: node } }
+    // Preserve the original scheme; fall back to https if not stored
+    const scheme = rootNode.protocol ? rootNode.protocol + '//' : 'https://';
+    urls.push(`${scheme}${host}/`);
+    // rootNode has shape { protocol, methods, forms, params, statusCode, children: { [seg]: node } }
     // Walk only the children map so path segments are iterated, not node properties
-    _walkNode(host, '', rootNode.children || {}, urls);
+    _walkNode(scheme, host, '', rootNode.children || {}, urls);
   }
   return [...new Set(urls)];
 }
 
-function _walkNode(host, prefix, children, acc) {
+function _walkNode(scheme, host, prefix, children, acc) {
   if (!children || typeof children !== 'object') return;
   for (const [seg, child] of Object.entries(children)) {
     const path = prefix + '/' + seg;
-    acc.push(`https://${host}${path}`);
-    if (child && child.children) _walkNode(host, path, child.children, acc);
+    acc.push(`${scheme}${host}${path}`);
+    if (child && child.children) _walkNode(scheme, host, path, child.children, acc);
   }
 }
 
@@ -736,24 +745,25 @@ function _walkNode(host, prefix, children, acc) {
 function _expandSitemapTargets(sitemap) {
   const targets = [];
   for (const [host, rootNode] of Object.entries(sitemap || {})) {
-    _walkNodeExpand(host, '/', rootNode, targets);
-    _walkChildrenExpand(host, '', rootNode.children || {}, targets);
+    const scheme = rootNode.protocol ? rootNode.protocol + '//' : 'https://';
+    _walkNodeExpand(scheme, host, '/', rootNode, targets);
+    _walkChildrenExpand(scheme, host, '', rootNode.children || {}, targets);
   }
   return targets;
 }
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-function _walkChildrenExpand(host, prefix, children, acc) {
+function _walkChildrenExpand(scheme, host, prefix, children, acc) {
   for (const [seg, node] of Object.entries(children || {})) {
     const path = prefix + '/' + seg;
-    _walkNodeExpand(host, path, node, acc);
-    _walkChildrenExpand(host, path, node.children || {}, acc);
+    _walkNodeExpand(scheme, host, path, node, acc);
+    _walkChildrenExpand(scheme, host, path, node.children || {}, acc);
   }
 }
 
-function _walkNodeExpand(host, path, node, acc) {
-  const url     = `https://${host}${path}`;
+function _walkNodeExpand(scheme, host, path, node, acc) {
+  const url     = `${scheme}${host}${path}`;
   const methods = (node.methods?.length ? node.methods : ['GET']).map(m => m.toUpperCase());
 
   // Always include GET
