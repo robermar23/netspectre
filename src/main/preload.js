@@ -219,6 +219,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onApiDetectComplete:(cb) => ipcRenderer.on(IPC_CHANNELS.API_DETECT_COMPLETE,       (_e, v) => cb(v)),
   },
 
+  // Feature 7C: Active Vulnerability Scanner
+  scanner: {
+    start:       (opts)              => ipcRenderer.invoke(IPC_CHANNELS.SCANNER_START, opts),
+    stop:        ()                  => ipcRenderer.invoke(IPC_CHANNELS.SCANNER_STOP),
+    getFindings: ()                  => ipcRenderer.invoke(IPC_CHANNELS.SCANNER_GET_FINDINGS),
+    clear:       ()                  => ipcRenderer.invoke(IPC_CHANNELS.SCANNER_CLEAR),
+    export:      (format, findings)  => ipcRenderer.invoke(IPC_CHANNELS.SCANNER_EXPORT, { format, findings }),
+    onFinding:   (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_FINDING,   (_e, v) => cb(v)),
+    onProgress:  (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_PROGRESS,  (_e, v) => cb(v)),
+    onComplete:  (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_COMPLETE,  (_e, v) => cb(v)),
+    onError:     (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_ERROR,     (_e, v) => cb(v)),
+  },
+
   // Cleanup listeners
   removeListeners: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -299,5 +312,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.CRAWLER_ERROR);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.CRAWLER_DEPENDENCY_MISSING);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.API_SCHEMA_FOUND);
+    // Feature 7C: Scanner
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_FINDING);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_PROGRESS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_COMPLETE);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_ERROR);
   }
 });
