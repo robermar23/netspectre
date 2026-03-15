@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.19.0](https://github.com/robermar23/netspectre/compare/v1.18.0...v1.19.0) (2026-03-15)
+
+
+### Features
+
+* add activity log for scanner with IPC integration and UI updates ([f6e978a](https://github.com/robermar23/netspectre/commit/f6e978a9da049ef8be626f615811d8e20c217672))
+* add function to record external URLs in sitemap and integrate with IPC handlers ([29a2c08](https://github.com/robermar23/netspectre/commit/29a2c08603fb69bfac45b5f73db43155a1f5fea5))
+* add IPC handler for reading wordlists and integrate with scanner UI ([c18b701](https://github.com/robermar23/netspectre/commit/c18b70173910073bd2abc163fc3c4574b3a1d893))
+* add multi-method expansion option for sitemap scanning with UI updates ([caf18b8](https://github.com/robermar23/netspectre/commit/caf18b84cb9a8710b1510033db7719f42bdff8ea))
+* enhance IPC file reading to preserve empty lines and improve URL handling in sitemap ([cd46048](https://github.com/robermar23/netspectre/commit/cd460487d5a95ca5227584202291bbc94992448b))
+* enhance reference links in findings with clickable URLs and styling ([2864512](https://github.com/robermar23/netspectre/commit/28645125567e52eda689830ab512e11bcab6ea76))
+* enhance sitemap flattening to include root paths and improve child node traversal ([1334d09](https://github.com/robermar23/netspectre/commit/1334d09765c55c2e17c8c8a9ea552fcc03fbf967))
+
 ## [1.18.0](https://github.com/robermar23/netspectre/compare/v1.17.0...v1.18.0) (2026-03-15)
 
 
