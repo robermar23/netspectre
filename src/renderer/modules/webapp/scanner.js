@@ -628,16 +628,19 @@ function _esc(s) {
  */
 function _flattenSitemap(sitemap) {
   const urls = [];
-  for (const [host, tree] of Object.entries(sitemap || {})) {
-    _walkNode(host, '', tree, urls);
+  for (const [host, rootNode] of Object.entries(sitemap || {})) {
+    // Include the root path itself
+    urls.push(`https://${host}/`);
+    // rootNode has shape { methods, forms, params, statusCode, children: { [seg]: node } }
+    // Walk only the children map so path segments are iterated, not node properties
+    _walkNode(host, '', rootNode.children || {}, urls);
   }
   return [...new Set(urls)];
 }
 
-function _walkNode(host, prefix, node, acc) {
-  if (!node || typeof node !== 'object') return;
-  for (const [seg, child] of Object.entries(node)) {
-    if (seg === 'methods' || seg === 'forms' || seg === 'params') continue;
+function _walkNode(host, prefix, children, acc) {
+  if (!children || typeof children !== 'object') return;
+  for (const [seg, child] of Object.entries(children)) {
     const path = prefix + '/' + seg;
     acc.push(`https://${host}${path}`);
     if (child && child.children) _walkNode(host, path, child.children, acc);
