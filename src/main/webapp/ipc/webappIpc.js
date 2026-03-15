@@ -1,6 +1,6 @@
 /**
- * webappIpc.js — IPC handlers for the Web App workspace (Feature 7A)
- * Registers all PROXY_* channel handlers and bridges proxyServer + requestStore.
+ * webappIpc.js — IPC handlers for the Web App workspace (Feature 7A + 7B)
+ * Registers all PROXY_* and CRAWLER_* / SITEMAP_* / API_* channel handlers.
  */
 
 import { spawn } from 'child_process';
@@ -17,6 +17,13 @@ import {
   initRequestStore, insertRequest, getRequests, getRequest,
   deleteRequest, clearAll, exportHar, getRequestCount, closeRequestStore,
 } from '../requestStore.js';
+import {
+  observeRequest, getSitemap, clearSitemap, exportSitemapJson, getSitemapStats,
+} from '../crawler.js';
+import {
+  startActiveCrawl, stopActiveCrawl, isActiveCrawlRunning, isPlaywrightAvailable,
+} from '../activeCrawler.js';
+import { detectApiSchemas } from '../apiDetector.js';
 
 export function registerIpcHandlers(ipcMain, getWindow) {
 
@@ -40,6 +47,23 @@ export function registerIpcHandlers(ipcMain, getWindow) {
         }
         // Push to renderer (lightweight summary, no bodies)
         getWindow()?.webContents.send(IPC_CHANNELS.PROXY_REQUEST, _toSummary(record));
+
+        // Feed into passive spider — setImmediate avoids blocking the proxy event loop
+        setImmediate(() => {
+          try {
+            const { newUrls, newForms } = observeRequest(record);
+            const win = getWindow();
+            if (!win) return;
+            for (const url of newUrls) {
+              win.webContents.send(IPC_CHANNELS.CRAWLER_URL_FOUND, { url, source: 'passive' });
+            }
+            for (const form of newForms) {
+              win.webContents.send(IPC_CHANNELS.CRAWLER_FORM_FOUND, { form, source: 'passive' });
+            }
+          } catch (err) {
+            console.error('[WebappIpc] Passive spider error:', err.message);
+          }
+        });
       },
 
       onIntercepted: (record) => {
@@ -205,11 +229,131 @@ export function registerIpcHandlers(ipcMain, getWindow) {
       };
     }
   });
+
+  // ─── Feature 7B — Active Crawler ─────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.CRAWLER_START, async (_event, opts = {}) => {
+    if (isActiveCrawlRunning()) {
+      return { success: false, error: 'Crawl already running.' };
+    }
+    if (!opts.startUrl) {
+      return { success: false, error: 'startUrl is required.' };
+    }
+
+    // Validate URL
+    try { new URL(opts.startUrl); } catch {
+      return { success: false, error: 'Invalid startUrl.' };
+    }
+
+    const win = getWindow();
+
+    // Start the crawl; use the proxy port from running proxy (if any)
+    // Only route through the proxy when it is actually running.
+    // Passing a dead proxy address causes every page.goto to fail immediately.
+    const proxyUrl = isProxyRunning()
+      ? `http://127.0.0.1:${getProxyPort()}`
+      : null;
+
+    startActiveCrawl(
+      { ...opts, proxyUrl, extraModulePaths: [app.getPath('userData')] },
+      // onUrl
+      (url) => {
+        win?.webContents.send(IPC_CHANNELS.CRAWLER_URL_FOUND, { url, source: 'active' });
+      },
+      // onForm
+      (form) => {
+        win?.webContents.send(IPC_CHANNELS.CRAWLER_FORM_FOUND, { form, source: 'active' });
+      },
+      // onProgress
+      (progress) => {
+        win?.webContents.send(IPC_CHANNELS.CRAWLER_PROGRESS, progress);
+      },
+      // onComplete
+      () => {
+        win?.webContents.send(IPC_CHANNELS.CRAWLER_COMPLETE, getSitemapStats());
+      },
+      // onError
+      (err) => {
+        if (err.code === 'DEPENDENCY_MISSING') {
+          win?.webContents.send(IPC_CHANNELS.CRAWLER_DEPENDENCY_MISSING, {
+            message: 'playwright-core is not installed. Install it to use active crawling.',
+          });
+        } else {
+          win?.webContents.send(IPC_CHANNELS.CRAWLER_ERROR, { message: err.message });
+        }
+      },
+    );
+
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CRAWLER_STOP, async () => {
+    stopActiveCrawl();
+    return { success: true };
+  });
+
+  // ─── Feature 7B — Sitemap ─────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.SITEMAP_GET, async () => {
+    return { success: true, sitemap: getSitemap(), stats: getSitemapStats() };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SITEMAP_CLEAR, async () => {
+    clearSitemap();
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SITEMAP_EXPORT, async () => {
+    try {
+      const json = exportSitemapJson();
+      return { success: true, json };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ─── Feature 7B — API Detection ───────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.API_DETECT, async (_event, { baseUrl } = {}) => {
+    if (!baseUrl) return { success: false, error: 'baseUrl is required.' };
+    try { new URL(baseUrl); } catch {
+      return { success: false, error: 'Invalid baseUrl.' };
+    }
+
+    const win = getWindow();
+    const ctrl = new AbortController();
+
+    detectApiSchemas(baseUrl, ctrl.signal)
+      .then((results) => {
+        for (const schema of results) {
+          win?.webContents.send(IPC_CHANNELS.API_SCHEMA_FOUND, schema);
+        }
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError') {
+          win?.webContents.send(IPC_CHANNELS.CRAWLER_ERROR, { message: err.message });
+        }
+      });
+
+    return { success: true };
+  });
+
+  // ─── Playwright availability check ────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.PLAYWRIGHT_CHECK, async () => {
+    const userData    = app.getPath('userData');
+    const isPackaged  = app.isPackaged;
+    // In dev the project root is writable; in packaged builds the ASAR is not.
+    const installPath = isPackaged ? userData : app.getAppPath();
+    const installed   = await isPlaywrightAvailable([userData]);
+    return { installed, installPath, isPackaged };
+  });
 }
 
 /** Clean up on app exit. */
 export function cleanupWebapp() {
   stopProxy();
+  stopActiveCrawl();
   closeRequestStore();
 }
 

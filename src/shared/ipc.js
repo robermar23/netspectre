@@ -15,6 +15,7 @@ export const IPC_CHANNELS = {
   RUN_DEEP_SCAN: 'deep-scan-host',
   CANCEL_DEEP_SCAN: 'cancel-deep-scan',
   OPEN_EXTERNAL_ACTION: 'open-external-action',
+  OPEN_URL:             'open-url',              // open a full URL in the system browser
 
   // Renderer Listeners (main -> renderer)
   HOST_FOUND: 'host-found',
@@ -197,4 +198,20 @@ export const IPC_CHANNELS = {
   PROXY_GET_STATUS:        'proxy-get-status',
   PROXY_DELETE_REQUEST:    'proxy-delete-request',
   PROXY_GET_CA_PATH:       'proxy-get-ca-path',
+
+  // ─── Feature 7B — Crawler & Attack Surface ───────────────────────────────────
+  CRAWLER_START:              'crawler-start',
+  CRAWLER_STOP:               'crawler-stop',
+  CRAWLER_URL_FOUND:          'crawler-url-found',          // main -> renderer
+  CRAWLER_FORM_FOUND:         'crawler-form-found',         // main -> renderer
+  CRAWLER_PROGRESS:           'crawler-progress',           // main -> renderer
+  CRAWLER_COMPLETE:           'crawler-complete',           // main -> renderer
+  CRAWLER_ERROR:              'crawler-error',              // main -> renderer
+  CRAWLER_DEPENDENCY_MISSING: 'crawler-dep-missing',        // main -> renderer
+  SITEMAP_GET:                'sitemap-get',
+  SITEMAP_CLEAR:              'sitemap-clear',
+  SITEMAP_EXPORT:             'sitemap-export',
+  API_DETECT:                 'api-detect',
+  API_SCHEMA_FOUND:           'api-schema-found',           // main -> renderer
+  PLAYWRIGHT_CHECK:           'playwright-check',
 };

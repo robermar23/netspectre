@@ -19,6 +19,7 @@ const toggleSmbclient = document.getElementById('setting-smbclient-enabled');
 const statusSmbclient = document.getElementById('status-smbclient');
 const toggleShowmount = document.getElementById('setting-showmount-enabled');
 const statusShowmount = document.getElementById('status-showmount');
+const statusPlaywright = document.getElementById('status-playwright');
 
 const vlanPanel = document.getElementById('vlan-panel');
 
@@ -154,6 +155,36 @@ async function loadAndApplySettings() {
     toggleEl: toggleShowmount,
   });
 
+  // Playwright — npm package, no toggle or path override
+  if (statusPlaywright) {
+    const { installed, installPath, isPackaged } = await api.crawler.checkPlaywright();
+    statusPlaywright.classList.toggle('installed', installed);
+    statusPlaywright.classList.toggle('missing', !installed);
+    const pwText = statusPlaywright.querySelector('.status-text');
+    if (pwText) {
+      pwText.textContent = installed
+        ? 'playwright-core installed — Active crawl ready'
+        : 'Not installed';
+    }
+
+    const stepsEl = document.getElementById('playwright-install-steps');
+    if (stepsEl) {
+      stepsEl.style.display = installed ? 'none' : 'block';
+      if (!installed && installPath) {
+        const cdCmd = document.querySelector('#playwright-cmd-cd .install-cmd-text');
+        if (cdCmd) cdCmd.textContent = `cd "${installPath}"`;
+
+        // Add a context note for packaged installs so the path is less surprising
+        const noteEl = document.getElementById('playwright-path-note');
+        if (noteEl) {
+          noteEl.textContent = isPackaged
+            ? 'This is your NetSpectre data directory — the only writable location in a packaged install.'
+            : 'This is the NetSpectre development directory.';
+        }
+      }
+    }
+  }
+
   applySettingsUI(settings);
 }
 
@@ -232,6 +263,20 @@ export function init() {
         inputEl.value = selectedPath;
         await api.settings.set(`${targetKey}.path`, selectedPath);
         loadAndApplySettings(); // Re-trigger dependency checks
+      }
+    });
+  });
+
+  // Copy buttons for install command rows
+  document.querySelectorAll('.btn-copy-cmd').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const text = btn.previousElementSibling?.textContent?.trim();
+      if (text) {
+        navigator.clipboard.writeText(text).then(() => {
+          const orig = btn.textContent;
+          btn.textContent = '✓';
+          setTimeout(() => { btn.textContent = orig; }, 1500);
+        });
       }
     });
   });

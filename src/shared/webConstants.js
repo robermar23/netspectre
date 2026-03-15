@@ -28,3 +28,26 @@ export const OPENAPI_PATHS = [
 
 /** Well-known GraphQL endpoint paths */
 export const GRAPHQL_PATHS = ['/graphql', '/api/graphql', '/gql', '/query'];
+
+// ─── Feature 7B — Crawler Constants ──────────────────────────────────────────
+
+/** Maximum crawl depth (hard cap; user cannot exceed this) */
+export const CRAWLER_MAX_DEPTH = 10;
+
+/** Maximum pages per active crawl session */
+export const CRAWLER_MAX_PAGES = 5000;
+
+/** Default active crawl max depth */
+export const CRAWLER_DEFAULT_DEPTH = 3;
+
+/** Default active crawl max pages */
+export const CRAWLER_DEFAULT_PAGES = 200;
+
+/** Per-request timeout for active crawler (ms) */
+export const CRAWLER_DEFAULT_TIMEOUT_MS = 30_000;
+
+/** Maximum response body size to parse for link extraction (bytes) */
+export const CRAWLER_MAX_PARSE_BYTES = 2_000_000;
+
+/** Maximum robots.txt size to fetch (bytes) */
+export const ROBOTS_MAX_BYTES = 100_000;

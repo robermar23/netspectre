@@ -838,6 +838,49 @@ body {
   color: var(--text-muted);
   margin: 0;
   line-height: 1.4;
+  user-select: text;
+}
+
+.settings-description code {
+  user-select: text;
+}
+
+.install-cmd-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.install-cmd-text {
+  flex: 1;
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--text-main);
+  user-select: text;
+  word-break: break-all;
+}
+
+.btn-copy-cmd {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.btn-copy-cmd:hover {
+  color: white;
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .dependency-status {
