@@ -216,6 +216,9 @@ export const IPC_CHANNELS = {
   API_DETECT_COMPLETE:        'api-detect-complete',        // main -> renderer { found: number }
   PLAYWRIGHT_CHECK:           'playwright-check',
 
+  // ─── Feature 7B/7C — DNS resolution (hostname → IP for cross-workspace pivot)
+  DNS_RESOLVE:                'dns-resolve',
+
   // ─── Feature 7C — Active Vulnerability Scanner ────────────────────────────
   SCANNER_START:              'scanner-start',
   SCANNER_STOP:               'scanner-stop',

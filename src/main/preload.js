@@ -219,6 +219,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onApiDetectComplete:(cb) => ipcRenderer.on(IPC_CHANNELS.API_DETECT_COMPLETE,       (_e, v) => cb(v)),
   },
 
+  // Feature 7B/7C: DNS resolution (hostname → IP, for cross-workspace pivot)
+  resolveHostname: (hostname) => ipcRenderer.invoke(IPC_CHANNELS.DNS_RESOLVE, hostname),
+
   // Feature 7C: Active Vulnerability Scanner
   scanner: {
     start:       (opts)              => ipcRenderer.invoke(IPC_CHANNELS.SCANNER_START, opts),

@@ -214,6 +214,8 @@ var IPC_CHANNELS = {
   API_DETECT_COMPLETE: "api-detect-complete",
   // main -> renderer { found: number }
   PLAYWRIGHT_CHECK: "playwright-check",
+  // ─── Feature 7B/7C — DNS resolution (hostname → IP for cross-workspace pivot)
+  DNS_RESOLVE: "dns-resolve",
   // ─── Feature 7C — Active Vulnerability Scanner ────────────────────────────
   SCANNER_START: "scanner-start",
   SCANNER_STOP: "scanner-stop",
@@ -425,6 +427,8 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     onApiSchemaFound: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.API_SCHEMA_FOUND, (_e, v) => cb(v)),
     onApiDetectComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.API_DETECT_COMPLETE, (_e, v) => cb(v))
   },
+  // Feature 7B/7C: DNS resolution (hostname → IP, for cross-workspace pivot)
+  resolveHostname: (hostname) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.DNS_RESOLVE, hostname),
   // Feature 7C: Active Vulnerability Scanner
   scanner: {
     start: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SCANNER_START, opts),

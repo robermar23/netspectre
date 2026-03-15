@@ -22,6 +22,9 @@ let _tested     = 0;
 let _total      = 0;
 let _expandedId = null;
 
+/** DNS resolution cache: hostname → resolved IPv4 (or null if failed) */
+const _dnsCache = new Map();
+
 // ─── DOM Refs ─────────────────────────────────────────────────────────────────
 
 let $startBtn, $stopBtn, $clearBtn, $exportBtn;
@@ -294,6 +297,11 @@ function _buildFindingRow(f) {
     _sendToRepeater(f);
   });
 
+  detail.querySelector('.btn-probe-network')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _probeInNetwork(f);
+  });
+
   wrapper.appendChild(header);
   wrapper.appendChild(detail);
   return wrapper;
@@ -301,6 +309,9 @@ function _buildFindingRow(f) {
 
 function _buildDetailHtml(f) {
   const ev = f.evidence || {};
+  let hostname = '';
+  try { hostname = new URL(f.url).hostname; } catch {}
+
   return `
     <div class="scanner-detail-grid">
       <div class="scanner-detail-section">
@@ -327,6 +338,11 @@ function _buildDetailHtml(f) {
         <div class="scanner-detail-label">References</div>
         <div class="scanner-detail-value">${f.references.map(r => `<span class="ref-chip">${_esc(r)}</span>`).join(' ')}</div>
       </div>` : ''}
+      ${hostname ? `<div class="scanner-detail-section scanner-detail-actions">
+        <button class="btn-probe-network" data-id="${_esc(f.id)}" title="Resolve ${_esc(hostname)} to IP and add to Network workspace">
+          &#127760; Probe in Network
+        </button>
+      </div>` : ''}
     </div>
   `;
 }
@@ -347,26 +363,93 @@ function _toggleExpand(id) {
 
 // ─── Network badge integration ────────────────────────────────────────────────
 
-function _updateNetworkBadge(finding) {
+/**
+ * Async — resolve the finding's hostname to an IP (with caching), then
+ * stamp the matching network host card with a web-vuln badge.
+ */
+async function _updateNetworkBadge(finding) {
   if (!state.webAppFindings) state.webAppFindings = [];
   state.webAppFindings.push(finding);
 
-  // Try to match finding URL hostname to a host card
-  try {
-    const hostname = new URL(finding.url).hostname;
-    const match = (state.hosts || []).find(h => h.ip === hostname || h.hostname === hostname);
-    if (match) {
-      match.hasWebVulns = true;
-      const card = document.querySelector(`.host-card[data-ip="${match.ip}"]`);
-      if (card && !card.querySelector('.web-vuln-badge')) {
-        const badge = document.createElement('span');
-        badge.className = 'web-vuln-badge';
-        badge.textContent = '⚠ Web Vulns';
-        badge.title = 'Web vulnerabilities found by scanner';
-        card.querySelector('.host-meta')?.appendChild(badge);
-      }
+  let hostname;
+  try { hostname = new URL(finding.url).hostname; } catch { return; }
+  if (!hostname) return;
+
+  // Resolve hostname → IP (cached)
+  let resolvedIp = _dnsCache.get(hostname);
+  if (resolvedIp === undefined) {
+    try {
+      const res = await api.resolveHostname(hostname);
+      resolvedIp = res?.success ? res.ip : null;
+    } catch {
+      resolvedIp = null;
     }
-  } catch {}
+    _dnsCache.set(hostname, resolvedIp);
+  }
+
+  // Match against known network hosts by IP or hostname
+  const match = (state.hosts || []).find(h =>
+    h.ip === resolvedIp || h.ip === hostname || h.hostname === hostname
+  );
+
+  if (match) {
+    match.hasWebVulns = true;
+    const card = document.querySelector(`.host-card[data-ip="${match.ip}"]`);
+    if (card && !card.querySelector('.web-vuln-badge')) {
+      const badge = document.createElement('span');
+      badge.className = 'web-vuln-badge';
+      badge.textContent = '⚠ Web Vulns';
+      badge.title = 'Web vulnerabilities found by active scanner';
+      card.querySelector('.host-meta')?.appendChild(badge);
+    }
+  }
+}
+
+/**
+ * Resolve finding hostname → IP, inject as a new host into the network
+ * workspace, then switch to the network tab.
+ */
+async function _probeInNetwork(finding) {
+  let hostname;
+  try { hostname = new URL(finding.url).hostname; } catch { return; }
+  if (!hostname) return;
+
+  // Resolve IP (use cache if available)
+  let ip = _dnsCache.get(hostname);
+  if (ip === undefined) {
+    try {
+      const res = await api.resolveHostname(hostname);
+      ip = res?.success ? res.ip : null;
+    } catch { ip = null; }
+    _dnsCache.set(hostname, ip);
+  }
+
+  if (!ip) {
+    // hostname is already an IP, or DNS failed — try hostname as IP directly
+    ip = hostname;
+  }
+
+  // Avoid duplicating an existing host entry
+  const existing = (state.hosts || []).find(h => h.ip === ip);
+  if (!existing) {
+    const newHost = {
+      ip,
+      hostname,
+      source: 'webapp-scanner',
+      ports: [],
+      hasWebVulns: true,
+    };
+    if (!state.hosts) state.hosts = [];
+    state.hosts.push(newHost);
+    // Notify network workspace to re-render its host list
+    window.dispatchEvent(new CustomEvent('network:hostAdded', { detail: newHost }));
+  } else {
+    existing.hasWebVulns = true;
+  }
+
+  // Switch to the Network workspace tab
+  const networkTab = document.querySelector('.workspace-tab[data-workspace="network"]');
+  networkTab?.click();
 }
 
 // ─── Repeater integration ─────────────────────────────────────────────────────

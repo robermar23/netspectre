@@ -6,6 +6,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import dns from 'dns';
 import { app, shell } from 'electron';
 import { IPC_CHANNELS } from '#shared/ipc.js';
 import {
@@ -394,6 +395,24 @@ export function registerIpcHandlers(ipcMain, getWindow) {
 
   ipcMain.handle(IPC_CHANNELS.SCANNER_GET_FINDINGS, async () => {
     return { success: true, findings: getFindings() };
+  });
+
+  // ─── DNS Resolution (hostname → IP for cross-workspace pivot) ────────────────
+
+  ipcMain.handle(IPC_CHANNELS.DNS_RESOLVE, async (_event, hostname) => {
+    if (!hostname || typeof hostname !== 'string') {
+      return { success: false, error: 'Invalid hostname' };
+    }
+    // Already an IPv4 address — return as-is
+    if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname)) {
+      return { success: true, ip: hostname, hostname };
+    }
+    try {
+      const result = await dns.promises.lookup(hostname, { family: 4 });
+      return { success: true, ip: result.address, hostname };
+    } catch (err) {
+      return { success: false, error: err.message, hostname };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.SCANNER_CLEAR, async () => {

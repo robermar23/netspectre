@@ -96,6 +96,9 @@ async function boot() {
 
   // 11. Web App workspace (Feature 7) — workspace switcher, sidebar, proxy UI
   initWebApp();
+
+  // 12. Cross-workspace: Scanner "Probe in Network" injects hosts from L7 → L3/L4
+  window.addEventListener('network:hostAdded', () => debouncedRenderAllHosts());
 }
 
 boot().catch(err => console.error('[NetSpecter] Boot error:', err));

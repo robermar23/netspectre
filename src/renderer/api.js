@@ -91,6 +91,9 @@ export const api = {
   // Feature 7B: Web Crawler & Attack Surface
   crawler: window.electronAPI.crawler,
 
+  // Feature 7B/7C: DNS resolution (hostname → IP, for cross-workspace pivot)
+  resolveHostname: (hostname) => window.electronAPI.resolveHostname(hostname),
+
   // Feature 7C: Active Vulnerability Scanner
   scanner: window.electronAPI.scanner,
 };
