@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.16.0](https://github.com/robermar23/netspectre/compare/v1.15.0...v1.16.0) (2026-03-15)
+
+
+### Features
+
+* **api:** add API detect complete channel and update IPC handlers ([7af5510](https://github.com/robermar23/netspectre/commit/7af551053f6b1d309ca08eafda0a9b09b3217707))
+* **crawler:** add active and passive crawling features with tests ([2fd3039](https://github.com/robermar23/netspectre/commit/2fd3039c7f31ab5adf09f103a9902ee07def5af0))
+* **proxy:** implement intercepting proxy features and related constants ([18bb3b9](https://github.com/robermar23/netspectre/commit/18bb3b9c6a931f097105763fd2bb549cb3bd3e58))
+* **proxy:** implement intercepting proxy features and related constants ([818ff83](https://github.com/robermar23/netspectre/commit/818ff832ad489429d7ea1184339f8b08d9a72dd3))
+* **sitemap:** enhance sitemap rendering with API badge and form handling improvements ([9a452a6](https://github.com/robermar23/netspectre/commit/9a452a642d089286b69e7bf3e743e36ada0b85d7))
+
 ## [1.15.0](https://github.com/robermar23/netspectre/compare/v1.14.0...v1.15.0) (2026-03-14)
 
 
