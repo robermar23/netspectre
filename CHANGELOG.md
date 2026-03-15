@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.18.0](https://github.com/robermar23/netspectre/compare/v1.17.0...v1.18.0) (2026-03-15)
+
+
+### Features
+
+* add comparer.js for side-by-side diff view using Myers algorithm ([8608474](https://github.com/robermar23/netspectre/commit/860847463132ccdb2330b57cbe29f11152973690))
+* add decoder.js for encoder/decoder workbench with client/server transforms ([00f67a4](https://github.com/robermar23/netspectre/commit/00f67a4d2cad394369c24e6240bd4c99ea29ded8))
+* add intruder.js for HTTP request manipulation with customizable attack types and payloads ([e73c214](https://github.com/robermar23/netspectre/commit/e73c2141c271ede8fc846d141b926425aae45e6d))
+* add intruderEngine.js for automated HTTP fuzzing with multiple attack types ([259133b](https://github.com/robermar23/netspectre/commit/259133b907af3136fb071b3ed91724a588a96d54))
+* add repeater.js for tabbed HTTP request editor and response viewer with history navigation ([d639b42](https://github.com/robermar23/netspectre/commit/d639b42131446d597555b0f8729150835287d2f9))
+* add repeaterEngine.js for HTTP request relay functionality in the Repeater Tool ([a7e12b5](https://github.com/robermar23/netspectre/commit/a7e12b5dbf04a2489bb4ddaa83b73f91417c75c1))
+* add scanner and sitemap actions to context menus and integrate with existing modules ([ca7033a](https://github.com/robermar23/netspectre/commit/ca7033ac94343f87fc8f793e33ab2a4c74b1d4e7))
+* add sequencer.js for token randomness analysis with live capture and manual input options ([1bc4a01](https://github.com/robermar23/netspectre/commit/1bc4a016fcb20d64993d06d2a1daf1d724398702))
+* add sequencerEngine.js for token randomness analysis with statistical tests ([06beb0e](https://github.com/robermar23/netspectre/commit/06beb0e416848580ca75f13a4d04233977a90c1e))
+* centralize URL construction and enhance IPC handlers with validation and size limits ([08fbe51](https://github.com/robermar23/netspectre/commit/08fbe5138689e331986693784cb8e49b893b6e2f))
+* enable text selection for various UI elements in webapp.css ([0a5be25](https://github.com/robermar23/netspectre/commit/0a5be253944acb3f945a577cf95eec6b9a68938b))
+* implement Phase 7D manual testing utilities including Repeater, Intruder, Sequencer, and Decoder ([f367ccd](https://github.com/robermar23/netspectre/commit/f367ccd65e33823e1101f2931933aca1fce303bb))
+
 ## [1.17.0](https://github.com/robermar23/netspectre/compare/v1.16.0...v1.17.0) (2026-03-15)
 
 
