@@ -207,12 +207,8 @@ function _bindEvents() {
   document.getElementById('btn-sitemap-send-intruder') ?.addEventListener('click', _detailAction('send-intruder'));
   document.getElementById('btn-sitemap-send-dirfuzzer')?.addEventListener('click', _detailAction('send-dirfuzzer'));
   document.getElementById('btn-sitemap-open-browser')  ?.addEventListener('click', _detailAction('open-browser'));
-  document.getElementById('btn-sitemap-probe-network') ?.addEventListener('click', () => {
-    if (_selectedNode) _probeHostInNetwork(_selectedNode.url);
-  });
-  document.getElementById('btn-sitemap-api-detect-url')?.addEventListener('click', () => {
-    if (_selectedNode) api.crawler.detectApis(_selectedNode.url);
-  });
+  document.getElementById('btn-sitemap-probe-network') ?.addEventListener('click', _detailAction('probe-network'));
+  document.getElementById('btn-sitemap-api-detect-url')?.addEventListener('click', _detailAction('api-detect'));
 }
 
 function _scheduleRender() {
@@ -698,6 +694,18 @@ function _hideContextMenu() {
   _contextTarget = null;
 }
 
+function _safeParseUrl(url) {
+  try { return new URL(url); } catch { return null; }
+}
+
+function _buildSimpleGetRequest(url) {
+  const parsed    = _safeParseUrl(url);
+  const pathQuery = parsed ? (parsed.pathname + parsed.search) : '/';
+  const host      = parsed ? parsed.host : url;
+  const raw       = `GET ${pathQuery} HTTP/1.1\r\nHost: ${host}\r\n\r\n`;
+  return { raw, pathQuery, host };
+}
+
 function _handleContextAction(action, url) {
   if (!url) return;
   switch (action) {
@@ -705,20 +713,14 @@ function _handleContextAction(action, url) {
       window.electronAPI.openUrl(url);
       break;
     case 'send-repeater': {
-      const parsed    = (() => { try { return new URL(url); } catch { return null; } })();
-      const pathQuery = parsed ? (parsed.pathname + parsed.search) : '/';
-      const host      = parsed ? parsed.host : url;
-      const raw       = `GET ${pathQuery} HTTP/1.1\r\nHost: ${host}\r\n\r\n`;
+      const { raw, pathQuery } = _buildSimpleGetRequest(url);
       document.dispatchEvent(new CustomEvent('repeater:sendTo', {
         detail: { raw, url, label: `GET ${pathQuery}` },
       }));
       break;
     }
     case 'send-intruder': {
-      const parsed    = (() => { try { return new URL(url); } catch { return null; } })();
-      const pathQuery = parsed ? (parsed.pathname + parsed.search) : '/';
-      const host      = parsed ? parsed.host : url;
-      const raw       = `GET ${pathQuery} HTTP/1.1\r\nHost: ${host}\r\n\r\n`;
+      const { raw } = _buildSimpleGetRequest(url);
       document.dispatchEvent(new CustomEvent('intruder:sendTo', { detail: { raw, url } }));
       break;
     }

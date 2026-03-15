@@ -417,7 +417,7 @@ function _wireHistoryTable() {
       const row = allRows.find(r => r.id === selectedRowId);
       if (row) {
         const raw   = _buildRawText(row);
-        const url   = `${row.protocol || 'http'}://${row.host}${row.path ?? '/'}${row.query ? '?' + row.query : ''}`;
+        const url   = _rowToUrl(row);
         const label = `${row.method} ${row.path ?? '/'}`;
         document.dispatchEvent(new CustomEvent('repeater:sendTo', { detail: { raw, url, label } }));
       }
@@ -425,20 +425,18 @@ function _wireHistoryTable() {
       const row = allRows.find(r => r.id === selectedRowId);
       if (row) {
         const raw = _buildRawText(row);
-        const url = `${row.protocol || 'http'}://${row.host}${row.path ?? '/'}${row.query ? '?' + row.query : ''}`;
+        const url = _rowToUrl(row);
         document.dispatchEvent(new CustomEvent('intruder:sendTo', { detail: { raw, url } }));
       }
     } else if (action === 'scanner') {
       const row = allRows.find(r => r.id === selectedRowId);
       if (row) {
-        const url = `${row.protocol || 'http'}://${row.host}${row.path ?? '/'}${row.query ? '?' + row.query : ''}`;
-        window.__openScannerPanel?.(url);
+        window.__openScannerPanel?.(_rowToUrl(row));
       }
     } else if (action === 'sitemap') {
       const row = allRows.find(r => r.id === selectedRowId);
       if (row) {
-        const url = `${row.protocol || 'http'}://${row.host}${row.path ?? '/'}${row.query ? '?' + row.query : ''}`;
-        window.__openSitemapTarget?.(url);
+        window.__openSitemapTarget?.(_rowToUrl(row));
       }
     }
   });
@@ -888,6 +886,10 @@ function _getHeader(headers, name) {
   if (!headers) return '';
   const h = headers.find(([k]) => k.toLowerCase() === name.toLowerCase());
   return h ? h[1] : '';
+}
+
+function _rowToUrl(row) {
+  return `${row.protocol || 'http'}://${row.host}${row.path ?? '/'}${row.query ? '?' + row.query : ''}`;
 }
 
 function _buildRawText(record) {
