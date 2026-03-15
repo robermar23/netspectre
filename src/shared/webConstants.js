@@ -51,3 +51,58 @@ export const CRAWLER_MAX_PARSE_BYTES = 2_000_000;
 
 /** Maximum robots.txt size to fetch (bytes) */
 export const ROBOTS_MAX_BYTES = 100_000;
+
+// ─── Feature 7C — Active Vulnerability Scanner Constants ─────────────────────
+
+/** Default scanner concurrency */
+export const SCANNER_DEFAULT_CONCURRENCY = 5;
+
+/** Default per-probe timeout (ms) */
+export const SCANNER_DEFAULT_TIMEOUT_MS = 10_000;
+
+/** Minimum time-based delay threshold to flag as injection (ms) */
+export const SCANNER_TIMING_THRESHOLD_MS = 4_000;
+
+/** URL-like parameter name heuristics for SSRF detection */
+export const SSRF_PARAM_NAMES = [
+  'url', 'uri', 'link', 'href', 'src', 'redirect', 'callback', 'next',
+  'return', 'image', 'file', 'endpoint', 'host', 'domain', 'path', 'dest',
+  'destination', 'to', 'location', 'target', 'resource', 'proxy',
+];
+
+/** File path parameter name heuristics for LFI/Path Traversal */
+export const PATH_PARAM_NAMES = [
+  'file', 'path', 'page', 'template', 'doc', 'document', 'include',
+  'load', 'read', 'name', 'filename', 'view', 'action', 'dir', 'folder',
+];
+
+/** HTTP security headers to audit and their recommended values */
+export const SECURITY_HEADERS = [
+  { name: 'strict-transport-security', severity: 'high',   label: 'Strict-Transport-Security', recommended: 'max-age=31536000; includeSubDomains' },
+  { name: 'content-security-policy',   severity: 'high',   label: 'Content-Security-Policy',   recommended: 'Contextual — see OWASP CSP cheat sheet' },
+  { name: 'x-content-type-options',    severity: 'medium', label: 'X-Content-Type-Options',    recommended: 'nosniff' },
+  { name: 'x-frame-options',           severity: 'medium', label: 'X-Frame-Options',           recommended: 'DENY or SAMEORIGIN' },
+  { name: 'referrer-policy',           severity: 'low',    label: 'Referrer-Policy',           recommended: 'strict-origin-when-cross-origin' },
+  { name: 'permissions-policy',        severity: 'low',    label: 'Permissions-Policy',        recommended: 'Restrict geolocation, camera, microphone' },
+  { name: 'cross-origin-opener-policy',severity: 'low',    label: 'Cross-Origin-Opener-Policy',recommended: 'same-origin' },
+];
+
+/** Database error fingerprints for error-based SQLi detection */
+export const DB_ERROR_PATTERNS = [
+  { pattern: /you have an error in your sql syntax/i,          db: 'MySQL' },
+  { pattern: /mysql_fetch_array\(\)/i,                         db: 'MySQL' },
+  { pattern: /unclosed quotation mark after the character string/i, db: 'MSSQL' },
+  { pattern: /SqlException/i,                                  db: 'MSSQL' },
+  { pattern: /pg_query\(\)/i,                                  db: 'PostgreSQL' },
+  { pattern: /ERROR:\s+unterminated/i,                         db: 'PostgreSQL' },
+  { pattern: /SQLiteException/i,                               db: 'SQLite' },
+  { pattern: /no such column/i,                                db: 'SQLite' },
+  { pattern: /ORA-01756/i,                                     db: 'Oracle' },
+  { pattern: /quoted string not properly terminated/i,         db: 'Oracle' },
+];
+
+/** AWS metadata response keywords for SSRF detection */
+export const AWS_METADATA_KEYS = ['ami-id', 'instance-id', 'iam', 'security-credentials', 'local-ipv4'];
+
+/** Severity order for sorting findings (lower index = higher priority) */
+export const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'];
