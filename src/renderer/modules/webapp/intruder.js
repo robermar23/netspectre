@@ -297,16 +297,13 @@ function _bindEvents() {
   document.querySelectorAll('.intruder-load-btn[data-list]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const i = Number(btn.dataset.list);
-      const result = await window.electronAPI.browseFile({ filters: [{ name: 'Text', extensions: ['txt','csv','lst'] }] });
-      if (!result?.filePath) return;
-      // Request the main process to read the file (we don't have fs access in renderer)
-      // Use the existing BROWSE_FILE + a follow-up read, or show a note
-      // For simplicity we show the path and request reading via IPC
-      const lines = await _readWordlistFile(result.filePath);
+      const browseResult = await window.electronAPI.browseFile({ filters: [{ name: 'Text', extensions: ['txt','csv','lst'] }] });
+      if (!browseResult?.path) return;
+      const lines = await _readWordlistFile(browseResult.path);
       if (!lines) return;
       _payloadLists[i] = lines;
       const ta = document.querySelector(`.intruder-payload-textarea[data-list="${i}"]`);
-      if (ta) ta.value = lines.slice(0, 500).join('\n') + (lines.length > 500 ? '\n…' : '');
+      if (ta) ta.value = lines.slice(0, 500).join('\n') + (lines.length > 500 ? `\n…(${lines.length} total)` : '');
       const header = document.querySelector(`.intruder-payload-list-block[data-list="${i}"] .intruder-payload-list-label`);
       if (header) header.textContent = `Position ${i + 1} — ${lines.length} item(s)`;
     });
@@ -399,7 +396,20 @@ async function _start() {
   _total     = 0;
   _completed = 0;
   _running   = true;
-  _render();
+
+  // Update only button/progress state — do NOT call _render() as it wipes the template textarea
+  const startBtn = document.getElementById('intruder-start-btn');
+  const stopBtn  = document.getElementById('intruder-stop-btn');
+  const clearBtn = document.getElementById('intruder-clear-results-btn');
+  if (startBtn) { startBtn.disabled = true; startBtn.textContent = 'Running…'; }
+  if (stopBtn)  stopBtn.disabled = false;
+  if (clearBtn) clearBtn.disabled = true;
+  const tbody = document.getElementById('intruder-results-body');
+  if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="intruder-empty-row">No results yet. Configure and start an attack.</td></tr>`;
+  const fill  = document.getElementById('intruder-progress-fill');
+  const label = document.getElementById('intruder-progress-label');
+  if (fill)  fill.style.width = '0%';
+  if (label) label.textContent = 'Starting…';
 
   const resp = await window.electronAPI.intruder.start(opts);
   if (!resp.success) {
@@ -488,10 +498,9 @@ async function _loadBuiltinWordlist(name) {
   return _builtinCache[name];
 }
 
-async function _readWordlistFile(_filePath) {
-  // Renderer cannot read files directly. Return null to indicate we need IPC.
-  // A future enhancement: expose a readWordlist IPC that validates & reads.
-  return null;
+async function _readWordlistFile(filePath) {
+  const result = await window.electronAPI.intruder.readWordlist(filePath).catch(() => null);
+  return result?.success ? result.lines : null;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

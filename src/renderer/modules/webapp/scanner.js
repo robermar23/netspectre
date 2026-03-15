@@ -22,6 +22,9 @@ let _tested      = 0;
 let _total       = 0;
 let _expandedId  = null;
 let _activityLog = [];   // capped ring buffer of activity events
+
+/** URLs pre-loaded from sitemap selection; null means use normal sitemap fetch. */
+let _preloadedSitemapUrls = null;
 const ACTIVITY_MAX = 500;
 
 /** DNS resolution cache: hostname → resolved IPv4 (or null if failed) */
@@ -120,6 +123,23 @@ function _subscribeIpc() {
   api.scanner.onComplete(_onComplete);
   api.scanner.onError(_onError);
   api.scanner.onActivity(_onActivity);
+
+  // Receive pre-loaded URL lists from the Sitemap panel
+  document.addEventListener('scanner:loadFromSitemap', (e) => {
+    const urls = e.detail?.urls ?? [];
+    if (!urls.length) return;
+    _preloadedSitemapUrls = urls;
+
+    // Switch the target mode radio to sitemap
+    const sitemapRadio = document.querySelector('input[name="scanner-target-mode"][value="sitemap"]');
+    if (sitemapRadio) {
+      sitemapRadio.checked = true;
+      sitemapRadio.dispatchEvent(new Event('change'));
+    }
+
+    // Show a count badge so the user knows what's pre-loaded
+    _setSitemapPreloadBadge(urls.length);
+  });
 }
 
 // ─── Scan Controls ────────────────────────────────────────────────────────────
@@ -255,14 +275,31 @@ async function _buildTargets() {
   }
 
   if (mode === 'sitemap') {
-    const res = await api.crawler.getSitemap().catch(() => null);
-    const sitemap = res?.sitemap || {};
     const multiMethod = $multimethodCb?.checked ?? false;
-    if (multiMethod) {
-      return _expandSitemapTargets(sitemap).slice(0, 400);
+
+    // Use pre-loaded selection from sitemap panel if available, otherwise fetch all
+    let urls;
+    if (_preloadedSitemapUrls) {
+      urls = _preloadedSitemapUrls;
+      _preloadedSitemapUrls = null;   // consume once
+      _setSitemapPreloadBadge(0);
+    } else {
+      const res = await api.crawler.getSitemap().catch(() => null);
+      const sitemap = res?.sitemap || {};
+      if (multiMethod) return _expandSitemapTargets(sitemap).slice(0, 400);
+      urls = _flattenSitemap(sitemap);
     }
-    const entries = _flattenSitemap(sitemap);
-    return entries.slice(0, 200).map(url => ({
+
+    if (multiMethod) {
+      // Re-fetch sitemap to get node metadata for body synthesis
+      const res = await api.crawler.getSitemap().catch(() => null);
+      const sitemap = res?.sitemap || {};
+      return _expandSitemapTargets(sitemap)
+        .filter(t => urls.includes(t.url))
+        .slice(0, 400);
+    }
+
+    return urls.slice(0, 200).map(url => ({
       url,
       method: 'GET',
       requestHeaders: {},
@@ -591,6 +628,24 @@ function _setSummary(text) {
 
 function _showError(msg) {
   if ($scanError) { $scanError.textContent = msg; $scanError.style.display = 'block'; }
+}
+
+/** Show or clear a count badge on the sitemap radio label when URLs are pre-loaded. */
+function _setSitemapPreloadBadge(count) {
+  // Find or create the badge span next to the sitemap radio label
+  const sitemapLabel = document.querySelector('label.scanner-radio-label:has(input[value="sitemap"])');
+  if (!sitemapLabel) return;
+  let badge = sitemapLabel.querySelector('.scanner-preload-badge');
+  if (count > 0) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'scanner-preload-badge';
+      sitemapLabel.appendChild(badge);
+    }
+    badge.textContent = `${count} URLs`;
+  } else {
+    badge?.remove();
+  }
 }
 
 function _hideError() {

@@ -118,7 +118,8 @@ export const IPC_CHANNELS = {
   BRUTEFORCE_COMPLETE: 'bruteforce-complete',
 
   // Generic file dialog
-  BROWSE_FILE: 'browse-file',
+  BROWSE_FILE:    'browse-file',
+  READ_WORDLIST:  'read-wordlist',
 
   // Offensive Pentest: Metasploit RPC
   MSF_CONNECT: 'msf-connect',

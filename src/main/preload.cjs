@@ -101,6 +101,7 @@ var IPC_CHANNELS = {
   BRUTEFORCE_COMPLETE: "bruteforce-complete",
   // Generic file dialog
   BROWSE_FILE: "browse-file",
+  READ_WORDLIST: "read-wordlist",
   // Offensive Pentest: Metasploit RPC
   MSF_CONNECT: "msf-connect",
   MSF_DISCONNECT: "msf-disconnect",
@@ -479,6 +480,7 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   intruder: {
     start: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.INTRUDER_START, opts),
     stop: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.INTRUDER_STOP),
+    readWordlist: (filePath) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.READ_WORDLIST, { filePath }),
     onResult: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.INTRUDER_RESULT, (_e, v) => cb(v)),
     onProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.INTRUDER_PROGRESS, (_e, v) => cb(v)),
     onComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.INTRUDER_COMPLETE, (_e, v) => cb(v)),

@@ -205,6 +205,7 @@ function _bindEvents() {
   };
   document.getElementById('btn-sitemap-send-repeater') ?.addEventListener('click', _detailAction('send-repeater'));
   document.getElementById('btn-sitemap-send-intruder') ?.addEventListener('click', _detailAction('send-intruder'));
+  document.getElementById('btn-sitemap-send-scanner')  ?.addEventListener('click', _detailAction('send-scanner'));
   document.getElementById('btn-sitemap-send-dirfuzzer')?.addEventListener('click', _detailAction('send-dirfuzzer'));
   document.getElementById('btn-sitemap-open-browser')  ?.addEventListener('click', _detailAction('open-browser'));
   document.getElementById('btn-sitemap-probe-network') ?.addEventListener('click', _detailAction('probe-network'));
@@ -724,6 +725,13 @@ function _handleContextAction(action, url) {
       document.dispatchEvent(new CustomEvent('intruder:sendTo', { detail: { raw, url } }));
       break;
     }
+    case 'send-scanner': {
+      const urls = _collectUrlsUnder(url);
+      document.dispatchEvent(new CustomEvent('scanner:loadFromSitemap', { detail: { urls } }));
+      // Switch to scanner panel
+      document.querySelector('#webapp-sidebar .sidebar-item[data-panel="scanner"]')?.click();
+      break;
+    }
     case 'send-dirfuzzer':
       // Switch to the Network workspace first so the panel is visible.
       document.querySelector('.workspace-tab[data-workspace="network"]')?.click();
@@ -801,6 +809,52 @@ function _esc(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/**
+ * Collect the given URL plus every descendant URL under it from the local
+ * sitemap tree.  Used by "Send to Scanner" to pre-load a full subtree.
+ *
+ * For a host-level URL (https://example.com) every URL under that host is
+ * returned.  For a path URL (https://example.com/api) the path node and all
+ * of its children are returned.
+ */
+function _collectUrlsUnder(url) {
+  const acc = [];
+  let parsed;
+  try { parsed = new URL(url); } catch { return [url]; }
+
+  const protocol = parsed.protocol; // 'https:' or 'http:'
+  const host     = parsed.hostname;
+  const rootNode = _sitemap[host];
+  if (!rootNode) return [url];
+
+  const segments = parsed.pathname.replace(/^\//, '').split('/').filter(Boolean);
+
+  // Walk down to the target node
+  let node = rootNode;
+  let prefix = `${protocol}//${host}`;
+  for (const seg of segments) {
+    prefix += '/' + seg;
+    node = node.children[seg];
+    if (!node) return [url];
+  }
+
+  // Include the node itself (the root path gets a trailing slash)
+  acc.push(segments.length === 0 ? `${protocol}//${host}/` : prefix);
+
+  // Recursively collect all descendants
+  _walkDescendantsForScanner(prefix, node.children || {}, acc);
+
+  return [...new Set(acc)];
+}
+
+function _walkDescendantsForScanner(prefix, children, acc) {
+  for (const [seg, child] of Object.entries(children)) {
+    const childUrl = `${prefix}/${seg}`;
+    acc.push(childUrl);
+    _walkDescendantsForScanner(childUrl, child.children || {}, acc);
+  }
 }
 
 /**
