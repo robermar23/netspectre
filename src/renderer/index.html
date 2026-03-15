@@ -1738,6 +1738,7 @@
                     <div class="sitemap-action-buttons">
                       <button id="btn-sitemap-send-repeater"  class="btn webapp-btn small">↩ Send to Repeater</button>
                       <button id="btn-sitemap-send-intruder"  class="btn webapp-btn small">💥 Send to Intruder</button>
+                      <button id="btn-sitemap-send-scanner"   class="btn webapp-btn small">🔍 Send to Scanner</button>
                       <button id="btn-sitemap-send-dirfuzzer" class="btn webapp-btn small">🗂 Send to Dir Fuzzer</button>
                       <button id="btn-sitemap-api-detect-url" class="btn secondary small">🔎 Detect APIs</button>
                       <button id="btn-sitemap-open-browser"   class="btn secondary small">🌐 Open in Browser</button>
@@ -1763,6 +1764,7 @@
               <button class="context-menu-item" data-action="open-browser">🌐 Open in Browser</button>
               <button class="context-menu-item" data-action="send-repeater">↩ Send to Repeater</button>
               <button class="context-menu-item" data-action="send-intruder">💥 Send to Intruder</button>
+              <button class="context-menu-item" data-action="send-scanner">🔍 Send to Scanner</button>
               <button class="context-menu-item" data-action="send-dirfuzzer">🗂 Send to Dir Fuzzer</button>
               <button class="context-menu-item" data-action="api-detect">🔎 Detect APIs</button>
             </div>
@@ -1860,6 +1862,20 @@
                   </div>
                   <input id="scanner-url-input" class="scanner-url-input" type="text"
                     placeholder="https://target.com/api/endpoint" spellcheck="false">
+                  <!-- Sitemap-only option: multi-method expansion -->
+                  <div id="scanner-sitemap-options" class="scanner-sitemap-options" style="display:none;">
+                    <label class="scanner-multimethod-label">
+                      <input type="checkbox" id="scanner-multimethod-cb">
+                      <span>Expand to POST / PUT / DELETE (multi-method)</span>
+                    </label>
+                    <div class="scanner-multimethod-warn">
+                      ⚠ When enabled, the scanner will replay sitemap URLs using every HTTP method
+                      observed during crawl (POST, PUT, DELETE, etc.) with synthesized bodies built
+                      from discovered form fields. This <strong>sends mutating requests</strong> to
+                      the target and may create, modify, or delete server-side data. Only enable on
+                      targets you are authorised to test.
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Module Selection -->
@@ -1937,6 +1953,16 @@
 
             <!-- Summary -->
             <div id="scanner-summary-line" class="scanner-summary-line"></div>
+
+            <!-- Activity Log -->
+            <div id="scanner-activity-wrap" class="scanner-activity-wrap activity-collapsed">
+              <div class="scanner-activity-header">
+                <button id="scanner-activity-toggle" class="scanner-activity-toggle-btn">▸ Activity Log</button>
+                <span class="scanner-activity-hint">Live test-by-test output — hover a row for full description</span>
+                <button id="scanner-activity-clear" class="btn secondary scanner-activity-clear-btn">Clear Log</button>
+              </div>
+              <div id="scanner-activity-list" class="scanner-activity-list"></div>
+            </div>
 
             <!-- Findings Table Header -->
             <div class="scanner-table-header">

@@ -233,6 +233,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onProgress:  (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_PROGRESS,  (_e, v) => cb(v)),
     onComplete:  (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_COMPLETE,  (_e, v) => cb(v)),
     onError:     (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_ERROR,     (_e, v) => cb(v)),
+    onActivity:  (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_ACTIVITY,  (_e, v) => cb(v)),
   },
 
   // Feature 7D: Repeater
@@ -242,8 +243,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Feature 7D: Intruder
   intruder: {
-    start:      (opts) => ipcRenderer.invoke(IPC_CHANNELS.INTRUDER_START, opts),
-    stop:       ()     => ipcRenderer.invoke(IPC_CHANNELS.INTRUDER_STOP),
+    start:        (opts)     => ipcRenderer.invoke(IPC_CHANNELS.INTRUDER_START, opts),
+    stop:         ()         => ipcRenderer.invoke(IPC_CHANNELS.INTRUDER_STOP),
+    readWordlist: (filePath) => ipcRenderer.invoke(IPC_CHANNELS.READ_WORDLIST, { filePath }),
     onResult:   (cb)   => ipcRenderer.on(IPC_CHANNELS.INTRUDER_RESULT,   (_e, v) => cb(v)),
     onProgress: (cb)   => ipcRenderer.on(IPC_CHANNELS.INTRUDER_PROGRESS, (_e, v) => cb(v)),
     onComplete: (cb)   => ipcRenderer.on(IPC_CHANNELS.INTRUDER_COMPLETE, (_e, v) => cb(v)),

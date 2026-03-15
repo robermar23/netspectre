@@ -9,6 +9,21 @@ import { expandCIDR } from '#shared/networkConstants.js';
 import { parseNmapXml } from '../nmapXmlParser.js';
 
 export function registerIpcHandlers(ipcMain, getWindow) {
+  ipcMain.handle(IPC_CHANNELS.READ_WORDLIST, async (_event, { filePath } = {}) => {
+    if (!filePath || typeof filePath !== 'string') {
+      return { success: false, error: 'No file path provided' };
+    }
+    try {
+      const content = await fs.promises.readFile(filePath, 'utf8');
+      // Split on individual newlines to preserve intentionally empty lines
+      // (blank entries can be meaningful in payload/wordlists, e.g. testing empty values)
+      const lines = content.split(/\r?\n/);
+      return { success: true, lines };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle(IPC_CHANNELS.BROWSE_FILE, async (_event, options) => {
     const opts = options || {};
     const { canceled, filePaths } = await dialog.showOpenDialog(getWindow(), {

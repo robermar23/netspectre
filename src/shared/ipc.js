@@ -118,7 +118,8 @@ export const IPC_CHANNELS = {
   BRUTEFORCE_COMPLETE: 'bruteforce-complete',
 
   // Generic file dialog
-  BROWSE_FILE: 'browse-file',
+  BROWSE_FILE:    'browse-file',
+  READ_WORDLIST:  'read-wordlist',
 
   // Offensive Pentest: Metasploit RPC
   MSF_CONNECT: 'msf-connect',
@@ -226,6 +227,7 @@ export const IPC_CHANNELS = {
   SCANNER_PROGRESS:           'scanner-progress',          // main -> renderer
   SCANNER_COMPLETE:           'scanner-complete',          // main -> renderer
   SCANNER_ERROR:              'scanner-error',             // main -> renderer
+  SCANNER_ACTIVITY:           'scanner-activity',           // main -> renderer
   SCANNER_GET_FINDINGS:       'scanner-get-findings',
   SCANNER_EXPORT:             'scanner-export',
   SCANNER_CLEAR:              'scanner-clear',

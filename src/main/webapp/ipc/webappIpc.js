@@ -19,7 +19,7 @@ import {
   deleteRequest, clearAll, exportHar, getRequestCount, closeRequestStore,
 } from '../requestStore.js';
 import {
-  observeRequest, getSitemap, clearSitemap, exportSitemapJson, getSitemapStats,
+  observeRequest, getSitemap, clearSitemap, exportSitemapJson, getSitemapStats, addUrl,
 } from '../crawler.js';
 import {
   startActiveCrawl, stopActiveCrawl, isActiveCrawlRunning, isPlaywrightAvailable,
@@ -276,6 +276,7 @@ export function registerIpcHandlers(ipcMain, getWindow) {
       { ...opts, proxyUrl, extraModulePaths: [app.getPath('userData')] },
       // onUrl
       (url) => {
+        addUrl(url, 'GET');
         win?.webContents.send(IPC_CHANNELS.CRAWLER_URL_FOUND, { url, source: 'active' });
       },
       // onForm
@@ -395,6 +396,10 @@ export function registerIpcHandlers(ipcMain, getWindow) {
       (err) => {
         const message = err instanceof Error ? err.message : String(err);
         win?.webContents.send(IPC_CHANNELS.SCANNER_ERROR, { message });
+      },
+      // onActivity
+      (activity) => {
+        win?.webContents.send(IPC_CHANNELS.SCANNER_ACTIVITY, activity);
       },
     );
 

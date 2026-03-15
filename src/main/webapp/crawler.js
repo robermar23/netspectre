@@ -84,6 +84,16 @@ export function observeRequest(record) {
   return { newUrls, newForms };
 }
 
+/**
+ * Record a URL into the sitemap from an external source (e.g. active crawler).
+ * @param {string} url - Full URL string
+ * @param {string} [method='GET'] - HTTP method
+ * @returns {boolean} true if this was a new URL
+ */
+export function addUrl(url, method = 'GET') {
+  return _addUrl(url, method, null, null);
+}
+
 /** Return the full sitemap tree (deep copy for safe IPC serialization). */
 export function getSitemap() {
   return JSON.parse(JSON.stringify(_sitemap));

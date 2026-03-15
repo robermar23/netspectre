@@ -16,11 +16,16 @@ import { SEVERITY_ORDER } from '#shared/webConstants.js';
 
 // ─── Local State ──────────────────────────────────────────────────────────────
 
-let _findings   = [];
-let _scanning   = false;
-let _tested     = 0;
-let _total      = 0;
-let _expandedId = null;
+let _findings    = [];
+let _scanning    = false;
+let _tested      = 0;
+let _total       = 0;
+let _expandedId  = null;
+let _activityLog = [];   // capped ring buffer of activity events
+
+/** URLs pre-loaded from sitemap selection; null means use normal sitemap fetch. */
+let _preloadedSitemapUrls = null;
+const ACTIVITY_MAX = 500;
 
 /** DNS resolution cache: hostname → resolved IPv4 (or null if failed) */
 const _dnsCache = new Map();
@@ -36,7 +41,9 @@ let $moduleCheckboxes;
 let $targetModeRadios;
 let $urlInput;
 let $scanError;
+let $sitemapOptions, $multimethodCb;
 let $exportDropdown;
+let $activityWrap, $activityList, $activityToggleBtn, $activityClearBtn;
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 
@@ -64,6 +71,12 @@ function _bindDomRefs() {
   $exportDropdown    = document.getElementById('scanner-export-dropdown');
   $moduleCheckboxes  = document.querySelectorAll('.scanner-module-cb');
   $targetModeRadios  = document.querySelectorAll('input[name="scanner-target-mode"]');
+  $sitemapOptions    = document.getElementById('scanner-sitemap-options');
+  $multimethodCb     = document.getElementById('scanner-multimethod-cb');
+  $activityWrap      = document.getElementById('scanner-activity-wrap');
+  $activityList      = document.getElementById('scanner-activity-list');
+  $activityToggleBtn = document.getElementById('scanner-activity-toggle');
+  $activityClearBtn  = document.getElementById('scanner-activity-clear');
 }
 
 function _bindEvents() {
@@ -75,6 +88,13 @@ function _bindEvents() {
     if ($concurrencyVal) $concurrencyVal.textContent = $concurrencySlider.value;
   });
 
+  // Show multi-method option only when sitemap source is selected
+  $targetModeRadios?.forEach(r => r.addEventListener('change', () => {
+    const isSitemap = [...$targetModeRadios].find(x => x.checked)?.value === 'sitemap';
+    if ($sitemapOptions) $sitemapOptions.style.display = isSitemap ? 'flex' : 'none';
+    if (!isSitemap && $multimethodCb) $multimethodCb.checked = false;
+  }));
+
   // Export dropdown
   $exportBtn?.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -85,6 +105,16 @@ function _bindEvents() {
   document.getElementById('scanner-export-json')?.addEventListener('click', () => _exportFindings('json'));
   document.getElementById('scanner-export-csv')?.addEventListener('click',  () => _exportFindings('csv'));
   document.getElementById('scanner-export-html')?.addEventListener('click', () => _exportFindings('html'));
+
+  // Activity log toggle / clear
+  $activityToggleBtn?.addEventListener('click', () => {
+    const collapsed = $activityWrap?.classList.toggle('activity-collapsed');
+    if ($activityToggleBtn) $activityToggleBtn.textContent = collapsed ? '▸ Activity Log' : '▾ Activity Log';
+  });
+  $activityClearBtn?.addEventListener('click', () => {
+    _activityLog = [];
+    _renderActivityLog();
+  });
 }
 
 function _subscribeIpc() {
@@ -92,6 +122,24 @@ function _subscribeIpc() {
   api.scanner.onProgress(_onProgress);
   api.scanner.onComplete(_onComplete);
   api.scanner.onError(_onError);
+  api.scanner.onActivity(_onActivity);
+
+  // Receive pre-loaded URL lists from the Sitemap panel
+  document.addEventListener('scanner:loadFromSitemap', (e) => {
+    const urls = e.detail?.urls ?? [];
+    if (!urls.length) return;
+    _preloadedSitemapUrls = urls;
+
+    // Switch the target mode radio to sitemap
+    const sitemapRadio = document.querySelector('input[name="scanner-target-mode"][value="sitemap"]');
+    if (sitemapRadio) {
+      sitemapRadio.checked = true;
+      sitemapRadio.dispatchEvent(new Event('change'));
+    }
+
+    // Show a count badge so the user knows what's pre-loaded
+    _setSitemapPreloadBadge(urls.length);
+  });
 }
 
 // ─── Scan Controls ────────────────────────────────────────────────────────────
@@ -144,12 +192,14 @@ async function _stopScan() {
 }
 
 function _clearFindings() {
-  _findings   = [];
-  _tested     = 0;
-  _total      = 0;
-  _expandedId = null;
+  _findings    = [];
+  _activityLog = [];
+  _tested      = 0;
+  _total       = 0;
+  _expandedId  = null;
   api.scanner.clear();
   _renderFindings();
+  _renderActivityLog();
   _updateProgress(0, 0);
   _setSummary('');
 }
@@ -225,11 +275,31 @@ async function _buildTargets() {
   }
 
   if (mode === 'sitemap') {
-    // Fetch sitemap from main process (authoritative source)
-    const res = await api.crawler.getSitemap().catch(() => null);
-    const sitemap = res?.sitemap || {};
-    const entries = _flattenSitemap(sitemap);
-    return entries.slice(0, 200).map(url => ({
+    const multiMethod = $multimethodCb?.checked ?? false;
+
+    // Use pre-loaded selection from sitemap panel if available, otherwise fetch all
+    let urls;
+    if (_preloadedSitemapUrls) {
+      urls = _preloadedSitemapUrls;
+      _preloadedSitemapUrls = null;   // consume once
+      _setSitemapPreloadBadge(0);
+    } else {
+      const res = await api.crawler.getSitemap().catch(() => null);
+      const sitemap = res?.sitemap || {};
+      if (multiMethod) return _expandSitemapTargets(sitemap).slice(0, 400);
+      urls = _flattenSitemap(sitemap);
+    }
+
+    if (multiMethod) {
+      // Re-fetch sitemap to get node metadata for body synthesis
+      const res = await api.crawler.getSitemap().catch(() => null);
+      const sitemap = res?.sitemap || {};
+      return _expandSitemapTargets(sitemap)
+        .filter(t => urls.includes(t.url))
+        .slice(0, 400);
+    }
+
+    return urls.slice(0, 200).map(url => ({
       url,
       method: 'GET',
       requestHeaders: {},
@@ -302,6 +372,13 @@ function _buildFindingRow(f) {
     _probeInNetwork(f);
   });
 
+  detail.querySelectorAll('.ref-chip-link[data-href]').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.electronAPI.openUrl(chip.dataset.href);
+    });
+  });
+
   wrapper.appendChild(header);
   wrapper.appendChild(detail);
   return wrapper;
@@ -336,7 +413,12 @@ function _buildDetailHtml(f) {
       </div>
       ${f.references?.length ? `<div class="scanner-detail-section">
         <div class="scanner-detail-label">References</div>
-        <div class="scanner-detail-value">${f.references.map(r => `<span class="ref-chip">${_esc(r)}</span>`).join(' ')}</div>
+        <div class="scanner-detail-value">${f.references.map(r => {
+          const url = _refToUrl(r);
+          return url
+            ? `<a class="ref-chip ref-chip-link" data-href="${_esc(url)}" title="${_esc(url)}">${_esc(r)}</a>`
+            : `<span class="ref-chip">${_esc(r)}</span>`;
+        }).join(' ')}</div>
       </div>` : ''}
       ${hostname ? `<div class="scanner-detail-section scanner-detail-actions">
         <button class="btn-probe-network" data-id="${_esc(f.id)}" title="Resolve ${_esc(hostname)} to IP and add to Network workspace">
@@ -487,6 +569,62 @@ async function _exportFindings(format) {
   URL.revokeObjectURL(url);
 }
 
+// ─── Activity Log ─────────────────────────────────────────────────────────────
+
+function _onActivity(ev) {
+  _activityLog.push(ev);
+  if (_activityLog.length > ACTIVITY_MAX) _activityLog.shift();
+  _appendActivityEntry(ev);
+  // Expand the log automatically when the scan starts
+  if (ev.status === 'start' && $activityWrap?.classList.contains('activity-collapsed')) {
+    $activityWrap.classList.remove('activity-collapsed');
+    if ($activityToggleBtn) $activityToggleBtn.textContent = '▾ Activity Log';
+  }
+}
+
+function _mkSpan(cls, text, title) {
+  const el = document.createElement('span');
+  el.className = cls;
+  el.textContent = text;
+  if (title !== undefined) el.title = title;
+  return el;
+}
+
+function _appendActivityEntry(ev) {
+  if (!$activityList) return;
+  const isDone = ev.status === 'done';
+  const entry  = document.createElement('div');
+  entry.className = `activity-entry activity-${isDone ? 'done' : 'start'}`;
+
+  const shortUrl = (() => {
+    try {
+      const u = new URL(ev.url);
+      return u.hostname + (u.pathname.length > 35 ? u.pathname.slice(0, 35) + '…' : u.pathname);
+    } catch { return ev.url; }
+  })();
+
+  entry.appendChild(_mkSpan('activity-ts', new Date(ev.timestamp).toLocaleTimeString()));
+  entry.appendChild(_mkSpan('activity-status-icon', isDone ? '✓' : '→'));
+  entry.appendChild(_mkSpan('activity-method', ev.method || ''));
+  // ev.module is an internal key (e.g. 'sqli'), safe as a CSS class suffix via textContent for label
+  entry.appendChild(_mkSpan(`activity-module-chip activity-chip-${ev.module || ''}`, ev.moduleLabel || ''));
+  entry.appendChild(_mkSpan('activity-url', shortUrl, ev.url || ''));
+  if (isDone && ev.findings > 0) {
+    entry.appendChild(_mkSpan('activity-hit', `⚠ ${ev.findings} finding${ev.findings > 1 ? 's' : ''}`));
+  }
+  entry.appendChild(_mkSpan('activity-desc', isDone ? '' : (ev.description || ''), ev.description || ''));
+
+  $activityList.appendChild(entry);
+  // Auto-scroll to bottom
+  $activityList.scrollTop = $activityList.scrollHeight;
+}
+
+function _renderActivityLog() {
+  if (!$activityList) return;
+  $activityList.innerHTML = '';
+  for (const ev of _activityLog) _appendActivityEntry(ev);
+}
+
 // ─── UI helpers ───────────────────────────────────────────────────────────────
 
 function _setRunning(running) {
@@ -510,6 +648,24 @@ function _setSummary(text) {
 
 function _showError(msg) {
   if ($scanError) { $scanError.textContent = msg; $scanError.style.display = 'block'; }
+}
+
+/** Show or clear a count badge on the sitemap radio label when URLs are pre-loaded. */
+function _setSitemapPreloadBadge(count) {
+  // Find or create the badge span next to the sitemap radio label
+  const sitemapLabel = document.querySelector('label.scanner-radio-label:has(input[value="sitemap"])');
+  if (!sitemapLabel) return;
+  let badge = sitemapLabel.querySelector('.scanner-preload-badge');
+  if (count > 0) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'scanner-preload-badge';
+      sitemapLabel.appendChild(badge);
+    }
+    badge.textContent = `${count} URLs`;
+  } else {
+    badge?.remove();
+  }
 }
 
 function _hideError() {
@@ -560,20 +716,140 @@ function _esc(s) {
  */
 function _flattenSitemap(sitemap) {
   const urls = [];
-  for (const [host, tree] of Object.entries(sitemap || {})) {
-    _walkNode(host, '', tree, urls);
+  for (const [host, rootNode] of Object.entries(sitemap || {})) {
+    // Preserve the original scheme; fall back to https if not stored
+    const scheme = rootNode.protocol ? rootNode.protocol + '//' : 'https://';
+    urls.push(`${scheme}${host}/`);
+    // rootNode has shape { protocol, methods, forms, params, statusCode, children: { [seg]: node } }
+    // Walk only the children map so path segments are iterated, not node properties
+    _walkNode(scheme, host, '', rootNode.children || {}, urls);
   }
   return [...new Set(urls)];
 }
 
-function _walkNode(host, prefix, node, acc) {
-  if (!node || typeof node !== 'object') return;
-  for (const [seg, child] of Object.entries(node)) {
-    if (seg === 'methods' || seg === 'forms' || seg === 'params') continue;
+function _walkNode(scheme, host, prefix, children, acc) {
+  if (!children || typeof children !== 'object') return;
+  for (const [seg, child] of Object.entries(children)) {
     const path = prefix + '/' + seg;
-    acc.push(`https://${host}${path}`);
-    if (child && child.children) _walkNode(host, path, child.children, acc);
+    acc.push(`${scheme}${host}${path}`);
+    if (child && child.children) _walkNode(scheme, host, path, child.children, acc);
   }
+}
+
+/**
+ * Walk the sitemap tree and produce one target per (url × method) combination.
+ * For mutating methods (POST/PUT/PATCH), synthesize a body from discovered
+ * form inputs or query params — values are left empty/placeholder so the
+ * scanner probes structure rather than submitting real data.
+ */
+function _expandSitemapTargets(sitemap) {
+  const targets = [];
+  for (const [host, rootNode] of Object.entries(sitemap || {})) {
+    const scheme = rootNode.protocol ? rootNode.protocol + '//' : 'https://';
+    _walkNodeExpand(scheme, host, '/', rootNode, targets);
+    _walkChildrenExpand(scheme, host, '', rootNode.children || {}, targets);
+  }
+  return targets;
+}
+
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function _walkChildrenExpand(scheme, host, prefix, children, acc) {
+  for (const [seg, node] of Object.entries(children || {})) {
+    const path = prefix + '/' + seg;
+    _walkNodeExpand(scheme, host, path, node, acc);
+    _walkChildrenExpand(scheme, host, path, node.children || {}, acc);
+  }
+}
+
+function _walkNodeExpand(scheme, host, path, node, acc) {
+  const url     = `${scheme}${host}${path}`;
+  const methods = (node.methods?.length ? node.methods : ['GET']).map(m => m.toUpperCase());
+
+  // Always include GET
+  if (!methods.includes('GET')) methods.unshift('GET');
+
+  for (const method of methods) {
+    if (MUTATING_METHODS.has(method)) {
+      // Build a synthetic body from the node's forms or params
+      const body    = _synthesizeBody(node, method);
+      const ct      = body.contentType;
+      acc.push({
+        url,
+        method,
+        requestHeaders: ct ? { 'content-type': ct } : {},
+        body: body.data || null,
+      });
+    } else {
+      acc.push({ url, method, requestHeaders: {}, body: null });
+    }
+  }
+}
+
+/**
+ * Build a synthetic request body for a mutating method.
+ * Prefers a matching HTML form; falls back to sitemap params; falls back to empty.
+ * Returns { data: string|null, contentType: string|null }.
+ */
+function _synthesizeBody(node, method) {
+  // Try to find a form whose method matches
+  const forms = node.forms || [];
+  const matchingForm = forms.find(f => f.method === method) || forms[0];
+
+  if (matchingForm?.inputs?.length) {
+    const p = new URLSearchParams();
+    for (const input of matchingForm.inputs) {
+      p.set(input.name, input.value || '');
+    }
+    return { data: p.toString(), contentType: 'application/x-www-form-urlencoded' };
+  }
+
+  // Fall back to query params recorded for this node
+  const params = node.params || [];
+  if (params.length) {
+    const p = new URLSearchParams();
+    for (const param of params) p.set(param.name, '');
+    return { data: p.toString(), contentType: 'application/x-www-form-urlencoded' };
+  }
+
+  // Nothing known — send an empty JSON object so modules can still probe headers/CORS/auth
+  if (method !== 'DELETE') {
+    return { data: '{}', contentType: 'application/json' };
+  }
+  return { data: null, contentType: null };
+}
+
+// ─── Reference URL resolver ───────────────────────────────────────────────────
+
+/** OWASP Top 10 2021 category → canonical URL */
+const OWASP_URLS = {
+  'OWASP A01:2021': 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/',
+  'OWASP A02:2021': 'https://owasp.org/Top10/A02_2021-Cryptographic_Failures/',
+  'OWASP A03:2021': 'https://owasp.org/Top10/A03_2021-Injection/',
+  'OWASP A04:2021': 'https://owasp.org/Top10/A04_2021-Insecure_Design/',
+  'OWASP A05:2021': 'https://owasp.org/Top10/A05_2021-Security_Misconfiguration/',
+  'OWASP A06:2021': 'https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/',
+  'OWASP A07:2021': 'https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/',
+  'OWASP A08:2021': 'https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/',
+  'OWASP A09:2021': 'https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/',
+  'OWASP A10:2021': 'https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/',
+  'OWASP Secure Headers Project': 'https://owasp.org/www-project-secure-headers/',
+};
+
+/**
+ * Resolve a reference string to a canonical URL, or null if unknown.
+ * Handles: CWE-NNN, OWASP ANN:YYYY, named strings, and bare https:// URLs.
+ */
+function _refToUrl(ref) {
+  if (!ref) return null;
+  // Already a full URL
+  if (ref.startsWith('https://') || ref.startsWith('http://')) return ref;
+  // CWE-NNN → MITRE CWE entry
+  const cweMatch = ref.match(/^CWE-(\d+)$/i);
+  if (cweMatch) return `https://cwe.mitre.org/data/definitions/${cweMatch[1]}.html`;
+  // OWASP named entries
+  if (OWASP_URLS[ref]) return OWASP_URLS[ref];
+  return null;
 }
 
 // ─── Public: pre-fill from Network workspace ──────────────────────────────────

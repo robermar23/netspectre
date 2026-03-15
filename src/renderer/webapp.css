@@ -1486,6 +1486,15 @@
 .scanner-radio-label input[type="radio"] {
   accent-color: var(--webapp-btn);
 }
+.scanner-preload-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: var(--webapp-btn);
+  color: #fff;
+  margin-left: 4px;
+  font-weight: 600;
+}
 
 .scanner-url-input {
   width: 100%;
@@ -1500,6 +1509,36 @@
   transition: border-color var(--transition-fast);
 }
 .scanner-url-input:focus { border-color: var(--webapp-btn); }
+
+/* Sitemap multi-method option */
+.scanner-sitemap-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.scanner-multimethod-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-main);
+  cursor: pointer;
+  user-select: none;
+}
+.scanner-multimethod-label input[type="checkbox"] {
+  accent-color: var(--pentest);
+}
+.scanner-multimethod-warn {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #f59e0b;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+.scanner-multimethod-warn strong { color: #fbbf24; }
 
 /* Modules Grid */
 .scanner-modules-grid {
@@ -1615,6 +1654,148 @@
   flex-shrink: 0;
   min-height: 22px;
 }
+
+/* ── Activity Log ─────────────────────────────────────────────────────────────── */
+.scanner-activity-wrap {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  margin: 0 0 8px 0;
+  overflow: hidden;
+  background: rgba(0,0,0,0.18);
+  flex-shrink: 0;
+}
+
+.scanner-activity-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.scanner-activity-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--accent, #60a5fa);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+.scanner-activity-toggle-btn:hover { color: #fff; }
+
+.scanner-activity-hint {
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  flex: 1;
+}
+
+.scanner-activity-clear-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  margin-left: auto;
+}
+
+.scanner-activity-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Hidden when collapsed */
+.activity-collapsed .scanner-activity-list { display: none; }
+
+.activity-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  line-height: 1.5;
+  cursor: default;
+}
+.activity-entry:hover { background: rgba(255,255,255,0.04); }
+
+.activity-start  { color: rgba(255,255,255,0.75); }
+.activity-done   { color: rgba(255,255,255,0.42); }
+
+.activity-ts {
+  color: rgba(255,255,255,0.28);
+  white-space: nowrap;
+  font-size: 10px;
+  min-width: 72px;
+}
+
+.activity-status-icon {
+  width: 14px;
+  text-align: center;
+  font-size: 11px;
+}
+.activity-start .activity-status-icon { color: #60a5fa; }
+.activity-done  .activity-status-icon { color: rgba(255,255,255,0.3); }
+
+.activity-method {
+  min-width: 36px;
+  color: rgba(255,255,255,0.45);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.activity-module-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 70px;
+  text-align: center;
+  background: rgba(255,255,255,0.08);
+  color: #e2e8f0;
+}
+.activity-chip-sqli         { background: rgba(239,68,68,0.25);  color: #fca5a5; }
+.activity-chip-xss          { background: rgba(239,68,68,0.2);   color: #fca5a5; }
+.activity-chip-ssrf         { background: rgba(220,38,38,0.3);   color: #fca5a5; }
+.activity-chip-xxe          { background: rgba(220,38,38,0.3);   color: #fca5a5; }
+.activity-chip-cmdInjection { background: rgba(220,38,38,0.35);  color: #fca5a5; }
+.activity-chip-pathTraversal{ background: rgba(239,68,68,0.2);   color: #fca5a5; }
+.activity-chip-cors         { background: rgba(234,179,8,0.2);   color: #fde68a; }
+.activity-chip-headers      { background: rgba(234,179,8,0.15);  color: #fde68a; }
+.activity-chip-brokenAuth   { background: rgba(239,68,68,0.2);   color: #fca5a5; }
+.activity-chip-deserialize  { background: rgba(168,85,247,0.2);  color: #d8b4fe; }
+
+.activity-url {
+  color: rgba(255,255,255,0.55);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+  flex: 1;
+}
+.activity-done .activity-url { color: rgba(255,255,255,0.3); }
+
+.activity-hit {
+  color: #fbbf24;
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.activity-desc {
+  color: rgba(255,255,255,0.28);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 380px;
+}
+/* Show full description on row hover via title attribute — no extra CSS needed */
 
 /* ── Findings Table ───────────────────────────────────────────────────────────── */
 .scanner-table-header {
@@ -1808,6 +1989,23 @@
   color: #a78bfa;
   margin-right: 4px;
   margin-bottom: 4px;
+}
+.ref-chip-link {
+  cursor: pointer;
+  text-decoration: none;
+  background: rgba(139,92,246,0.22);
+  border-color: rgba(139,92,246,0.5);
+  transition: background 0.15s, border-color 0.15s;
+}
+.ref-chip-link::after {
+  content: ' ↗';
+  font-size: 9px;
+  opacity: 0.7;
+}
+.ref-chip-link:hover {
+  background: rgba(139,92,246,0.4);
+  border-color: #a78bfa;
+  color: #fff;
 }
 
 /* ── Network Workspace Web Vuln Badge ─────────────────────────────────────────── */
