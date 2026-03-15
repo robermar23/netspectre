@@ -455,12 +455,17 @@ async function _probeInNetwork(finding) {
 // ─── Repeater integration ─────────────────────────────────────────────────────
 
 function _sendToRepeater(finding) {
-  // Switch to repeater panel and pre-fill with finding's request
-  const repeaterItem = document.querySelector('#webapp-sidebar .sidebar-item[data-panel="repeater"]');
-  repeaterItem?.click();
+  // Reconstruct a raw HTTP request from the finding's available data
+  const parsed    = (() => { try { return new URL(finding.url); } catch { return null; } })();
+  const method    = finding.method ?? 'GET';
+  const pathQuery = parsed ? (parsed.pathname + parsed.search) : (finding.url ?? '/');
+  const host      = parsed ? parsed.host : '';
+  const raw       = `${method} ${pathQuery} HTTP/1.1\r\nHost: ${host}\r\n\r\n`;
+  const label     = finding.title ? `${finding.title.slice(0, 30)} — Scanner` : 'Scanner Finding';
 
-  // Dispatch an event that the repeater module can listen for
-  window.dispatchEvent(new CustomEvent('scanner:sendToRepeater', { detail: finding }));
+  document.dispatchEvent(new CustomEvent('repeater:sendTo', {
+    detail: { raw, url: finding.url ?? '', label },
+  }));
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────

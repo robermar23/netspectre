@@ -29,6 +29,19 @@ import {
   startScan, stopScan, isScanRunning, cleanupScan,
   getFindings, clearFindings,
 } from '../scanner/index.js';
+import { sendRepeaterRequest }                      from '../repeaterEngine.js';
+import {
+  startIntruder, stopIntruder, isIntruderRunning, cleanupIntruder,
+} from '../intruderEngine.js';
+import {
+  collectTokens, stopCollection, analyzeTokens,
+} from '../sequencerEngine.js';
+import zlib from 'zlib';
+import crypto from 'crypto';
+
+// ─── Decoder size limits ──────────────────────────────────────────────────────
+const MAX_DECODER_INPUT   = 4 * 1024 * 1024; // 4 MB for any transform
+const MAX_GZIP_COMPRESSED = 1 * 1024 * 1024; // 1 MB base64 input before gzip-decompress
 
 export function registerIpcHandlers(ipcMain, getWindow) {
 
@@ -446,6 +459,116 @@ export function registerIpcHandlers(ipcMain, getWindow) {
     const installed   = await isPlaywrightAvailable([userData]);
     return { installed, installPath, isPackaged };
   });
+
+  // ─── Feature 7D — Repeater ────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.REPEATER_SEND, async (_event, opts = {}) => {
+    const { ok, error } = _validateUrlField(opts, 'url');
+    if (!ok) return { success: false, error };
+    try {
+      const result = await sendRepeaterRequest(opts);
+      return { success: true, ...result };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ─── Feature 7D — Intruder ────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.INTRUDER_START, async (_event, opts = {}) => {
+    if (isIntruderRunning()) {
+      return { success: false, error: 'Intruder already running.' };
+    }
+    if (!opts.rawTemplate) return { success: false, error: 'rawTemplate is required' };
+    const { ok, error } = _validateUrlField(opts, 'targetUrl', 'targetUrl');
+    if (!ok) return { success: false, error };
+    // Hard cap on the computed request count for the selected attack type
+    const requestCount = _computeIntruderRequestCount(
+      opts.attackType, opts.rawTemplate, opts.payloadLists ?? [[]],
+    );
+    if (requestCount > 1_000_000) {
+      return { success: false, error: `Request count (${requestCount.toLocaleString()}) exceeds maximum (1,000,000).` };
+    }
+
+    const win = getWindow();
+
+    startIntruder(
+      opts,
+      (result)   => win?.webContents.send(IPC_CHANNELS.INTRUDER_RESULT,   result),
+      (progress) => win?.webContents.send(IPC_CHANNELS.INTRUDER_PROGRESS, progress),
+      (summary)  => win?.webContents.send(IPC_CHANNELS.INTRUDER_COMPLETE, summary),
+      (err)      => win?.webContents.send(IPC_CHANNELS.INTRUDER_ERROR,    { message: err.message }),
+    );
+
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.INTRUDER_STOP, async () => {
+    stopIntruder();
+    return { success: true };
+  });
+
+  // ─── Feature 7D — Sequencer ───────────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.SEQUENCER_COLLECT, async (_event, opts = {}) => {
+    const { ok, error } = _validateUrlField(opts, 'url');
+    if (!ok) return { success: false, error };
+    const count = Math.max(1, Math.min(Math.floor(Number(opts.count) || 100), 1000));
+    const win = getWindow();
+    collectTokens(
+      { ...opts, count },
+      (token)   => win?.webContents.send(IPC_CHANNELS.SEQUENCER_TOKEN,  token),
+      (summary) => win?.webContents.send(IPC_CHANNELS.SEQUENCER_RESULT, { type: 'collect', ...summary }),
+      (err)     => win?.webContents.send(IPC_CHANNELS.SEQUENCER_ERROR,  { message: err.message }),
+    );
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SEQUENCER_ANALYZE, async (_event, { tokens } = {}) => {
+    if (!Array.isArray(tokens) || tokens.length < 2) {
+      return { success: false, error: 'Need at least 2 tokens to analyze.' };
+    }
+    try {
+      const result = analyzeTokens(tokens);
+      return { success: true, result };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ─── Feature 7D — Decoder (server-side transforms) ────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.DECODER_TRANSFORM, async (_event, { transform, input } = {}) => {
+    if (typeof input !== 'string') return { success: false, error: 'input must be a string' };
+    if (input.length > MAX_DECODER_INPUT) {
+      return { success: false, error: `Input too large (max ${MAX_DECODER_INPUT / 1024 / 1024} MB).` };
+    }
+    try {
+      let output;
+      switch (transform) {
+        case 'gzip-compress':
+          output = await _gzipCompressToBase64(input);
+          break;
+        case 'gzip-decompress':
+          if (input.length > MAX_GZIP_COMPRESSED) {
+            return { success: false, error: `Compressed input too large (max ${MAX_GZIP_COMPRESSED / 1024} KB).` };
+          }
+          output = await _gzipDecompressFromBase64(input);
+          break;
+        case 'md5':
+        case 'sha1':
+        case 'sha256':
+        case 'sha512':
+          output = _hashTransform(transform, input);
+          break;
+        default:
+          return { success: false, error: `Unknown server-side transform: ${transform}` };
+      }
+      return { success: true, output };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
 }
 
 /** Clean up on app exit. */
@@ -453,10 +576,64 @@ export function cleanupWebapp() {
   stopProxy();
   stopActiveCrawl();
   cleanupScan();
+  cleanupIntruder();
+  stopCollection();
   closeRequestStore();
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Validate that opts[field] is a non-empty, parseable URL.
+ * Returns { ok: true, value } or { ok: false, error }.
+ */
+function _validateUrlField(opts, field, label = field) {
+  const value = opts?.[field];
+  if (!value) return { ok: false, error: `${label} is required` };
+  try { new URL(value); } catch {
+    return { ok: false, error: `Invalid ${label}: ${value}` };
+  }
+  return { ok: true, value };
+}
+
+/**
+ * Compute the number of HTTP requests that will be sent for a given intruder
+ * configuration, so the cap can be enforced on actual requests rather than raw
+ * payload list lengths (which under-counts for cluster-bomb and over-counts for
+ * pitchfork).
+ */
+function _computeIntruderRequestCount(attackType, rawTemplate, payloadLists) {
+  // Count §…§ pairs to find the number of injection positions.
+  const posCount = ((rawTemplate ?? '').match(/§/g) ?? []).length >> 1;
+  if (posCount === 0) return 0;
+  const lists = (payloadLists ?? [[]]).map(l => l ?? []);
+  switch (attackType) {
+    case 'sniper':       return posCount * (lists[0]?.length ?? 0);
+    case 'battering-ram': return lists[0]?.length ?? 0;
+    case 'pitchfork':    return lists.length ? Math.min(...lists.map(l => l.length)) : 0;
+    case 'cluster-bomb': return lists.reduce((p, l) => p * l.length, 1);
+    default:             return lists.reduce((s, l) => s + l.length, 0);
+  }
+}
+
+// ─── Decoder helpers ──────────────────────────────────────────────────────────
+
+const _gzip   = (buf) => new Promise((res, rej) => zlib.gzip(buf,   (err, out) => err ? rej(err) : res(out)));
+const _gunzip = (buf) => new Promise((res, rej) => zlib.gunzip(buf, (err, out) => err ? rej(err) : res(out)));
+
+async function _gzipCompressToBase64(input) {
+  const compressed = await _gzip(Buffer.from(input, 'utf8'));
+  return compressed.toString('base64');
+}
+
+async function _gzipDecompressFromBase64(input) {
+  const decompressed = await _gunzip(Buffer.from(input, 'base64'));
+  return decompressed.toString('utf8');
+}
+
+function _hashTransform(algorithm, input) {
+  return crypto.createHash(algorithm).update(input).digest('hex');
+}
 
 function _validateProxyPort(port) {
   if (port === undefined || port === null) return true; // default allowed

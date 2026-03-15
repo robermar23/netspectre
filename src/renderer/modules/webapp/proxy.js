@@ -116,6 +116,13 @@ const _dnsCache = new Map();
 
 export function init() {
   if (!btnStart) return; // DOM not present (workspace not loaded)
+
+  // Move context menu to <body> so that backdrop-filter / transform on
+  // ancestor panels doesn't break position:fixed viewport coordinates.
+  if (contextMenu && contextMenu.parentElement !== document.body) {
+    document.body.appendChild(contextMenu);
+  }
+
   _wireConsentModal();
   _wireProxyControls();
   _wireSubtabs();
@@ -406,8 +413,32 @@ function _wireHistoryTable() {
     } else if (action === 'probe-network') {
       const row = allRows.find(r => r.id === selectedRowId);
       if (row?.host) _probeHostInNetwork(row.host);
+    } else if (action === 'repeater') {
+      const row = allRows.find(r => r.id === selectedRowId);
+      if (row) {
+        const raw   = _buildRawText(row);
+        const url   = _rowToUrl(row);
+        const label = `${row.method} ${row.path ?? '/'}`;
+        document.dispatchEvent(new CustomEvent('repeater:sendTo', { detail: { raw, url, label } }));
+      }
+    } else if (action === 'intruder') {
+      const row = allRows.find(r => r.id === selectedRowId);
+      if (row) {
+        const raw = _buildRawText(row);
+        const url = _rowToUrl(row);
+        document.dispatchEvent(new CustomEvent('intruder:sendTo', { detail: { raw, url } }));
+      }
+    } else if (action === 'scanner') {
+      const row = allRows.find(r => r.id === selectedRowId);
+      if (row) {
+        window.__openScannerPanel?.(_rowToUrl(row));
+      }
+    } else if (action === 'sitemap') {
+      const row = allRows.find(r => r.id === selectedRowId);
+      if (row) {
+        window.__openSitemapTarget?.(_rowToUrl(row));
+      }
     }
-    // repeater / intruder: to be wired in Phase 7D
   });
 }
 
@@ -855,6 +886,10 @@ function _getHeader(headers, name) {
   if (!headers) return '';
   const h = headers.find(([k]) => k.toLowerCase() === name.toLowerCase());
   return h ? h[1] : '';
+}
+
+function _rowToUrl(row) {
+  return `${row.protocol || 'http'}://${row.host}${row.path ?? '/'}${row.query ? '?' + row.query : ''}`;
 }
 
 function _buildRawText(record) {
