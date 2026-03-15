@@ -178,6 +178,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onError:    (cb)   => ipcRenderer.on(IPC_CHANNELS.CLOUDENUM_ERROR,    (_e, v) => cb(v)),
   },
 
+  // Feature 7A: Intercepting Proxy
+  proxy: {
+    start:         (opts)        => ipcRenderer.invoke(IPC_CHANNELS.PROXY_START, opts),
+    stop:          ()            => ipcRenderer.invoke(IPC_CHANNELS.PROXY_STOP),
+    getStatus:     ()            => ipcRenderer.invoke(IPC_CHANNELS.PROXY_GET_STATUS),
+    setIntercept:  (enabled)     => ipcRenderer.invoke(IPC_CHANNELS.PROXY_SET_INTERCEPT, enabled),
+    forward:       (id, raw)     => ipcRenderer.invoke(IPC_CHANNELS.PROXY_FORWARD, { id, modifiedRaw: raw }),
+    drop:          (id)          => ipcRenderer.invoke(IPC_CHANNELS.PROXY_DROP, { id }),
+    getHistory:    (filter)      => ipcRenderer.invoke(IPC_CHANNELS.PROXY_GET_HISTORY, filter),
+    getRequest:    (id)          => ipcRenderer.invoke(IPC_CHANNELS.PROXY_GET_REQUEST, id),
+    deleteRequest: (id)          => ipcRenderer.invoke(IPC_CHANNELS.PROXY_DELETE_REQUEST, id),
+    clearHistory:  ()            => ipcRenderer.invoke(IPC_CHANNELS.PROXY_CLEAR_HISTORY),
+    exportHar:     (ids)         => ipcRenderer.invoke(IPC_CHANNELS.PROXY_EXPORT_HAR, ids),
+    installCa:     ()            => ipcRenderer.invoke(IPC_CHANNELS.PROXY_INSTALL_CA),
+    getCaPath:     ()            => ipcRenderer.invoke(IPC_CHANNELS.PROXY_GET_CA_PATH),
+    onStatus:      (cb) => ipcRenderer.on(IPC_CHANNELS.PROXY_STATUS,      (_e, v) => cb(v)),
+    onRequest:     (cb) => ipcRenderer.on(IPC_CHANNELS.PROXY_REQUEST,     (_e, v) => cb(v)),
+    onIntercepted: (cb) => ipcRenderer.on(IPC_CHANNELS.PROXY_INTERCEPTED, (_e, v) => cb(v)),
+    onWsFrame:     (cb) => ipcRenderer.on(IPC_CHANNELS.PROXY_WS_FRAME,    (_e, v) => cb(v)),
+  },
+
   // Cleanup listeners
   removeListeners: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -245,5 +266,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_PROGRESS);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_COMPLETE);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_ERROR);
+    // Feature 7A: Proxy
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.PROXY_STATUS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.PROXY_REQUEST);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.PROXY_INTERCEPTED);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.PROXY_WS_FRAME);
   }
 });

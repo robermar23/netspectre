@@ -162,8 +162,32 @@ var IPC_CHANNELS = {
   // main -> renderer
   CLOUDENUM_COMPLETE: "cloudenum-complete",
   // main -> renderer
-  CLOUDENUM_ERROR: "cloudenum-error"
+  CLOUDENUM_ERROR: "cloudenum-error",
   // main -> renderer
+  // ─── Feature 7A — Intercepting Proxy ─────────────────────────────────────────
+  PROXY_START: "proxy-start",
+  PROXY_STOP: "proxy-stop",
+  PROXY_STATUS: "proxy-status",
+  // main -> renderer
+  PROXY_REQUEST: "proxy-request",
+  // main -> renderer (new entry)
+  PROXY_INTERCEPTED: "proxy-intercepted",
+  // main -> renderer (paused req)
+  PROXY_FORWARD: "proxy-forward",
+  // renderer -> main
+  PROXY_DROP: "proxy-drop",
+  // renderer -> main
+  PROXY_SET_INTERCEPT: "proxy-set-intercept",
+  PROXY_GET_HISTORY: "proxy-get-history",
+  PROXY_GET_REQUEST: "proxy-get-request",
+  PROXY_CLEAR_HISTORY: "proxy-clear-history",
+  PROXY_INSTALL_CA: "proxy-install-ca",
+  PROXY_EXPORT_HAR: "proxy-export-har",
+  PROXY_WS_FRAME: "proxy-ws-frame",
+  // main -> renderer
+  PROXY_GET_STATUS: "proxy-get-status",
+  PROXY_DELETE_REQUEST: "proxy-delete-request",
+  PROXY_GET_CA_PATH: "proxy-get-ca-path"
 };
 
 // src/main/preload.js
@@ -322,6 +346,26 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     onComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CLOUDENUM_COMPLETE, (_e, v) => cb(v)),
     onError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CLOUDENUM_ERROR, (_e, v) => cb(v))
   },
+  // Feature 7A: Intercepting Proxy
+  proxy: {
+    start: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_START, opts),
+    stop: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_STOP),
+    getStatus: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_GET_STATUS),
+    setIntercept: (enabled) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_SET_INTERCEPT, enabled),
+    forward: (id, raw) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_FORWARD, { id, modifiedRaw: raw }),
+    drop: (id) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_DROP, { id }),
+    getHistory: (filter) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_GET_HISTORY, filter),
+    getRequest: (id) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_GET_REQUEST, id),
+    deleteRequest: (id) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_DELETE_REQUEST, id),
+    clearHistory: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_CLEAR_HISTORY),
+    exportHar: (ids) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_EXPORT_HAR, ids),
+    installCa: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_INSTALL_CA),
+    getCaPath: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.PROXY_GET_CA_PATH),
+    onStatus: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.PROXY_STATUS, (_e, v) => cb(v)),
+    onRequest: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.PROXY_REQUEST, (_e, v) => cb(v)),
+    onIntercepted: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.PROXY_INTERCEPTED, (_e, v) => cb(v)),
+    onWsFrame: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.PROXY_WS_FRAME, (_e, v) => cb(v))
+  },
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -389,5 +433,9 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_PROGRESS);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_COMPLETE);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.CLOUDENUM_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PROXY_STATUS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PROXY_REQUEST);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PROXY_INTERCEPTED);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.PROXY_WS_FRAME);
   }
 });

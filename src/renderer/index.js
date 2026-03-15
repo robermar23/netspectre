@@ -28,6 +28,7 @@ import { init as initHostDetails } from './modules/hostDetails.js';
 import { init as initDeepScan } from './modules/deepScan.js';
 import { init as initPassiveIntel } from './modules/passiveIntel.js';
 import { init as initPcap } from './modules/pcap.js';
+import { init as initWebApp } from './modules/webapp/index.js';
 
 // --- Boot Sequence ---
 
@@ -92,6 +93,9 @@ async function boot() {
 
   // 10. PCAP live capture and file import/export modal
   initPcap();
+
+  // 11. Web App workspace (Feature 7) — workspace switcher, sidebar, proxy UI
+  initWebApp();
 }
 
 boot().catch(err => console.error('[NetSpecter] Boot error:', err));

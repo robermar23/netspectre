@@ -24,4 +24,18 @@ export const state = {
   // Feature 5C: Container & Cloud Enumeration
   isCloudEnumRunning: false,
   cloudFindings: [],         // [{ ip, service, port, severity, title, description, evidence, remediation }]
+
+  // Feature 7A: Web App Workspace
+  activeWorkspace: 'network',   // 'network' | 'webapp'
+  proxy: {
+    running:        false,
+    port:           8888,
+    interceptMode:  false,
+    consentAccepted: false,
+    interceptQueue: [],          // pending intercepted requests
+    wsConnections:  new Map(),   // sessionId -> { hostname, frames: [] }
+  },
+  proxyHistory: [],              // lightweight summaries for the History table
+  selectedRequest: null,         // full detail of selected row (incl. bodies)
+  webAppFindings: [],            // findings from scanner (Phase 7C)
 };

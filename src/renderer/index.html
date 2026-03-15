@@ -13,6 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="./icon.png" />
   <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./webapp.css" />
 </head>
 
 <body>
@@ -160,6 +161,20 @@
         </div>
       </div>
     </header>
+
+    <!-- Workspace Switcher Bar -->
+    <nav id="workspace-bar" class="workspace-bar">
+      <button class="workspace-tab active" data-workspace="network" title="Network Scanning Workspace">
+        <span class="icon">🌐</span> Network
+      </button>
+      <button class="workspace-tab" data-workspace="webapp" title="Web Application Security Workspace">
+        <span class="icon">🕷️</span> Web App
+        <span id="proxy-intercept-badge" class="intercept-badge" style="display:none;"></span>
+      </button>
+    </nav>
+
+    <!-- NETWORK WORKSPACE -->
+    <div id="ws-network" class="workspace-container active">
 
     <!-- Split View Container -->
     <div class="split-view-container" style="display: flex; flex-grow: 1; overflow: hidden; gap: 0;">
@@ -1388,8 +1403,254 @@
         </div>
       </aside>
     </div> <!-- End Split View Container -->
+    </div> <!-- End #ws-network -->
 
-  </div>
+    <!-- WEB APP WORKSPACE -->
+    <div id="ws-webapp" class="workspace-container" style="display:none;">
+      <!-- Proxy Consent Modal (shown on first proxy start) -->
+      <div id="proxy-consent-overlay" class="modal-overlay hidden">
+        <div class="modal-box" style="max-width: 520px;">
+          <div class="modal-header">
+            <h2 style="margin:0; font-size:16px;">⚠️ Intercepting Proxy</h2>
+            <button id="btn-close-proxy-consent" class="btn icon-only modal-close">✕</button>
+          </div>
+          <div class="modal-body" style="padding: 20px; font-size: 13px; line-height: 1.6; color: var(--text-muted);">
+            <p>You are about to start an <strong style="color:var(--text-main)">MITM intercepting proxy</strong> that will decrypt TLS traffic on your machine.</p>
+            <br>
+            <p>Only test applications you <strong style="color:var(--warning)">own</strong> or have <strong style="color:var(--warning)">written authorization</strong> to test. Unauthorized interception of network traffic may violate computer fraud laws.</p>
+            <br>
+            <p>Type <code style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace;">I UNDERSTAND</code> to continue:</p>
+            <input type="text" id="proxy-consent-input" class="text-input" placeholder="I UNDERSTAND"
+              style="margin-top: 10px; font-family: monospace; letter-spacing: 1px; width: 100%;" autocomplete="off">
+          </div>
+          <div class="modal-footer">
+            <button id="btn-proxy-consent-reject" class="btn secondary">Cancel</button>
+            <button id="btn-proxy-consent-accept" class="btn webapp" disabled>Confirm — Start Proxy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CA Install Modal -->
+      <div id="proxy-ca-modal" class="modal-overlay hidden">
+        <div class="modal-box" style="max-width: 500px;">
+          <div class="modal-header">
+            <h2 style="margin:0; font-size:16px;">🔐 Install CA Certificate</h2>
+            <button id="btn-close-proxy-ca-modal" class="btn icon-only modal-close">✕</button>
+          </div>
+          <div class="modal-body" style="padding: 20px; font-size: 13px; line-height: 1.6; color: var(--text-muted);">
+            <p>To decrypt HTTPS traffic, your browser must trust the NetSpecter CA certificate.</p>
+            <br>
+            <p id="proxy-ca-path-text" style="font-family: monospace; font-size: 11px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; word-break: break-all; color: var(--text-main);"></p>
+            <br>
+            <p>Click <strong>Install</strong> to automatically add the CA to your OS trust store, or install the file above manually. Restart your browser after installation.</p>
+            <div id="proxy-ca-result" style="margin-top: 10px; font-size: 12px; display: none;"></div>
+          </div>
+          <div class="modal-footer">
+            <button id="btn-proxy-ca-cancel" class="btn secondary">Close</button>
+            <button id="btn-proxy-ca-install" class="btn webapp">Install CA Certificate</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Web App Sidebar + Main Layout -->
+      <div class="webapp-layout">
+        <!-- Left Sidebar -->
+        <nav id="webapp-sidebar" class="webapp-sidebar">
+          <button class="sidebar-item active" data-panel="proxy" title="HTTP Proxy History">
+            <span class="sidebar-icon">🔁</span>
+            <span class="sidebar-label">Proxy</span>
+          </button>
+          <button class="sidebar-item" data-panel="sitemap" title="Site Map (Phase 7B)">
+            <span class="sidebar-icon">🗺️</span>
+            <span class="sidebar-label">Sitemap</span>
+          </button>
+          <button class="sidebar-item" data-panel="scanner" title="Vulnerability Scanner (Phase 7C)">
+            <span class="sidebar-icon">🔍</span>
+            <span class="sidebar-label">Scanner</span>
+          </button>
+          <button class="sidebar-item" data-panel="repeater" title="Request Repeater (Phase 7D)">
+            <span class="sidebar-icon">↩️</span>
+            <span class="sidebar-label">Repeater</span>
+          </button>
+          <button class="sidebar-item" data-panel="intruder" title="Intruder / Fuzzer (Phase 7D)">
+            <span class="sidebar-icon">💥</span>
+            <span class="sidebar-label">Intruder</span>
+          </button>
+          <button class="sidebar-item" data-panel="decoder" title="Encoder / Decoder (Phase 7D)">
+            <span class="sidebar-icon">🔤</span>
+            <span class="sidebar-label">Decoder</span>
+          </button>
+        </nav>
+        <div id="webapp-sidebar-toggle" class="webapp-sidebar-toggle" title="Toggle Sidebar">‹</div>
+
+        <!-- Main Content Area -->
+        <main id="webapp-main" class="webapp-main glass-panel">
+
+          <!-- PROXY PANEL (active by default) -->
+          <section id="webapp-panel-proxy" class="webapp-panel active">
+            <!-- Controls Bar -->
+            <div class="proxy-controls-bar">
+              <div class="proxy-controls-left">
+                <span class="panel-title" style="font-size:14px; font-weight:600;">HTTP/S Proxy</span>
+                <div class="proxy-status-dot" id="proxy-dot" title="Proxy stopped"></div>
+                <span id="proxy-status-label" class="proxy-status-label">Stopped</span>
+              </div>
+              <div class="proxy-controls-right">
+                <label class="form-label" style="font-size:11px;">Port</label>
+                <input type="number" id="proxy-port-input" class="text-input" value="8888" min="1024" max="65535"
+                  style="width:70px; font-size:12px; padding: 4px 6px;">
+                <button id="btn-proxy-start" class="btn webapp" title="Start Proxy">▶ Start</button>
+                <button id="btn-proxy-stop" class="btn secondary" title="Stop Proxy" disabled>■ Stop</button>
+                <div class="divider"></div>
+                <label class="intercept-toggle-label" title="Intercept Mode — pause each request for inspection">
+                  <input type="checkbox" id="proxy-intercept-toggle">
+                  <span class="intercept-slider"></span>
+                  <span style="font-size:11px; margin-left:6px;">Intercept</span>
+                </label>
+                <div class="divider"></div>
+                <button id="btn-proxy-ca" class="btn secondary" title="Install CA Certificate">🔐 CA</button>
+                <button id="btn-proxy-clear-history" class="btn secondary" title="Clear HTTP History">🗑 Clear</button>
+                <button id="btn-proxy-export-har" class="btn secondary" title="Export as HAR">↓ HAR</button>
+              </div>
+            </div>
+
+            <!-- Sub-Tabs: History | Intercept | WebSocket -->
+            <div class="proxy-subtabs">
+              <button class="proxy-subtab active" data-subtab="history">History</button>
+              <button class="proxy-subtab" data-subtab="intercept">
+                Intercept <span id="intercept-queue-badge" class="intercept-count-badge" style="display:none;"></span>
+              </button>
+              <button class="proxy-subtab" data-subtab="websocket">WebSocket</button>
+            </div>
+
+            <!-- Filter Bar (shown for history subtab) -->
+            <div id="proxy-filter-bar" class="proxy-filter-bar">
+              <input type="text" id="proxy-filter-host" class="text-input" placeholder="Host..." style="width:140px;">
+              <select id="proxy-filter-method" class="dropdown-select" style="width:90px;">
+                <option value="">Method</option>
+                <option>GET</option><option>POST</option><option>PUT</option>
+                <option>DELETE</option><option>PATCH</option><option>HEAD</option><option>OPTIONS</option>
+              </select>
+              <input type="text" id="proxy-filter-status" class="text-input" placeholder="Status..." style="width:70px;">
+              <input type="text" id="proxy-filter-search" class="text-input" placeholder="Search URL..." style="flex:1;">
+              <button id="btn-proxy-filter-apply" class="btn secondary" style="padding:4px 10px; font-size:11px;">Filter</button>
+              <button id="btn-proxy-filter-clear"  class="btn secondary" style="padding:4px 10px; font-size:11px;">✕</button>
+            </div>
+
+            <!-- History Subtab -->
+            <div id="proxy-subtab-history" class="proxy-subtab-content active">
+              <div id="proxy-history-wrapper" class="proxy-history-wrapper">
+                <!-- Table Header -->
+                <div class="proxy-table-header">
+                  <div class="ph-col ph-num">#</div>
+                  <div class="ph-col ph-method">Method</div>
+                  <div class="ph-col ph-host">Host</div>
+                  <div class="ph-col ph-path">Path</div>
+                  <div class="ph-col ph-status">Status</div>
+                  <div class="ph-col ph-length">Length</div>
+                  <div class="ph-col ph-mime">MIME</div>
+                  <div class="ph-col ph-time">Time</div>
+                  <div class="ph-col ph-notes">Notes</div>
+                </div>
+                <!-- Virtual scroll viewport -->
+                <div id="proxy-history-viewport" class="proxy-history-viewport">
+                  <div id="proxy-history-spacer"></div>
+                  <div id="proxy-history-rows"></div>
+                </div>
+                <div id="proxy-history-empty" class="proxy-empty-state">
+                  No requests captured yet.<br>Configure your browser proxy to <strong>127.0.0.1:8888</strong> and start browsing.
+                </div>
+              </div>
+
+              <!-- Row Context Menu -->
+              <div id="proxy-context-menu" class="proxy-context-menu hidden">
+                <button class="ctx-item" data-action="repeater">↩ Send to Repeater</button>
+                <button class="ctx-item" data-action="intruder">💥 Send to Intruder</button>
+                <button class="ctx-item" data-action="delete">🗑 Delete</button>
+                <button class="ctx-item" data-action="note">📝 Add Note</button>
+              </div>
+
+              <!-- Request / Response Inspector -->
+              <div id="proxy-inspector" class="proxy-inspector hidden">
+                <div class="proxy-inspector-header">
+                  <span id="proxy-inspector-title" class="proxy-inspector-title">Select a request</span>
+                  <div class="proxy-view-tabs">
+                    <button class="view-tab active" data-view="raw">Raw</button>
+                    <button class="view-tab" data-view="headers">Headers</button>
+                    <button class="view-tab" data-view="params">Params</button>
+                    <button class="view-tab" data-view="body">Body</button>
+                  </div>
+                  <button id="btn-proxy-inspector-close" class="btn icon-only" title="Close Inspector">✕</button>
+                </div>
+                <div class="proxy-inspector-panes">
+                  <div class="proxy-inspector-pane">
+                    <div class="pane-label">Request</div>
+                    <pre id="proxy-req-raw"      class="proxy-raw-view"></pre>
+                    <div id="proxy-req-headers"  class="proxy-headers-view" style="display:none;"></div>
+                    <div id="proxy-req-params"   class="proxy-params-view"  style="display:none;"></div>
+                    <div id="proxy-req-body"     class="proxy-body-view"    style="display:none;"></div>
+                  </div>
+                  <div class="proxy-inspector-resize-handle" id="inspector-resize-handle"></div>
+                  <div class="proxy-inspector-pane">
+                    <div class="pane-label">Response</div>
+                    <pre id="proxy-res-raw"      class="proxy-raw-view"></pre>
+                    <div id="proxy-res-headers"  class="proxy-headers-view" style="display:none;"></div>
+                    <div id="proxy-res-body"     class="proxy-body-view"    style="display:none;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Intercept Subtab -->
+            <div id="proxy-subtab-intercept" class="proxy-subtab-content" style="display:none;">
+              <div id="proxy-intercept-empty" class="proxy-empty-state">
+                Toggle <strong>Intercept</strong> above to start pausing requests.
+              </div>
+              <div id="proxy-intercept-editor" class="proxy-intercept-editor" style="display:none;">
+                <div class="intercept-editor-header">
+                  <span id="intercept-request-label" class="intercept-label">Intercepted Request</span>
+                  <div class="intercept-actions">
+                    <button id="btn-intercept-forward"     class="btn webapp">▶ Forward</button>
+                    <button id="btn-intercept-forward-all" class="btn secondary">▶▶ Forward All</button>
+                    <button id="btn-intercept-drop"        class="btn danger-outline">✕ Drop</button>
+                  </div>
+                </div>
+                <textarea id="proxy-intercept-textarea" class="proxy-intercept-textarea" spellcheck="false"
+                  placeholder="Intercepted raw HTTP request appears here..."></textarea>
+              </div>
+            </div>
+
+            <!-- WebSocket Subtab -->
+            <div id="proxy-subtab-websocket" class="proxy-subtab-content" style="display:none;">
+              <div id="proxy-ws-empty" class="proxy-empty-state">No WebSocket connections captured.</div>
+              <div id="proxy-ws-container" class="proxy-ws-container" style="display:none;">
+                <div id="proxy-ws-sessions" class="proxy-ws-sessions"></div>
+                <div id="proxy-ws-frames"   class="proxy-ws-frames"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- FUTURE PANELS (placeholders) -->
+          <section id="webapp-panel-sitemap"  class="webapp-panel" style="display:none;">
+            <div class="proxy-empty-state" style="margin:40px auto;">🗺️ Site Map — Phase 7B</div>
+          </section>
+          <section id="webapp-panel-scanner"  class="webapp-panel" style="display:none;">
+            <div class="proxy-empty-state" style="margin:40px auto;">🔍 Scanner — Phase 7C</div>
+          </section>
+          <section id="webapp-panel-repeater" class="webapp-panel" style="display:none;">
+            <div class="proxy-empty-state" style="margin:40px auto;">↩️ Repeater — Phase 7D</div>
+          </section>
+          <section id="webapp-panel-intruder" class="webapp-panel" style="display:none;">
+            <div class="proxy-empty-state" style="margin:40px auto;">💥 Intruder — Phase 7D</div>
+          </section>
+          <section id="webapp-panel-decoder"  class="webapp-panel" style="display:none;">
+            <div class="proxy-empty-state" style="margin:40px auto;">🔤 Decoder — Phase 7D</div>
+          </section>
+        </main>
+      </div>
+    </div> <!-- End #ws-webapp -->
+
+  </div> <!-- End .app-container -->
 
   <!-- Host Acquisition Modal -->
   <div id="scope-modal-overlay" class="modal-overlay hidden">
