@@ -1004,6 +1004,7 @@
 
 .badge-forms  { background: rgba(251,191,36,0.15); color: #fbbf24; }
 .badge-params { background: rgba(59,130,246,0.15);  color: #60a5fa; }
+.badge-api    { background: rgba(16,185,129,0.15);  color: #34d399; }
 
 /* Re-use proxy method badges for sitemap */
 .sitemap-method-badge {

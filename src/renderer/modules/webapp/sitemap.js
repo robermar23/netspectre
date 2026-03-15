@@ -349,13 +349,42 @@ function _addUrlToTree(rawUrl) {
     _stats.urls++;
   }
   _stats.hosts = Object.keys(_sitemap).length;
+
+  // Store query parameters on the leaf node (deduplicated by name+source).
+  for (const [name] of u.searchParams.entries()) {
+    if (!node.params.some(p => p.name === name && p.source === 'query')) {
+      node.params.push({ name, source: 'query' });
+      _stats.params++;
+    }
+  }
 }
 
 function _addFormToTree(form) {
   if (!form?.action) return;
+  // Ensure the action URL exists as a tree node.
   _addUrlToTree(form.action);
-  // Track form count
-  _stats.forms++;
+
+  // Walk to the node for the form's action and store the form object there.
+  let u;
+  try { u = new URL(form.action); } catch { return; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+
+  const host = u.hostname;
+  if (!_sitemap[host]) return;
+
+  const segments = u.pathname.replace(/^\//, '').split('/').filter(Boolean);
+  let node = _sitemap[host];
+  for (const seg of segments) {
+    if (!node.children[seg]) return;
+    node = node.children[seg];
+  }
+
+  // Deduplicate by method+action key.
+  const key = `${(form.method ?? 'GET').toUpperCase()}:${form.action}`;
+  if (!node.forms.some(f => `${(f.method ?? 'GET').toUpperCase()}:${f.action}` === key)) {
+    node.forms.push(form);
+    _stats.forms++;
+  }
 }
 
 // ─── Tree Rendering ───────────────────────────────────────────────────────────
@@ -418,9 +447,12 @@ function _buildHostNode(hostname, rootNode) {
   return wrapper;
 }
 
+const _API_SEGMENTS = new Set(['api', 'v1', 'v2', 'v3', 'v4', 'v5', 'graphql', 'rest', 'rpc', 'gql', 'swagger', 'openapi']);
+
 function _buildPathNode(parentUrl, segment, node, depth) {
   const url     = `${parentUrl}/${segment}`;
   const hasKids = Object.keys(node.children).length > 0;
+  const isApi   = _API_SEGMENTS.has(segment.toLowerCase());
   const wrapper = document.createElement('div');
   wrapper.className = 'sitemap-path-node';
   wrapper.style.paddingLeft = `${depth * 16}px`;
@@ -433,6 +465,7 @@ function _buildPathNode(parentUrl, segment, node, depth) {
     ${hasKids ? `<span class="sitemap-expand-icon sitemap-expandable">▾</span>` : `<span class="sitemap-expand-icon">  </span>`}
     <span class="sitemap-path-segment">${_esc(segment)}</span>
     ${node.methods.map(m => `<span class="sitemap-method-badge method-${m.toLowerCase()}">${_esc(m)}</span>`).join('')}
+    ${isApi ? `<span class="sitemap-badge badge-api">API</span>` : ''}
     ${node.forms.length  > 0 ? `<span class="sitemap-badge badge-forms">${node.forms.length} form${node.forms.length > 1 ? 's' : ''}</span>` : ''}
     ${node.params.length > 0 ? `<span class="sitemap-badge badge-params">${node.params.length} param${node.params.length > 1 ? 's' : ''}</span>` : ''}`;
 
