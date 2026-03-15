@@ -38,6 +38,7 @@ let $moduleCheckboxes;
 let $targetModeRadios;
 let $urlInput;
 let $scanError;
+let $sitemapOptions, $multimethodCb;
 let $exportDropdown;
 let $activityWrap, $activityList, $activityToggleBtn, $activityClearBtn;
 
@@ -67,6 +68,8 @@ function _bindDomRefs() {
   $exportDropdown    = document.getElementById('scanner-export-dropdown');
   $moduleCheckboxes  = document.querySelectorAll('.scanner-module-cb');
   $targetModeRadios  = document.querySelectorAll('input[name="scanner-target-mode"]');
+  $sitemapOptions    = document.getElementById('scanner-sitemap-options');
+  $multimethodCb     = document.getElementById('scanner-multimethod-cb');
   $activityWrap      = document.getElementById('scanner-activity-wrap');
   $activityList      = document.getElementById('scanner-activity-list');
   $activityToggleBtn = document.getElementById('scanner-activity-toggle');
@@ -81,6 +84,13 @@ function _bindEvents() {
   $concurrencySlider?.addEventListener('input', () => {
     if ($concurrencyVal) $concurrencyVal.textContent = $concurrencySlider.value;
   });
+
+  // Show multi-method option only when sitemap source is selected
+  $targetModeRadios?.forEach(r => r.addEventListener('change', () => {
+    const isSitemap = [...$targetModeRadios].find(x => x.checked)?.value === 'sitemap';
+    if ($sitemapOptions) $sitemapOptions.style.display = isSitemap ? 'flex' : 'none';
+    if (!isSitemap && $multimethodCb) $multimethodCb.checked = false;
+  }));
 
   // Export dropdown
   $exportBtn?.addEventListener('click', (e) => {
@@ -245,9 +255,12 @@ async function _buildTargets() {
   }
 
   if (mode === 'sitemap') {
-    // Fetch sitemap from main process (authoritative source)
     const res = await api.crawler.getSitemap().catch(() => null);
     const sitemap = res?.sitemap || {};
+    const multiMethod = $multimethodCb?.checked ?? false;
+    if (multiMethod) {
+      return _expandSitemapTargets(sitemap).slice(0, 400);
+    }
     const entries = _flattenSitemap(sitemap);
     return entries.slice(0, 200).map(url => ({
       url,
@@ -645,6 +658,88 @@ function _walkNode(host, prefix, children, acc) {
     acc.push(`https://${host}${path}`);
     if (child && child.children) _walkNode(host, path, child.children, acc);
   }
+}
+
+/**
+ * Walk the sitemap tree and produce one target per (url × method) combination.
+ * For mutating methods (POST/PUT/PATCH), synthesize a body from discovered
+ * form inputs or query params — values are left empty/placeholder so the
+ * scanner probes structure rather than submitting real data.
+ */
+function _expandSitemapTargets(sitemap) {
+  const targets = [];
+  for (const [host, rootNode] of Object.entries(sitemap || {})) {
+    _walkNodeExpand(host, '/', rootNode, targets);
+    _walkChildrenExpand(host, '', rootNode.children || {}, targets);
+  }
+  return targets;
+}
+
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function _walkChildrenExpand(host, prefix, children, acc) {
+  for (const [seg, node] of Object.entries(children || {})) {
+    const path = prefix + '/' + seg;
+    _walkNodeExpand(host, path, node, acc);
+    _walkChildrenExpand(host, path, node.children || {}, acc);
+  }
+}
+
+function _walkNodeExpand(host, path, node, acc) {
+  const url     = `https://${host}${path}`;
+  const methods = (node.methods?.length ? node.methods : ['GET']).map(m => m.toUpperCase());
+
+  // Always include GET
+  if (!methods.includes('GET')) methods.unshift('GET');
+
+  for (const method of methods) {
+    if (MUTATING_METHODS.has(method)) {
+      // Build a synthetic body from the node's forms or params
+      const body    = _synthesizeBody(node, method);
+      const ct      = body.contentType;
+      acc.push({
+        url,
+        method,
+        requestHeaders: ct ? { 'content-type': ct } : {},
+        body: body.data || null,
+      });
+    } else {
+      acc.push({ url, method, requestHeaders: {}, body: null });
+    }
+  }
+}
+
+/**
+ * Build a synthetic request body for a mutating method.
+ * Prefers a matching HTML form; falls back to sitemap params; falls back to empty.
+ * Returns { data: string|null, contentType: string|null }.
+ */
+function _synthesizeBody(node, method) {
+  // Try to find a form whose method matches
+  const forms = node.forms || [];
+  const matchingForm = forms.find(f => f.method === method) || forms[0];
+
+  if (matchingForm?.inputs?.length) {
+    const p = new URLSearchParams();
+    for (const input of matchingForm.inputs) {
+      p.set(input.name, input.value || '');
+    }
+    return { data: p.toString(), contentType: 'application/x-www-form-urlencoded' };
+  }
+
+  // Fall back to query params recorded for this node
+  const params = node.params || [];
+  if (params.length) {
+    const p = new URLSearchParams();
+    for (const param of params) p.set(param.name, '');
+    return { data: p.toString(), contentType: 'application/x-www-form-urlencoded' };
+  }
+
+  // Nothing known — send an empty JSON object so modules can still probe headers/CORS/auth
+  if (method !== 'DELETE') {
+    return { data: '{}', contentType: 'application/json' };
+  }
+  return { data: null, contentType: null };
 }
 
 // ─── Public: pre-fill from Network workspace ──────────────────────────────────

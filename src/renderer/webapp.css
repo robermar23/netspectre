@@ -1501,6 +1501,36 @@
 }
 .scanner-url-input:focus { border-color: var(--webapp-btn); }
 
+/* Sitemap multi-method option */
+.scanner-sitemap-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.scanner-multimethod-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-main);
+  cursor: pointer;
+  user-select: none;
+}
+.scanner-multimethod-label input[type="checkbox"] {
+  accent-color: var(--pentest);
+}
+.scanner-multimethod-warn {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #f59e0b;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+.scanner-multimethod-warn strong { color: #fbbf24; }
+
 /* Modules Grid */
 .scanner-modules-grid {
   display: flex;

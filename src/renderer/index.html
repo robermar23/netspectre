@@ -1860,6 +1860,20 @@
                   </div>
                   <input id="scanner-url-input" class="scanner-url-input" type="text"
                     placeholder="https://target.com/api/endpoint" spellcheck="false">
+                  <!-- Sitemap-only option: multi-method expansion -->
+                  <div id="scanner-sitemap-options" class="scanner-sitemap-options" style="display:none;">
+                    <label class="scanner-multimethod-label">
+                      <input type="checkbox" id="scanner-multimethod-cb">
+                      <span>Expand to POST / PUT / DELETE (multi-method)</span>
+                    </label>
+                    <div class="scanner-multimethod-warn">
+                      ⚠ When enabled, the scanner will replay sitemap URLs using every HTTP method
+                      observed during crawl (POST, PUT, DELETE, etc.) with synthesized bodies built
+                      from discovered form fields. This <strong>sends mutating requests</strong> to
+                      the target and may create, modify, or delete server-side data. Only enable on
+                      targets you are authorised to test.
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Module Selection -->
