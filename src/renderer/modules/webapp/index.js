@@ -127,6 +127,19 @@ export function openInRepeater(rawRequest, label, targetUrl) {
 }
 
 /**
+ * Switch to the Sitemap panel and pre-fill the target URL input.
+ */
+export function openInSitemap(url) {
+  const webappTab = document.querySelector('.workspace-tab[data-workspace="webapp"]');
+  webappTab?.click();
+
+  const sitemapItem = document.querySelector('#webapp-sidebar .sidebar-item[data-panel="sitemap"]');
+  sitemapItem?.click();
+
+  setSitemapTarget(url);
+}
+
+/**
  * Open the Intruder panel with a pre-filled request template.
  */
 export function openInIntruder(rawRequest, targetUrl) {
@@ -154,4 +167,5 @@ export function init() {
   window.__openScannerPanel    = openInScanner;
   window.__openRepeaterPanel   = openInRepeater;
   window.__openIntruderPanel   = openInIntruder;
+  window.__openSitemapTarget   = openInSitemap;
 }

@@ -199,27 +199,20 @@ function _bindEvents() {
     });
   });
 
-  // ── Detail Action Buttons ────────────────────────────────────────────────────
-  document.getElementById('btn-sitemap-send-dirfuzzer')?.addEventListener('click', () => {
-    if (_selectedNode) _handleContextAction('send-dirfuzzer', _selectedNode.url);
+  // ── Detail Action Buttons ─────────────────────────────────────────────────
+  const _detailAction = (action) => () => {
+    if (_selectedNode) _handleContextAction(action, _selectedNode.url);
+  };
+  document.getElementById('btn-sitemap-send-repeater') ?.addEventListener('click', _detailAction('send-repeater'));
+  document.getElementById('btn-sitemap-send-intruder') ?.addEventListener('click', _detailAction('send-intruder'));
+  document.getElementById('btn-sitemap-send-dirfuzzer')?.addEventListener('click', _detailAction('send-dirfuzzer'));
+  document.getElementById('btn-sitemap-open-browser')  ?.addEventListener('click', _detailAction('open-browser'));
+  document.getElementById('btn-sitemap-probe-network') ?.addEventListener('click', () => {
+    if (_selectedNode) _probeHostInNetwork(_selectedNode.url);
   });
-  document.getElementById('btn-sitemap-open-browser')?.addEventListener('click', () => {
-    if (_selectedNode) _handleContextAction('open-browser', _selectedNode.url);
+  document.getElementById('btn-sitemap-api-detect-url')?.addEventListener('click', () => {
+    if (_selectedNode) api.crawler.detectApis(_selectedNode.url);
   });
-
-  // Inject "Probe in Network" button next to the existing detail action buttons
-  const openBrowserBtn = document.getElementById('btn-sitemap-open-browser');
-  if (openBrowserBtn?.parentElement) {
-    const probeBtn = document.createElement('button');
-    probeBtn.id = 'btn-sitemap-probe-network';
-    probeBtn.className = 'btn-probe-network';
-    probeBtn.title = 'Resolve hostname to IP and add to Network workspace';
-    probeBtn.innerHTML = '&#127760; Probe in Network';
-    probeBtn.addEventListener('click', () => {
-      if (_selectedNode) _probeHostInNetwork(_selectedNode.url);
-    });
-    openBrowserBtn.parentElement.insertBefore(probeBtn, openBrowserBtn.nextSibling);
-  }
 }
 
 function _scheduleRender() {
@@ -711,6 +704,24 @@ function _handleContextAction(action, url) {
     case 'open-browser':
       window.electronAPI.openUrl(url);
       break;
+    case 'send-repeater': {
+      const parsed    = (() => { try { return new URL(url); } catch { return null; } })();
+      const pathQuery = parsed ? (parsed.pathname + parsed.search) : '/';
+      const host      = parsed ? parsed.host : url;
+      const raw       = `GET ${pathQuery} HTTP/1.1\r\nHost: ${host}\r\n\r\n`;
+      document.dispatchEvent(new CustomEvent('repeater:sendTo', {
+        detail: { raw, url, label: `GET ${pathQuery}` },
+      }));
+      break;
+    }
+    case 'send-intruder': {
+      const parsed    = (() => { try { return new URL(url); } catch { return null; } })();
+      const pathQuery = parsed ? (parsed.pathname + parsed.search) : '/';
+      const host      = parsed ? parsed.host : url;
+      const raw       = `GET ${pathQuery} HTTP/1.1\r\nHost: ${host}\r\n\r\n`;
+      document.dispatchEvent(new CustomEvent('intruder:sendTo', { detail: { raw, url } }));
+      break;
+    }
     case 'send-dirfuzzer':
       // Switch to the Network workspace first so the panel is visible.
       document.querySelector('.workspace-tab[data-workspace="network"]')?.click();

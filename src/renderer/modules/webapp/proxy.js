@@ -116,6 +116,13 @@ const _dnsCache = new Map();
 
 export function init() {
   if (!btnStart) return; // DOM not present (workspace not loaded)
+
+  // Move context menu to <body> so that backdrop-filter / transform on
+  // ancestor panels doesn't break position:fixed viewport coordinates.
+  if (contextMenu && contextMenu.parentElement !== document.body) {
+    document.body.appendChild(contextMenu);
+  }
+
   _wireConsentModal();
   _wireProxyControls();
   _wireSubtabs();
@@ -406,8 +413,34 @@ function _wireHistoryTable() {
     } else if (action === 'probe-network') {
       const row = allRows.find(r => r.id === selectedRowId);
       if (row?.host) _probeHostInNetwork(row.host);
+    } else if (action === 'repeater') {
+      const row = allRows.find(r => r.id === selectedRowId);
+      if (row) {
+        const raw   = _buildRawText(row);
+        const url   = `${row.protocol || 'http'}://${row.host}${row.path ?? '/'}${row.query ? '?' + row.query : ''}`;
+        const label = `${row.method} ${row.path ?? '/'}`;
+        document.dispatchEvent(new CustomEvent('repeater:sendTo', { detail: { raw, url, label } }));
+      }
+    } else if (action === 'intruder') {
+      const row = allRows.find(r => r.id === selectedRowId);
+      if (row) {
+        const raw = _buildRawText(row);
+        const url = `${row.protocol || 'http'}://${row.host}${row.path ?? '/'}${row.query ? '?' + row.query : ''}`;
+        document.dispatchEvent(new CustomEvent('intruder:sendTo', { detail: { raw, url } }));
+      }
+    } else if (action === 'scanner') {
+      const row = allRows.find(r => r.id === selectedRowId);
+      if (row) {
+        const url = `${row.protocol || 'http'}://${row.host}${row.path ?? '/'}${row.query ? '?' + row.query : ''}`;
+        window.__openScannerPanel?.(url);
+      }
+    } else if (action === 'sitemap') {
+      const row = allRows.find(r => r.id === selectedRowId);
+      if (row) {
+        const url = `${row.protocol || 'http'}://${row.host}${row.path ?? '/'}${row.query ? '?' + row.query : ''}`;
+        window.__openSitemapTarget?.(url);
+      }
     }
-    // repeater / intruder: to be wired in Phase 7D
   });
 }
 
