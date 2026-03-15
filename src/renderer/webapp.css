@@ -718,6 +718,7 @@
   padding: 4px 8px;
   border-radius: 4px;
   border-left: 3px solid transparent;
+  user-select: text;
 }
 
 .ws-frame.ws-out { border-left-color: var(--method-post); background: rgba(59,130,246,0.06); }
@@ -1077,6 +1078,7 @@
   font-size: 11px;
   font-family: 'Fira Code', 'Courier New', monospace;
   color: var(--text-main);
+  user-select: text;
   word-break: break-all;
   margin-bottom: 4px;
 }
@@ -1134,6 +1136,7 @@
   padding: 4px 6px;
   border-bottom: 1px solid rgba(255,255,255,0.04);
   font-family: 'Fira Code', 'Courier New', monospace;
+  user-select: text;
 }
 
 /* ── Form Cards ──────────────────────────────────────────────────────────── */
@@ -1157,6 +1160,7 @@
   font-family: 'Fira Code', monospace;
   color: var(--text-muted);
   overflow: hidden;
+  user-select: text;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1168,6 +1172,7 @@
   align-items: center;
   gap: 3px;
   padding: 2px 7px;
+  user-select: text;
   background: rgba(139,92,246,0.12);
   border: 1px solid rgba(139,92,246,0.25);
   border-radius: 10px;
@@ -1770,16 +1775,19 @@
   font-size: 12px;
   color: var(--text-main);
   line-height: 1.5;
+  user-select: text;
 }
 .scanner-mono {
   font-family: var(--font-mono, monospace);
   font-size: 11px;
+  user-select: text;
 }
 .scanner-evidence-box {
   background: rgba(0,0,0,0.3);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
+  user-select: text;
   max-height: 160px;
   overflow-y: auto;
   white-space: pre-wrap;
@@ -2007,13 +2015,14 @@
 }
 .repeater-divider:hover { background: var(--webapp-btn); }
 
-.repeater-res-body { flex: 1; overflow: auto; background: rgba(0,0,0,0.2); }
+.repeater-res-body { flex: 1; overflow: auto; background: rgba(0,0,0,0.2); user-select: text; }
 
 .repeater-raw-display {
   margin: 0;
   padding: 10px 12px;
   font-size: 12px;
   font-family: 'Fira Code', monospace;
+  user-select: text;
   white-space: pre-wrap;
   word-break: break-all;
   color: var(--text-main);
