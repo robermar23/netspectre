@@ -1476,9 +1476,17 @@
             <span class="sidebar-icon">💥</span>
             <span class="sidebar-label">Intruder</span>
           </button>
+          <button class="sidebar-item" data-panel="sequencer" title="Token Sequencer (Phase 7D)">
+            <span class="sidebar-icon">🎲</span>
+            <span class="sidebar-label">Sequencer</span>
+          </button>
           <button class="sidebar-item" data-panel="decoder" title="Encoder / Decoder (Phase 7D)">
             <span class="sidebar-icon">🔤</span>
             <span class="sidebar-label">Decoder</span>
+          </button>
+          <button class="sidebar-item" data-panel="comparer" title="Diff Comparer (Phase 7D)">
+            <span class="sidebar-icon">⇄</span>
+            <span class="sidebar-label">Comparer</span>
           </button>
         </nav>
         <div id="webapp-sidebar-toggle" class="webapp-sidebar-toggle" title="Toggle Sidebar">‹</div>
@@ -1946,15 +1954,20 @@
             </div>
 
           </section><!-- end #webapp-panel-scanner -->
-          <section id="webapp-panel-repeater" class="webapp-panel" style="display:none;">
-            <div class="proxy-empty-state" style="margin:40px auto;">↩️ Repeater — Phase 7D</div>
-          </section>
-          <section id="webapp-panel-intruder" class="webapp-panel" style="display:none;">
-            <div class="proxy-empty-state" style="margin:40px auto;">💥 Intruder — Phase 7D</div>
-          </section>
-          <section id="webapp-panel-decoder"  class="webapp-panel" style="display:none;">
-            <div class="proxy-empty-state" style="margin:40px auto;">🔤 Decoder — Phase 7D</div>
-          </section>
+          <!-- REPEATER PANEL (7D) — dynamically rendered by repeater.js -->
+          <section id="webapp-panel-repeater" class="webapp-panel" style="display:none;"></section>
+
+          <!-- INTRUDER PANEL (7D) — dynamically rendered by intruder.js -->
+          <section id="webapp-panel-intruder" class="webapp-panel" style="display:none;"></section>
+
+          <!-- SEQUENCER PANEL (7D) — dynamically rendered by sequencer.js -->
+          <section id="webapp-panel-sequencer" class="webapp-panel" style="display:none;"></section>
+
+          <!-- DECODER PANEL (7D) — dynamically rendered by decoder.js -->
+          <section id="webapp-panel-decoder" class="webapp-panel" style="display:none;"></section>
+
+          <!-- COMPARER PANEL (7D) — dynamically rendered by comparer.js -->
+          <section id="webapp-panel-comparer" class="webapp-panel" style="display:none;"></section>
         </main>
       </div>
     </div> <!-- End #ws-webapp -->

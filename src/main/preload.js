@@ -235,6 +235,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onError:     (cb) => ipcRenderer.on(IPC_CHANNELS.SCANNER_ERROR,     (_e, v) => cb(v)),
   },
 
+  // Feature 7D: Repeater
+  repeater: {
+    send: (opts) => ipcRenderer.invoke(IPC_CHANNELS.REPEATER_SEND, opts),
+  },
+
+  // Feature 7D: Intruder
+  intruder: {
+    start:      (opts) => ipcRenderer.invoke(IPC_CHANNELS.INTRUDER_START, opts),
+    stop:       ()     => ipcRenderer.invoke(IPC_CHANNELS.INTRUDER_STOP),
+    onResult:   (cb)   => ipcRenderer.on(IPC_CHANNELS.INTRUDER_RESULT,   (_e, v) => cb(v)),
+    onProgress: (cb)   => ipcRenderer.on(IPC_CHANNELS.INTRUDER_PROGRESS, (_e, v) => cb(v)),
+    onComplete: (cb)   => ipcRenderer.on(IPC_CHANNELS.INTRUDER_COMPLETE, (_e, v) => cb(v)),
+    onError:    (cb)   => ipcRenderer.on(IPC_CHANNELS.INTRUDER_ERROR,    (_e, v) => cb(v)),
+  },
+
+  // Feature 7D: Sequencer
+  sequencer: {
+    collect: (opts)   => ipcRenderer.invoke(IPC_CHANNELS.SEQUENCER_COLLECT, opts),
+    analyze: (tokens) => ipcRenderer.invoke(IPC_CHANNELS.SEQUENCER_ANALYZE, { tokens }),
+    onToken:  (cb)    => ipcRenderer.on(IPC_CHANNELS.SEQUENCER_TOKEN,  (_e, v) => cb(v)),
+    onResult: (cb)    => ipcRenderer.on(IPC_CHANNELS.SEQUENCER_RESULT, (_e, v) => cb(v)),
+    onError:  (cb)    => ipcRenderer.on(IPC_CHANNELS.SEQUENCER_ERROR,  (_e, v) => cb(v)),
+  },
+
+  // Feature 7D: Decoder (server-side heavy transforms: gzip, hashing)
+  decoder: {
+    transform: (transform, input) => ipcRenderer.invoke(IPC_CHANNELS.DECODER_TRANSFORM, { transform, input }),
+  },
+
   // Cleanup listeners
   removeListeners: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -320,5 +349,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_PROGRESS);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_COMPLETE);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_ERROR);
+    // Feature 7D: Manual Tools
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.INTRUDER_RESULT);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.INTRUDER_PROGRESS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.INTRUDER_COMPLETE);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.INTRUDER_ERROR);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.SEQUENCER_TOKEN);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.SEQUENCER_RESULT);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.SEQUENCER_ERROR);
   }
 });

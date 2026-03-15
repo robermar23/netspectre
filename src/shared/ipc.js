@@ -229,4 +229,25 @@ export const IPC_CHANNELS = {
   SCANNER_GET_FINDINGS:       'scanner-get-findings',
   SCANNER_EXPORT:             'scanner-export',
   SCANNER_CLEAR:              'scanner-clear',
+
+  // ─── Feature 7D — Manual Testing Utilities ───────────────────────────────────
+  REPEATER_SEND:              'repeater-send',
+  REPEATER_RESPONSE:          'repeater-response',           // main → renderer
+  REPEATER_ERROR:             'repeater-error',              // main → renderer
+
+  INTRUDER_START:             'intruder-start',
+  INTRUDER_STOP:              'intruder-stop',
+  INTRUDER_RESULT:            'intruder-result',             // main → renderer (one per request)
+  INTRUDER_PROGRESS:          'intruder-progress',           // main → renderer
+  INTRUDER_COMPLETE:          'intruder-complete',           // main → renderer
+  INTRUDER_ERROR:             'intruder-error',              // main → renderer
+
+  SEQUENCER_COLLECT:          'sequencer-collect',
+  SEQUENCER_TOKEN:            'sequencer-token',             // main → renderer
+  SEQUENCER_ANALYZE:          'sequencer-analyze',
+  SEQUENCER_RESULT:           'sequencer-result',            // main → renderer
+  SEQUENCER_ERROR:            'sequencer-error',             // main → renderer
+
+  DECODER_TRANSFORM:          'decoder-transform',
+  DECODER_RESULT:             'decoder-result',              // main → renderer
 };

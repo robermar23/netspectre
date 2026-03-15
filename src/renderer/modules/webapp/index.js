@@ -5,9 +5,14 @@
  */
 
 import { state } from '../../state.js';
-import { init as initProxy } from './proxy.js';
+import { init as initProxy }                              from './proxy.js';
 import { init as initSitemap, setTargetUrl as setSitemapTarget } from './sitemap.js';
-import { init as initScanner, scanUrl } from './scanner.js';
+import { init as initScanner, scanUrl }                  from './scanner.js';
+import { init as initRepeater, openTab as openRepeaterTab } from './repeater.js';
+import { init as initIntruder, openWithRequest as openIntruderWith } from './intruder.js';
+import { init as initSequencer }                         from './sequencer.js';
+import { init as initDecoder }                           from './decoder.js';
+import { init as initComparer }                          from './comparer.js';
 
 // ─── Workspace Switcher ────────────────────────────────────────────────────────
 
@@ -111,6 +116,25 @@ export function openInScanner(url) {
   scanUrl(url);
 }
 
+/**
+ * Open the Repeater panel with a pre-filled request.
+ * Called from proxy history context-menu "Send to Repeater".
+ */
+export function openInRepeater(rawRequest, label, targetUrl) {
+  const webappTab = document.querySelector('.workspace-tab[data-workspace="webapp"]');
+  webappTab?.click();
+  openRepeaterTab(rawRequest ?? '', label ?? null, targetUrl ?? '');
+}
+
+/**
+ * Open the Intruder panel with a pre-filled request template.
+ */
+export function openInIntruder(rawRequest, targetUrl) {
+  const webappTab = document.querySelector('.workspace-tab[data-workspace="webapp"]');
+  webappTab?.click();
+  openIntruderWith(rawRequest ?? '', targetUrl ?? '');
+}
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
 export function init() {
@@ -119,8 +143,15 @@ export function init() {
   initProxy();
   initSitemap();
   initScanner();
+  initRepeater();
+  initIntruder();
+  initSequencer();
+  initDecoder();
+  initComparer();
 
-  // Expose pivot functions globally for hostDetails / Network workspace integration
+  // Expose pivot functions globally for cross-workspace integration
   window.__openWebAppWorkspace = openInWebApp;
   window.__openScannerPanel    = openInScanner;
+  window.__openRepeaterPanel   = openInRepeater;
+  window.__openIntruderPanel   = openInIntruder;
 }

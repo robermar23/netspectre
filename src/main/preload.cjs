@@ -229,7 +229,34 @@ var IPC_CHANNELS = {
   // main -> renderer
   SCANNER_GET_FINDINGS: "scanner-get-findings",
   SCANNER_EXPORT: "scanner-export",
-  SCANNER_CLEAR: "scanner-clear"
+  SCANNER_CLEAR: "scanner-clear",
+  // ─── Feature 7D — Manual Testing Utilities ───────────────────────────────────
+  REPEATER_SEND: "repeater-send",
+  REPEATER_RESPONSE: "repeater-response",
+  // main → renderer
+  REPEATER_ERROR: "repeater-error",
+  // main → renderer
+  INTRUDER_START: "intruder-start",
+  INTRUDER_STOP: "intruder-stop",
+  INTRUDER_RESULT: "intruder-result",
+  // main → renderer (one per request)
+  INTRUDER_PROGRESS: "intruder-progress",
+  // main → renderer
+  INTRUDER_COMPLETE: "intruder-complete",
+  // main → renderer
+  INTRUDER_ERROR: "intruder-error",
+  // main → renderer
+  SEQUENCER_COLLECT: "sequencer-collect",
+  SEQUENCER_TOKEN: "sequencer-token",
+  // main → renderer
+  SEQUENCER_ANALYZE: "sequencer-analyze",
+  SEQUENCER_RESULT: "sequencer-result",
+  // main → renderer
+  SEQUENCER_ERROR: "sequencer-error",
+  // main → renderer
+  DECODER_TRANSFORM: "decoder-transform",
+  DECODER_RESULT: "decoder-result"
+  // main → renderer
 };
 
 // src/main/preload.js
@@ -441,6 +468,31 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     onComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SCANNER_COMPLETE, (_e, v) => cb(v)),
     onError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SCANNER_ERROR, (_e, v) => cb(v))
   },
+  // Feature 7D: Repeater
+  repeater: {
+    send: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.REPEATER_SEND, opts)
+  },
+  // Feature 7D: Intruder
+  intruder: {
+    start: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.INTRUDER_START, opts),
+    stop: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.INTRUDER_STOP),
+    onResult: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.INTRUDER_RESULT, (_e, v) => cb(v)),
+    onProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.INTRUDER_PROGRESS, (_e, v) => cb(v)),
+    onComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.INTRUDER_COMPLETE, (_e, v) => cb(v)),
+    onError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.INTRUDER_ERROR, (_e, v) => cb(v))
+  },
+  // Feature 7D: Sequencer
+  sequencer: {
+    collect: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SEQUENCER_COLLECT, opts),
+    analyze: (tokens) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.SEQUENCER_ANALYZE, { tokens }),
+    onToken: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SEQUENCER_TOKEN, (_e, v) => cb(v)),
+    onResult: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SEQUENCER_RESULT, (_e, v) => cb(v)),
+    onError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.SEQUENCER_ERROR, (_e, v) => cb(v))
+  },
+  // Feature 7D: Decoder (server-side heavy transforms: gzip, hashing)
+  decoder: {
+    transform: (transform, input) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.DECODER_TRANSFORM, { transform, input })
+  },
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -523,5 +575,12 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_PROGRESS);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_COMPLETE);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SCANNER_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.INTRUDER_RESULT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.INTRUDER_PROGRESS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.INTRUDER_COMPLETE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.INTRUDER_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SEQUENCER_TOKEN);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SEQUENCER_RESULT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SEQUENCER_ERROR);
   }
 });

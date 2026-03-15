@@ -29,6 +29,15 @@ import {
   startScan, stopScan, isScanRunning, cleanupScan,
   getFindings, clearFindings,
 } from '../scanner/index.js';
+import { sendRepeaterRequest }                      from '../repeaterEngine.js';
+import {
+  startIntruder, stopIntruder, isIntruderRunning, cleanupIntruder,
+} from '../intruderEngine.js';
+import {
+  collectTokens, stopCollection, analyzeTokens,
+} from '../sequencerEngine.js';
+import zlib from 'zlib';
+import crypto from 'crypto';
 
 export function registerIpcHandlers(ipcMain, getWindow) {
 
@@ -446,6 +455,122 @@ export function registerIpcHandlers(ipcMain, getWindow) {
     const installed   = await isPlaywrightAvailable([userData]);
     return { installed, installPath, isPackaged };
   });
+
+  // ─── Feature 7D — Repeater ────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.REPEATER_SEND, async (_event, opts = {}) => {
+    if (!opts.url) return { success: false, error: 'url is required' };
+    try { new URL(opts.url); } catch {
+      return { success: false, error: `Invalid URL: ${opts.url}` };
+    }
+    const ctrl = new AbortController();
+    try {
+      const result = await sendRepeaterRequest(opts, ctrl.signal);
+      return { success: true, ...result };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ─── Feature 7D — Intruder ────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.INTRUDER_START, async (_event, opts = {}) => {
+    if (isIntruderRunning()) {
+      return { success: false, error: 'Intruder already running.' };
+    }
+    if (!opts.rawTemplate) return { success: false, error: 'rawTemplate is required' };
+    if (!opts.targetUrl)   return { success: false, error: 'targetUrl is required' };
+    try { new URL(opts.targetUrl); } catch {
+      return { success: false, error: `Invalid targetUrl: ${opts.targetUrl}` };
+    }
+    // Hard cap on total payload count (sum across all lists)
+    const totalPayloads = (opts.payloadLists ?? [[]]).reduce((s, l) => s + (l?.length ?? 0), 0);
+    if (totalPayloads > 1_000_000) {
+      return { success: false, error: 'Payload count exceeds maximum (1,000,000).' };
+    }
+
+    const win = getWindow();
+
+    startIntruder(
+      opts,
+      (result)   => win?.webContents.send(IPC_CHANNELS.INTRUDER_RESULT,   result),
+      (progress) => win?.webContents.send(IPC_CHANNELS.INTRUDER_PROGRESS, progress),
+      (summary)  => win?.webContents.send(IPC_CHANNELS.INTRUDER_COMPLETE, summary),
+      (err)      => win?.webContents.send(IPC_CHANNELS.INTRUDER_ERROR,    { message: err.message }),
+    );
+
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.INTRUDER_STOP, async () => {
+    stopIntruder();
+    return { success: true };
+  });
+
+  // ─── Feature 7D — Sequencer ───────────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.SEQUENCER_COLLECT, async (_event, opts = {}) => {
+    if (!opts.url) return { success: false, error: 'url is required' };
+    try { new URL(opts.url); } catch {
+      return { success: false, error: `Invalid URL: ${opts.url}` };
+    }
+    const win = getWindow();
+    collectTokens(
+      { ...opts, count: Math.min(opts.count ?? 100, 1000) },
+      (token)   => win?.webContents.send(IPC_CHANNELS.SEQUENCER_TOKEN,  token),
+      (summary) => win?.webContents.send(IPC_CHANNELS.SEQUENCER_RESULT, { type: 'collect', ...summary }),
+      (err)     => win?.webContents.send(IPC_CHANNELS.SEQUENCER_ERROR,  { message: err.message }),
+    );
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SEQUENCER_ANALYZE, async (_event, { tokens } = {}) => {
+    if (!Array.isArray(tokens) || tokens.length < 2) {
+      return { success: false, error: 'Need at least 2 tokens to analyze.' };
+    }
+    try {
+      const result = analyzeTokens(tokens);
+      return { success: true, result };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ─── Feature 7D — Decoder (server-side transforms) ────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.DECODER_TRANSFORM, async (_event, { transform, input } = {}) => {
+    if (typeof input !== 'string') return { success: false, error: 'input must be a string' };
+    try {
+      let output;
+      switch (transform) {
+        case 'gzip-compress': {
+          output = await new Promise((res, rej) => {
+            zlib.gzip(Buffer.from(input, 'utf8'), (err, buf) => {
+              err ? rej(err) : res(buf.toString('base64'));
+            });
+          });
+          break;
+        }
+        case 'gzip-decompress': {
+          output = await new Promise((res, rej) => {
+            zlib.gunzip(Buffer.from(input, 'base64'), (err, buf) => {
+              err ? rej(err) : res(buf.toString('utf8'));
+            });
+          });
+          break;
+        }
+        case 'md5':    output = crypto.createHash('md5').update(input).digest('hex'); break;
+        case 'sha1':   output = crypto.createHash('sha1').update(input).digest('hex'); break;
+        case 'sha256': output = crypto.createHash('sha256').update(input).digest('hex'); break;
+        case 'sha512': output = crypto.createHash('sha512').update(input).digest('hex'); break;
+        default:
+          return { success: false, error: `Unknown server-side transform: ${transform}` };
+      }
+      return { success: true, output };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
 }
 
 /** Clean up on app exit. */
@@ -453,6 +578,8 @@ export function cleanupWebapp() {
   stopProxy();
   stopActiveCrawl();
   cleanupScan();
+  cleanupIntruder();
+  stopCollection();
   closeRequestStore();
 }
 
