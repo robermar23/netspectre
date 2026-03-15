@@ -213,5 +213,6 @@ export const IPC_CHANNELS = {
   SITEMAP_EXPORT:             'sitemap-export',
   API_DETECT:                 'api-detect',
   API_SCHEMA_FOUND:           'api-schema-found',           // main -> renderer
+  API_DETECT_COMPLETE:        'api-detect-complete',        // main -> renderer { found: number }
   PLAYWRIGHT_CHECK:           'playwright-check',
 };

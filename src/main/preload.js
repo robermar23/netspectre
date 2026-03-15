@@ -216,6 +216,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onError:            (cb) => ipcRenderer.on(IPC_CHANNELS.CRAWLER_ERROR,              (_e, v) => cb(v)),
     onDependencyMissing:(cb) => ipcRenderer.on(IPC_CHANNELS.CRAWLER_DEPENDENCY_MISSING, (_e, v) => cb(v)),
     onApiSchemaFound:   (cb) => ipcRenderer.on(IPC_CHANNELS.API_SCHEMA_FOUND,           (_e, v) => cb(v)),
+    onApiDetectComplete:(cb) => ipcRenderer.on(IPC_CHANNELS.API_DETECT_COMPLETE,       (_e, v) => cb(v)),
   },
 
   // Cleanup listeners

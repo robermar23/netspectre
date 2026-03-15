@@ -328,11 +328,13 @@ export function registerIpcHandlers(ipcMain, getWindow) {
         for (const schema of results) {
           win?.webContents.send(IPC_CHANNELS.API_SCHEMA_FOUND, schema);
         }
+        win?.webContents.send(IPC_CHANNELS.API_DETECT_COMPLETE, { found: results.length });
       })
       .catch((err) => {
         if (err.name !== 'AbortError') {
           win?.webContents.send(IPC_CHANNELS.CRAWLER_ERROR, { message: err.message });
         }
+        win?.webContents.send(IPC_CHANNELS.API_DETECT_COMPLETE, { found: 0 });
       });
 
     return { success: true };

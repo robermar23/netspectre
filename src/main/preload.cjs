@@ -211,6 +211,8 @@ var IPC_CHANNELS = {
   API_DETECT: "api-detect",
   API_SCHEMA_FOUND: "api-schema-found",
   // main -> renderer
+  API_DETECT_COMPLETE: "api-detect-complete",
+  // main -> renderer { found: number }
   PLAYWRIGHT_CHECK: "playwright-check"
 };
 
@@ -406,7 +408,8 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     onComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CRAWLER_COMPLETE, (_e, v) => cb(v)),
     onError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CRAWLER_ERROR, (_e, v) => cb(v)),
     onDependencyMissing: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.CRAWLER_DEPENDENCY_MISSING, (_e, v) => cb(v)),
-    onApiSchemaFound: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.API_SCHEMA_FOUND, (_e, v) => cb(v))
+    onApiSchemaFound: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.API_SCHEMA_FOUND, (_e, v) => cb(v)),
+    onApiDetectComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.API_DETECT_COMPLETE, (_e, v) => cb(v))
   },
   // Cleanup listeners
   removeListeners: () => {

@@ -109,7 +109,12 @@ function _bindEvents() {
   document.getElementById('btn-sitemap-api-detect')?.addEventListener('click', async () => {
     const target = $targetInput?.value.trim() || _firstHost();
     if (!target) { _showTargetError(); return; }
+
+    const btn = document.getElementById('btn-sitemap-api-detect');
+    if (btn) { btn.textContent = 'Probing…'; btn.disabled = true; }
+
     await api.crawler.detectApis(target);
+    // Button is re-enabled by the onApiDetectComplete subscriber below
   });
 
   document.getElementById('btn-sitemap-api-close')?.addEventListener('click', () => {
@@ -235,6 +240,15 @@ function _subscribeIpc() {
     _crawling = false;
     _updateCrawlButtons();
     if ($playwrightBanner) $playwrightBanner.style.display = 'flex';
+  });
+
+  api.crawler.onApiDetectComplete(({ found }) => {
+    const btn = document.getElementById('btn-sitemap-api-detect');
+    if (btn) { btn.textContent = 'Detect APIs'; btn.disabled = false; }
+
+    if (found === 0) {
+      _showCrawlError('No API schemas found. The target may not expose OpenAPI or GraphQL endpoints at standard paths.');
+    }
   });
 
   api.crawler.onApiSchemaFound((schema) => {
