@@ -1,8 +1,8 @@
-# Feature 7 — Web Application Vulnerability Scanner (Burp Suite Parity)
+# Feature 7 — Web Application Security Testing Workspace
 
-> **Status:** Planning
-> **Branch:** `webapp-scanner`
-> **Scope:** Full L7 web application security testing capability integrated into the existing NetSpecter Electron application under a new "Web App" workspace.
+> **Status:** Phases 7A–7D COMPLETE. Phase 7E (Out-of-Band / Advanced) in planning.
+> **Branch:** `scanner-enhance` (current), merged features from `webapp-scanner`
+> **Scope:** Full L7 web application security testing capability integrated into the existing NetSpecter Electron application under the "Web App" workspace tab.
 
 ---
 
@@ -10,1401 +10,847 @@
 
 1. [Executive Summary](#1-executive-summary)
 2. [Architecture Overview](#2-architecture-overview)
-3. [Phase Breakdown](#3-phase-breakdown)
-4. [Phase 7A — Intercepting HTTP/S Proxy (Foundation)](#4-phase-7a--intercepting-https-proxy-foundation)
+3. [Implementation Status](#3-implementation-status)
+4. [Phase 7A — Intercepting HTTPS Proxy](#4-phase-7a--intercepting-https-proxy)
 5. [Phase 7B — Web Crawling & Attack Surface Mapping](#5-phase-7b--web-crawling--attack-surface-mapping)
-6. [Phase 7C — Active Vulnerability Scanner Engine](#6-phase-7c--active-vulnerability-scanner-engine)
+6. [Phase 7C — Active Vulnerability Scanner](#6-phase-7c--active-vulnerability-scanner)
 7. [Phase 7D — Manual Testing Utilities](#7-phase-7d--manual-testing-utilities)
-8. [Phase 7E — Out-of-Band & Advanced Detection](#8-phase-7e--out-of-band--advanced-detection)
-9. [Workspace UI Architecture (Feature 10 Integration)](#9-workspace-ui-architecture-feature-10-integration)
-10. [IPC Channel Definitions](#10-ipc-channel-definitions)
-11. [File & Module Layout](#11-file--module-layout)
-12. [Security Constraints](#12-security-constraints)
-13. [Test Strategy](#13-test-strategy)
-14. [CSS & Theming](#14-css--theming)
-15. [Consent & Ethics Gate](#15-consent--ethics-gate)
-16. [Implementation Sequence](#16-implementation-sequence)
-17. [Dependency Analysis](#17-dependency-analysis)
+8. [Phase 7E — Out-of-Band & Advanced Detection (Planned)](#8-phase-7e--out-of-band--advanced-detection-planned)
+9. [IPC Channel Definitions](#9-ipc-channel-definitions)
+10. [File & Module Layout](#10-file--module-layout)
+11. [Security Constraints](#11-security-constraints)
+12. [Test Strategy](#12-test-strategy)
+13. [CSS & Theming](#13-css--theming)
+14. [Consent & Ethics Gate](#14-consent--ethics-gate)
+15. [Dependency Analysis](#15-dependency-analysis)
+16. [OWASP Gap Analysis & Roadmap](#16-owasp-gap-analysis--roadmap)
 
 ---
 
 ## 1. Executive Summary
 
-NetSpecter today operates at L3/L4 (network and transport layers). Feature 7 adds a full **L7 Web Application Security Testing** workspace that achieves parity with Burp Suite's core capabilities. The workspace is embedded inside the existing Electron application — not a separate product — so users can pivot seamlessly from a discovered host on port 8080 directly into the proxy, repeater, or vulnerability scanner without leaving the app or copying IPs between windows.
+Feature 7 transforms NetSpecter from a network-layer scanner into a full-stack security testing platform. The Web Application Testing Workspace is an integrated Burp Suite-style toolkit accessible via the **Web App tab** in the main UI. It operates alongside the Network workspace, allowing seamless pivot between network-level host discovery and application-level vulnerability assessment.
 
-### Capability Gap Closure
+### Goals
 
-| Capability | NetSpecter Before | Target After Feature 7 |
-|---|---|---|
-| HTTP/S Intercepting Proxy | ❌ | ✅ Phase 7A |
-| HTTP History Logger | ❌ | ✅ Phase 7A |
-| Request Interception & Modification | ❌ | ✅ Phase 7A |
-| WebSocket Inspection | ❌ | ✅ Phase 7A |
-| Passive Spider / Sitemap | ❌ | ✅ Phase 7B |
-| Active Headless Crawler | ❌ | ✅ Phase 7B |
-| Content Discovery / Forced Browsing | ✅ (dirFuzzer) | ✅ Integrated Phase 7B |
-| API Schema Detection (OpenAPI/Swagger) | ❌ | ✅ Phase 7B |
-| SQLi Detection | ❌ | ✅ Phase 7C |
-| XSS Detection (Reflected/Stored/DOM) | ❌ | ✅ Phase 7C |
-| SSRF Detection | ❌ | ✅ Phase 7C |
-| XXE Detection | ❌ | ✅ Phase 7C |
-| OS Command Injection | ❌ | ✅ Phase 7C |
-| Path Traversal / LFI | ❌ | ✅ Phase 7C |
-| CORS Misconfiguration | ❌ | ✅ Phase 7C |
-| HTTP Security Header Audit | ❌ | ✅ Phase 7C |
-| Broken Authentication Detection | ❌ | ✅ Phase 7C |
-| Insecure Deserialization Detection | ❌ | ✅ Phase 7C |
-| Repeater (Request Editor) | ❌ | ✅ Phase 7D |
-| Intruder (Automated Fuzzer) | ❌ | ✅ Phase 7D |
-| Sequencer (Token Entropy) | ❌ | ✅ Phase 7D |
-| Decoder/Encoder Workbench | ❌ | ✅ Phase 7D |
-| Comparer (Diff Tool) | ❌ | ✅ Phase 7D |
-| OAST / Collaborator Callbacks | ❌ | ✅ Phase 7E |
-| DOM Invader (Client-Side Tracing) | ❌ | ✅ Phase 7E |
-| GraphQL Introspection & Testing | ❌ | ✅ Phase 7E |
+- **Zero-friction setup**: No external proxy tools or browser extensions required. The MITM proxy runs inside the Electron main process.
+- **Network-to-Web pivot**: Any HTTP port discovered in the Network workspace can be sent directly to the Scanner, Repeater, or Intruder with one click.
+- **OWASP Top 10 coverage**: All ten OWASP 2021 categories are addressed across the scanner modules.
+- **No cloud dependencies**: All analysis is local. No telemetry, no OAST callbacks to external services by default.
+- **Consistent UX**: The glassmorphic dark theme, panel/modal patterns, and IPC streaming model are extended — not replaced.
+
+### Non-Goals
+
+- Full browser DevTools replacement
+- Traffic replay at scale (use dedicated load-testing tools)
+- Authenticated crawling with complex SSO flows (OAuth/SAML — out of scope for initial release)
 
 ---
 
 ## 2. Architecture Overview
 
-### Process Separation
+The Web App workspace follows the same IPC + streaming architecture as all other NetSpecter features.
 
+```text
+Browser (external) ──HTTPS──► proxyServer.js (MITM)
+                                    │
+                              requestStore.js (SQLite)
+                                    │
+                              webappIpc.js ◄──── Renderer (proxy.js, sitemap.js)
+                                    │
+                         ┌──────────┴──────────────┐
+                         │                         │
+                   crawler.js              scanner/index.js
+                   activeCrawler.js            sqli.js
+                   apiDetector.js              xss.js
+                         │                    ssrf.js  xxe.js
+                   sitemap events          cmdInjection.js
+                                           pathTraversal.js
+                         │                    cors.js
+                   repeaterEngine.js          headers.js
+                   intruderEngine.js          brokenAuth.js
+                   sequencerEngine.js         deserialize.js
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  RENDERER PROCESS                                               │
-│  src/renderer/modules/webapp/                                   │
-│   ├── proxy.js          ← HTTP History, Intercept toggle        │
-│   ├── sitemap.js        ← Passive/Active spider tree view       │
-│   ├── scanner.js        ← Vuln scanner controls + findings list │
-│   ├── repeater.js       ← Request editor / response viewer      │
-│   ├── intruder.js       ← Fuzzer positions + payload config     │
-│   ├── sequencer.js      ← Token capture + entropy charts        │
-│   ├── decoder.js        ← Encoding workbench                    │
-│   └── comparer.js       ← Side-by-side diff view               │
-└─────────────────────────────────────────────────────────────────┘
-        ↕  contextBridge (preload.js)   ↕
-┌─────────────────────────────────────────────────────────────────┐
-│  MAIN PROCESS                                                   │
-│  src/main/webapp/                                               │
-│   ├── proxyServer.js    ← MITM proxy, CA, TLS intercept         │
-│   ├── requestStore.js   ← In-memory + SQLite request history    │
-│   ├── crawler.js        ← Passive sitemap builder               │
-│   ├── activeCrawler.js  ← Puppeteer headless crawler            │
-│   ├── apiDetector.js    ← OpenAPI/Swagger/GraphQL detection      │
-│   ├── scanner/          ← Vuln scanner engine                   │
-│   │   ├── index.js      ← Orchestrator + scan queue             │
-│   │   ├── sqli.js       ← SQL Injection module                  │
-│   │   ├── xss.js        ← XSS module                           │
-│   │   ├── ssrf.js       ← SSRF module                          │
-│   │   ├── xxe.js        ← XXE module                           │
-│   │   ├── cmdInjection.js                                       │
-│   │   ├── pathTraversal.js                                      │
-│   │   ├── deserialize.js                                        │
-│   │   ├── brokenAuth.js                                         │
-│   │   ├── cors.js                                               │
-│   │   └── headers.js    ← HTTP security header audit            │
-│   ├── intruderEngine.js ← Sniper/BatteringRam/Pitchfork/Bomb    │
-│   ├── sequencerEngine.js← Token collection + entropy analysis   │
-│   ├── oastServer.js     ← Local DNS/HTTP callback server        │
-│   └── ipc/webappIpc.js  ← registerIpcHandlers(ipcMain, getWin) │
-└─────────────────────────────────────────────────────────────────┘
-        ↕  IPC_CHANNELS (src/shared/ipc.js)  ↕
-┌─────────────────────────────────────────────────────────────────┐
-│  SHARED                                                         │
-│  src/shared/ipc.js       ← New PROXY_*, SCANNER_*, REPEATER_*  │
-│  src/shared/webConstants.js ← SQL payloads, XSS canaries, etc. │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+### Process Boundary
+
+All proxy, crawling, scanning, and engine logic runs in the **main process**. The renderer receives results via `mainWindow.webContents.send()` and renders them. No network operations occur in the renderer.
 
 ### Data Flow
 
-```
-Browser (configured with proxy 127.0.0.1:8888)
-    ↓ HTTP/HTTPS request
-proxyServer.js (MITM, decrypts TLS via dynamic CA)
-    ↓ captures { id, request, response, timing }
-requestStore.js (SQLite via better-sqlite3)
-    ↓ IPC push
-renderer/modules/webapp/proxy.js (HTTP History table)
-    ↓ user selects request
-repeater.js / scanner.js / intruder.js
-```
+1. Browser → proxy → `proxyServer.js` intercepts CONNECT, issues leaf cert, decrypts TLS
+2. Request/response stored in SQLite via `requestStore.js`
+3. `PROXY_REQUEST` IPC event streamed to renderer → `proxy.js` table row added
+4. Crawler passively builds sitemap from stored requests
+5. Active crawler (Playwright) spiders additional endpoints
+6. Scanner pulls targets from URL / history / sitemap, runs modules, streams `SCANNER_FINDING` events
+7. Repeater sends single raw requests via `repeaterEngine.js`, streams response back
+8. Intruder expands payload matrix, runs concurrent probes via `intruderEngine.js`, streams `INTRUDER_RESULT` events
 
 ---
 
-## 3. Phase Breakdown
+## 3. Implementation Status
 
-| Phase | Component | Priority | Complexity | Depends On |
-|---|---|---|---|---|
-| 7A | Intercepting Proxy + History | Critical | Very High | none |
-| 7B | Crawler + Attack Surface | High | High | 7A |
-| 7C | Active Vuln Scanner | High | Very High | 7A, 7B |
-| 7D | Manual Tools (Repeater/Intruder) | High | High | 7A |
-| 7E | OAST + DOM Invader + GraphQL | Medium | Very High | 7A, 7C |
-
-Build order: **7A → 7D → 7B → 7C → 7E**. Repeater (7D) is built before the scanner because the scanner reuses the repeater's request-replay core.
+| Phase | Feature | Status | Key Files |
+| --- | --- | --- | --- |
+| 7A | Intercepting HTTPS Proxy | ✅ COMPLETE | `proxyServer.js`, `requestStore.js` |
+| 7A | HAR 1.2 Export | ✅ COMPLETE | `webappIpc.js` |
+| 7A | Request Intercept & Edit | ✅ COMPLETE | `proxyServer.js` |
+| 7B | Passive Crawler (sitemap from proxy) | ✅ COMPLETE | `crawler.js` |
+| 7B | Active Crawler (Playwright headless) | ✅ COMPLETE | `activeCrawler.js` |
+| 7B | API Endpoint Detection | ✅ COMPLETE | `apiDetector.js` |
+| 7B | Sitemap Tree UI | ✅ COMPLETE | `sitemap.js` |
+| 7B | External URL Recording | ✅ COMPLETE | `crawler.js` |
+| 7C | SQLi Scanner | ✅ COMPLETE | `scanner/sqli.js` |
+| 7C | XSS Scanner | ✅ COMPLETE | `scanner/xss.js` |
+| 7C | SSRF Scanner | ✅ COMPLETE | `scanner/ssrf.js` |
+| 7C | XXE Scanner | ✅ COMPLETE | `scanner/xxe.js` |
+| 7C | Command Injection Scanner | ✅ COMPLETE | `scanner/cmdInjection.js` |
+| 7C | Path Traversal Scanner | ✅ COMPLETE | `scanner/pathTraversal.js` |
+| 7C | CORS Misconfiguration | ✅ COMPLETE | `scanner/cors.js` |
+| 7C | HTTP Security Headers | ✅ COMPLETE | `scanner/headers.js` |
+| 7C | Broken Authentication | ✅ COMPLETE | `scanner/brokenAuth.js` |
+| 7C | Deserialization Detection | ✅ COMPLETE | `scanner/deserialize.js` |
+| 7C | Findings Export (JSON/CSV/HTML) | ✅ COMPLETE | `webappIpc.js` |
+| 7C | Network Badge Injection | ✅ COMPLETE | `scanner.js` renderer |
+| 7D | Request Repeater | ✅ COMPLETE | `repeaterEngine.js`, `repeater.js` |
+| 7D | Intruder (4 attack types) | ✅ COMPLETE | `intruderEngine.js`, `intruder.js` |
+| 7D | Token Sequencer | ✅ COMPLETE | `sequencerEngine.js`, `sequencer.js` |
+| 7D | Encoder/Decoder | ✅ COMPLETE | `decoder.js` |
+| 7D | Response Comparer | ✅ COMPLETE | `comparer.js` |
+| 7E | OAST Callbacks | 🔲 PLANNED | — |
+| 7E | GraphQL Scanner Module | 🔲 PLANNED | — |
+| 7E | WebSocket Fuzzer | 🔲 PLANNED | — |
+| 7E | JWT Attack Suite | 🔲 PLANNED | — |
+| 7E | OAuth/OIDC Misconfiguration | 🔲 PLANNED | — |
+| 7E | Open Redirect Detection | 🔲 PLANNED | — |
+| 7E | Business Logic Fuzzing | 🔲 PLANNED | — |
 
 ---
 
-## 4. Phase 7A — Intercepting HTTP/S Proxy (Foundation)
+## 4. Phase 7A — Intercepting HTTPS Proxy
 
-### 4A.1 — Proxy Server (`src/main/webapp/proxyServer.js`)
+### Design
 
-#### Certificate Authority Bootstrap
+The proxy runs as an HTTP/1.1 server bound to `127.0.0.1` on a configurable port (default 8080). For HTTPS, it handles `CONNECT` tunnel requests by issuing a `200 Connection Established` response, then impersonates the target server using a dynamically generated TLS certificate signed by a locally-generated CA.
 
-On first launch of the Web App workspace, generate a local Root CA using Node's built-in `crypto` module (no `openssl` binary dependency):
+### Certificate Authority
 
-```
-~/.config/netspecter/
-  └── proxy-ca/
-      ├── ca.key   (RSA-2048, persisted across sessions)
-      └── ca.crt   (self-signed, 10-year validity)
-```
+- CA key pair + self-signed cert generated once with `node-forge` and stored via `electron-store`
+- Leaf certificates for each intercepted hostname are generated on demand and cached in memory
+- The CA cert is exportable from the Settings pane for installation in the browser's trust store
 
-- Use `node-forge` (already a transitive dep via electron-builder) **or** Node's `crypto.generateKeyPairSync` + a minimal X.509 DER encoder for zero new dependencies.
-- On first launch, prompt the user to install `ca.crt` into their OS trust store. Provide platform-specific instructions:
-  - **Windows:** `certutil -addstore Root ca.crt`
-  - **macOS:** `security add-trusted-cert -d -r trustRoot ca.crt`
-  - **Linux:** distro-specific (advise manual)
-- CA installation is one-click from the settings modal; the IPC handler spawns the certutil command (arg array, never shell string).
+### Request Storage (SQLite)
 
-#### Dynamic TLS Certificate Generation
+All proxied requests and responses are stored in a `better-sqlite3` database at the user data path:
 
-For each upstream hostname encountered:
-
-1. Check in-memory LRU cache (`Map<hostname, { cert, key }>`).
-2. On cache miss: sign a new leaf certificate with the local CA, valid for 30 days, with `CN=<hostname>` and the matching SAN. Cache it.
-3. Use this cert when the client connects via CONNECT tunnel.
-
-Implementation: `crypto.generateKeyPairSync('rsa', { modulusLength: 2048 })` + a minimal X.509 builder, or `node-forge`'s `pki` module.
-
-#### HTTPS CONNECT Tunneling
-
-```
-Client --CONNECT hostname:443--> proxyServer
-proxyServer -- responds 200 Connection Established
-proxyServer -- creates TLS server socket with fake cert
-proxyServer -- connects to real upstream as TLS client
-proxyServer -- splices decrypted traffic bidirectionally
+```text
+%APPDATA%/netspectre/proxy-history.db   (Windows)
+~/Library/Application Support/netspectre/proxy-history.db  (macOS)
+~/.config/netspectre/proxy-history.db  (Linux)
 ```
 
-#### WebSocket Interception
-
-After the CONNECT tunnel is established and TLS is decrypted, detect WebSocket upgrades (`Upgrade: websocket` header). Capture each frame (text and binary) into the request store as a `type: 'websocket-frame'` record, including direction (client→server / server→client), timestamp, and raw payload.
-
-#### Proxy Lifecycle
-
-```javascript
-// src/main/webapp/proxyServer.js exports:
-export function startProxy(port, interceptMode, onRequest, onResponse)
-export function stopProxy()
-export function setInterceptMode(enabled)
-export function forwardInterceptedRequest(id, modifiedRaw)
-export function dropInterceptedRequest(id)
-export function isProxyRunning()
-```
-
-- Default port: `8888` (configurable in settings via electron-store key `proxy.port`).
-- `interceptMode: boolean` — when `true`, pause each request and push `PROXY_INTERCEPTED` to renderer before forwarding.
-- When intercept is on, store the paused request in a `Map<id, { socket, request }>` pending resolve/drop from renderer.
-
-#### Request Store (`src/main/webapp/requestStore.js`)
-
-- Uses `better-sqlite3` (synchronous, no native addon issues on Electron) to persist HTTP history across sessions.
-- DB location: `userData/proxy-history.db`
-- Schema:
+**Schema:**
 
 ```sql
-CREATE TABLE IF NOT EXISTS requests (
-  id TEXT PRIMARY KEY,
-  timestamp INTEGER,
-  method TEXT,
-  url TEXT,
-  host TEXT,
-  path TEXT,
-  query TEXT,
-  status_code INTEGER,
-  mime_type TEXT,
-  request_headers TEXT,   -- JSON
-  request_body BLOB,
-  response_headers TEXT,  -- JSON
-  response_body BLOB,
-  response_length INTEGER,
-  duration_ms INTEGER,
-  is_websocket INTEGER DEFAULT 0,
-  notes TEXT
+CREATE TABLE requests (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts        INTEGER NOT NULL,          -- Unix ms timestamp
+  method    TEXT NOT NULL,
+  url       TEXT NOT NULL,
+  host      TEXT NOT NULL,
+  path      TEXT NOT NULL,
+  query     TEXT,
+  reqHeaders TEXT,                     -- JSON
+  reqBody   BLOB,
+  status    INTEGER,
+  resHeaders TEXT,                     -- JSON
+  resBody   BLOB,
+  duration  INTEGER,                   -- ms
+  tls       INTEGER DEFAULT 0          -- 1 = was HTTPS
 );
-
-CREATE INDEX idx_host ON requests(host);
-CREATE INDEX idx_timestamp ON requests(timestamp DESC);
 ```
 
-- Maximum 100,000 rows; oldest rows pruned automatically.
-- Exports: `insertRequest(r)`, `getRequests(filter)`, `getRequest(id)`, `deleteRequest(id)`, `clearAll()`, `exportHar(ids[])`.
+### IPC Channels (7A)
 
-### 4A.2 — IPC Channels for Proxy
+| Channel | Direction | Description |
+| --- | --- | --- |
+| `PROXY_START` | Renderer → Main | Start the proxy on the given port |
+| `PROXY_STOP` | Renderer → Main | Stop the proxy |
+| `PROXY_STATUS` | Main → Renderer | Port, running state |
+| `PROXY_REQUEST` | Main → Renderer | Streamed request entry (id, method, url, status) |
+| `PROXY_GET_HISTORY` | Renderer → Main | Fetch paginated history with filters |
+| `PROXY_GET_REQUEST` | Renderer → Main | Fetch full request+response by ID |
+| `PROXY_CLEAR_HISTORY` | Renderer → Main | Delete all rows from requests table |
+| `PROXY_EXPORT_HAR` | Renderer → Main | Export history as HAR 1.2 JSON file |
+| `PROXY_INTERCEPT_TOGGLE` | Renderer → Main | Enable/disable request interception |
+| `PROXY_FORWARD` | Renderer → Main | Forward a held request (optionally modified) |
+| `PROXY_DROP` | Renderer → Main | Drop a held request |
+| `PROXY_GET_CA_CERT` | Renderer → Main | Return PEM of the CA certificate |
 
-```javascript
-// src/shared/ipc.js additions (PROXY group)
-PROXY_START:            'proxy-start',
-PROXY_STOP:             'proxy-stop',
-PROXY_STATUS:           'proxy-status',           // main→renderer
-PROXY_REQUEST:          'proxy-request',           // main→renderer (new entry)
-PROXY_INTERCEPTED:      'proxy-intercepted',       // main→renderer (paused req)
-PROXY_FORWARD:          'proxy-forward',           // renderer→main
-PROXY_DROP:             'proxy-drop',              // renderer→main
-PROXY_SET_INTERCEPT:    'proxy-set-intercept',
-PROXY_GET_HISTORY:      'proxy-get-history',
-PROXY_GET_REQUEST:      'proxy-get-request',
-PROXY_CLEAR_HISTORY:    'proxy-clear-history',
-PROXY_INSTALL_CA:       'proxy-install-ca',
-PROXY_EXPORT_HAR:       'proxy-export-har',
-PROXY_WS_FRAME:         'proxy-ws-frame',          // main→renderer
-```
+### Security Constraints
 
-### 4A.3 — Renderer Module (`src/renderer/modules/webapp/proxy.js`)
-
-#### HTTP History Table
-
-Columns: `#` | `Method` | `Host` | `Path` | `Status` | `Length` | `MIME` | `Duration` | `Notes`
-
-- Virtualized rendering using a `<div>`-based virtual scroll (no external library needed; implement a simple fixed-row-height windowing approach), so the table stays responsive with 100k+ rows.
-- Clicking a row opens the **Request/Response Inspector** panel below the table.
-- Right-click context menu: "Send to Repeater", "Send to Intruder", "Send to Sequencer", "Send to Comparer", "Highlight", "Add Note", "Delete".
-- Filter bar (text input + dropdowns) filtering by host, method, status code, MIME type, response length (min/max), and regex match on path or body.
-
-#### Request/Response Inspector
-
-Two-pane split (resizable): left = raw request, right = raw response. Both rendered in a `<pre>` with syntax highlighting for headers (bold) and body (syntax-aware: JSON prettified, HTML decoded). Toggle between "Raw", "Params" (parsed query/POST), "Headers", "Body" views. A "Pretty" vs "Raw" toggle in the body pane.
-
-#### Intercept Panel
-
-When intercept mode is active and a request is paused:
-
-- A pulsing red badge in the workspace tab shows the queue count.
-- The intercepted raw request appears in a full-height editable `<textarea>` (monospace, line-wrapping off).
-- Buttons: **Forward** (sends possibly-modified request), **Drop**, **Forward All** (disable intercept and flush queue).
-- A diff overlay highlights what the user has changed vs. the original.
-
-#### WebSocket History
-
-A separate sub-tab in the proxy panel. Each WS connection is listed; clicking it expands the frame log with direction arrows, timestamps, and payload (text frames rendered as-is; binary frames as hex dump).
-
-### 4A.4 — Consent Gate
-
-Before the proxy starts for the first time, show a modal (mirroring `#pentest-consent-overlay`) explaining: "You are about to start an intercepting proxy that will decrypt TLS traffic. Only test applications you own or have written authorization to test." User must type `I UNDERSTAND` and click Confirm. Decision is stored in `electron-store` key `proxy.consentAccepted`.
+- Proxy binds only to `127.0.0.1` — never `0.0.0.0`
+- CA private key stays in main process memory and `electron-store` — never sent to renderer
+- `isValidHttpUrl()` validates all forwarded URLs before connection
+- Max request body size: 10 MB to prevent memory exhaustion
 
 ---
 
 ## 5. Phase 7B — Web Crawling & Attack Surface Mapping
 
-### 5B.1 — Passive Spider (`src/main/webapp/crawler.js`)
+### Passive Crawler (`crawler.js`)
 
-The passive spider does not make any new HTTP requests. It processes every request/response that flows through the proxy and builds a URL tree.
+Builds a sitemap automatically from proxied traffic without issuing any additional requests. For every stored request, it:
 
-```javascript
-export function observeRequest(requestRecord)  // called by proxyServer on each request
-export function getSitemap()                   // returns tree structure
-export function clearSitemap()
-export function exportSitemapJson()
-```
+1. Parses the URL into `{ host, path, query, params[] }`
+2. Extracts links and form actions from HTML response bodies
+3. Classifies the endpoint via `apiDetector.js`
+4. Emits `CRAWLER_URL_FOUND` and `CRAWLER_EXTERNAL_URL` events
 
-**What it extracts from each response:**
-- All `href`, `src`, `action` attributes from HTML (parse with `node-html-parser`, zero-dep)
-- All `<script src>` URLs
-- Links found in `Link:` response headers
-- URLs in JSON responses that look like API endpoints (regex: `"\/[a-z0-9\-_\/]+"`).
-- Form inputs: `name`, `type`, `method`, `action` → stored as attack surface entries.
+### Active Crawler (`activeCrawler.js`)
 
-**Sitemap tree structure:**
-```javascript
-{
-  "example.com": {
-    "/": { methods: ["GET"], forms: [], params: [], children: {
-      "login": { methods: ["GET","POST"], forms: [{...}], ... },
-      "api": { children: { "v1": { children: { "users": {...} } } } }
-    }}
-  }
-}
-```
+Uses `playwright-core` to launch a headless Chromium instance that:
 
-### 5B.2 — Active Headless Crawler (`src/main/webapp/activeCrawler.js`)
+1. Navigates to the seed URL
+2. Clicks links, submits forms with benign test values
+3. Intercepts all network requests made by the page
+4. Records discovered URLs back via IPC
+5. Respects a configurable depth limit (default 3) and page count limit (default 100)
 
-Uses **Playwright** (bundled via `playwright-core`; the user must have Chromium/Firefox installed, which is flagged as a soft dependency). Falls back gracefully if Playwright is not available.
+**Playwright is not bundled** — the user must have a Chromium executable available. `activeCrawler.js` calls `playwright.chromium.launch({ executablePath })` using the path from `electron-store`.
 
-```javascript
-export async function startActiveCrawl(opts, onUrl, onForm, onComplete, onError)
-export function stopActiveCrawl()
-```
+### API Detector (`apiDetector.js`)
 
-**`opts` fields:**
-```javascript
-{
-  startUrl: 'https://target.com',
-  maxDepth: 3,
-  maxPages: 200,
-  proxyUrl: 'http://127.0.0.1:8888',  // routes through our proxy!
-  includeSubdomains: false,
-  submitForms: true,
-  clickButtons: true,
-  waitForNetworkIdle: true,
-  timeoutMs: 30000,
-}
-```
+Classifies each endpoint using heuristics:
 
-**Crawler algorithm:**
-1. Launch Playwright browser with proxy set to `proxyUrl` (so all traffic flows through our MITM proxy automatically — passive spider gets all discovered URLs for free).
-2. BFS queue of `{ url, depth }`.
-3. On each page: extract all links, all form `action` targets, all `fetch()` / `XMLHttpRequest` URLs (via `page.on('request')` hook).
-4. For form submission: fill text inputs with `"test"`, select first option, submit. Capture the POST request via the proxy.
-5. Deduplicate URLs by normalized form (`?a=1&b=2` == `?b=2&a=1`).
-6. Respect `robots.txt` (fetch and parse once per domain; skip disallowed paths unless user overrides).
-7. Cancel via `AbortController`.
+| Signal | Classification |
+| --- | --- |
+| `Content-Type: application/json` response | REST API |
+| Path matches `/graphql`, `/gql` | GraphQL |
+| `Upgrade: websocket` request header | WebSocket |
+| `Content-Type: text/html` response | HTML Page |
+| Path ends with `.js`, `.css`, `.png`, etc. | Static Asset |
 
-**Soft dependency check:** on `CRAWLER_START` IPC, check if `playwright-core` is installed (`require.resolve` guarded). If not, push `CRAWLER_DEPENDENCY_MISSING` to renderer. The UI will show a "Install Playwright" button that runs `npm install playwright-core --save` in the app's `userData` dir (or advises the user to install it globally).
+### Sitemap UI (`sitemap.js`)
 
-### 5B.3 — API Schema Detection (`src/main/webapp/apiDetector.js`)
+Renders a collapsible tree grouped by hostname → path segments. Each leaf node shows:
 
-Probes well-known OpenAPI / Swagger / GraphQL discovery paths:
+- HTTP method badge
+- Endpoint classification icon (API, WS, HTML, Asset)
+- Parameter count
+- Context menu: Send to Repeater, Scanner, Intruder
 
-```javascript
-const OPENAPI_PATHS = [
-  '/swagger.json', '/swagger.yaml', '/openapi.json', '/openapi.yaml',
-  '/api-docs', '/api-docs.json', '/v1/api-docs', '/v2/api-docs', '/v3/api-docs',
-  '/api/swagger.json', '/_docs', '/redoc', '/rapidoc',
-];
-const GRAPHQL_PATHS = ['/graphql', '/api/graphql', '/gql', '/query'];
-```
+### IPC Channels (7B)
 
-For each discovered host, probe these paths (respecting rate limits). On a 200 response:
-- Parse the schema to extract all endpoints, methods, and parameters → add to the sitemap as structured attack surface entries.
-- For GraphQL: send an introspection query (`{ __schema { queryType { name } types { name fields { name } } } }`) and parse the full type system.
-- Surface the schema in the UI as a **tree view** in the Sitemap panel, with each endpoint clickable → "Send to Repeater" / "Scan This Endpoint".
-
-```javascript
-export async function detectApiSchemas(baseUrl, signal)
-export function parseOpenApiSchema(json)   // returns { endpoints: [...] }
-export function runGraphqlIntrospection(url, signal)
-```
-
-### 5B.4 — Renderer Module (`src/renderer/modules/webapp/sitemap.js`)
-
-- A collapsible tree view rendered with a recursive `buildTreeNode()` function (no external tree library).
-- Each node shows: URL path, HTTP methods seen, count of forms, count of params.
-- Color coding: grey = observed only, orange = has forms/params (potential attack surface), red = flagged by scanner.
-- Toolbar: "Start Active Crawl" | "Stop" | "Export JSON" | "Clear".
-- Active crawl shows a live progress counter (pages visited / max pages) and a spinner.
-- A right-click context menu on any node: "Open in Browser", "Send to Scanner", "Send to Repeater", "Send to Dir Fuzzer".
-
-### 5B.5 — IPC Channels for Crawling
-
-```javascript
-CRAWLER_START:              'crawler-start',
-CRAWLER_STOP:               'crawler-stop',
-CRAWLER_URL_FOUND:          'crawler-url-found',         // main→renderer
-CRAWLER_FORM_FOUND:         'crawler-form-found',        // main→renderer
-CRAWLER_PROGRESS:           'crawler-progress',          // main→renderer
-CRAWLER_COMPLETE:           'crawler-complete',          // main→renderer
-CRAWLER_ERROR:              'crawler-error',             // main→renderer
-CRAWLER_DEPENDENCY_MISSING: 'crawler-dependency-missing',
-SITEMAP_GET:                'sitemap-get',
-SITEMAP_CLEAR:              'sitemap-clear',
-SITEMAP_EXPORT:             'sitemap-export',
-API_DETECT:                 'api-detect',
-API_SCHEMA_FOUND:           'api-schema-found',          // main→renderer
-```
+| Channel | Direction | Description |
+| --- | --- | --- |
+| `CRAWLER_START_ACTIVE` | Renderer → Main | Start active crawl from seed URL |
+| `CRAWLER_STOP` | Renderer → Main | Abort active crawl |
+| `CRAWLER_URL_FOUND` | Main → Renderer | New endpoint discovered |
+| `CRAWLER_EXTERNAL_URL` | Main → Renderer | External URL reference recorded |
+| `CRAWLER_PROGRESS` | Main → Renderer | Pages visited / depth |
+| `CRAWLER_COMPLETE` | Main → Renderer | Active crawl finished |
+| `CRAWLER_GET_SITEMAP` | Renderer → Main | Return full sitemap from DB |
+| `CRAWLER_CLEAR` | Renderer → Main | Clear sitemap |
 
 ---
 
-## 6. Phase 7C — Active Vulnerability Scanner Engine
+## 6. Phase 7C — Active Vulnerability Scanner
 
-### 6C.1 — Scanner Orchestrator (`src/main/webapp/scanner/index.js`)
+### Orchestrator (`scanner/index.js`)
 
-The orchestrator manages a queue of scan jobs. Each job is `{ target: RequestRecord, modules: string[] }`. The scanner replays the request with modified payloads using the same `httpGet`/`httpPost` pattern from `cloudEnum.js` and `dirFuzzer.js`.
+The scanner orchestrator:
 
-```javascript
-export async function startScan(opts, onFinding, onProgress, onComplete, onError)
-export function stopScan()
-export function isScanRunning()
-export function cleanupScan()
-```
+- Accepts a target list (URLs from direct input, proxy history query, or sitemap)
+- Runs enabled modules concurrently using a semaphore (configurable, default 10)
+- Each module receives a `sendProbe(url, opts)` function and an `AbortSignal`
+- Modules call `makeFinding(severity, title, description, evidence, remediation, references)` to emit results
+- Results are streamed via `SCANNER_FINDING` IPC event in real-time
 
-**`opts` fields:**
-```javascript
-{
-  targets: [{ requestId, url, method, headers, body }], // from proxy history
-  modules: ['sqli','xss','ssrf','xxe','cmdInjection','pathTraversal','cors','headers','brokenAuth','deserialize'],
-  concurrency: 5,
-  timeoutMs: 10000,
-  oastCallbackUrl: null,  // from Phase 7E
-}
-```
+### Scanner Modules
 
-**Finding schema:**
-```javascript
-{
-  id: uuid(),
-  severity: 'critical' | 'high' | 'medium' | 'low' | 'info',
-  type: 'sqli' | 'xss' | ... ,
-  title: 'SQL Injection in parameter "id"',
-  description: '...',
-  url: 'https://target.com/api/users?id=1',
-  parameter: 'id',
-  payload: "' OR SLEEP(5)--",
-  evidence: { request: '...', response: '...', timingMs: 5123 },
-  remediation: '...',
-  references: ['CWE-89', 'OWASP A03:2021'],
-  timestamp: Date.now(),
-}
-```
+#### SQLi (`sqli.js`)
 
-**Concurrency:** Reuse the `createSemaphore` pattern from `cloudEnum.js`.
+Tests each URL parameter and POST body field with four techniques:
 
-**Cancellation:** Single `AbortController` per scan session.
+| Technique | Method | Detection |
+| --- | --- | --- |
+| Time-based blind | `'; SLEEP(5)--` / `'; WAITFOR DELAY '0:0:5'--` | Response time delta > 4s |
+| Error-based | `'`, `''`, `\` | DB error strings in response (MySQL, MSSQL, Oracle, PostgreSQL, SQLite) |
+| Boolean-based | `AND 1=1` vs `AND 1=2` | Response body length delta > 20 bytes |
+| UNION-based | `UNION SELECT NULL--` variations | `NULL` or column count error patterns |
 
-### 6C.2 — Payload Delivery Helper
+DB fingerprinting: error string patterns identify MySQL, PostgreSQL, MSSQL, Oracle, SQLite, and MongoDB. The detected DB type is included in the finding's evidence.
 
-All scanner modules share a common `sendProbe(opts, signal)` function that wraps `http`/`https` requests (same pattern as `dirFuzzer.js`) — no external HTTP library. This function:
+#### XSS (`xss.js`)
 
-- Accepts `{ method, url, headers, body, timeoutMs }`.
-- Returns `{ statusCode, headers, body, durationMs }`.
-- Automatically follows one redirect.
-- Never throws on HTTP errors; only throws on network failure or abort.
+| Technique | Description |
+| --- | --- |
+| Reflected (canary) | Injects `<netspecter-xss-RAND>` canary; checks if it appears unescaped in response |
+| DOM sink hints | Response body scanned for `innerHTML`, `document.write`, `eval(` patterns near reflected input |
+| Encoded bypass | HTML entity encoding, Unicode escaping, double-encoding variants |
+| Event handler | `" onmouseover=alert(1)` variants for attribute injection contexts |
 
-### 6C.3 — SQL Injection Module (`src/main/webapp/scanner/sqli.js`)
+#### SSRF (`ssrf.js`)
 
-**Input vectors:** query parameters, POST body fields (form-encoded and JSON), Cookie values, headers (`X-Forwarded-For`, `User-Agent`, `Referer`).
+| Probe | Target |
+| --- | --- |
+| AWS IMDSv1 | `http://169.254.169.254/latest/meta-data/` |
+| GCP Metadata | `http://metadata.google.internal/computeMetadata/v1/` |
+| Azure IMDS | `http://169.254.169.254/metadata/instance?api-version=2021-02-01` |
+| DigitalOcean | `http://169.254.169.254/metadata/v1/` |
+| Localhost redirect | `http://localhost/`, `http://127.0.0.1/` |
+| Timing-based blind | Compare response time with fast vs slow target |
 
-**Detection techniques:**
+Detection: response body matches cloud metadata patterns; status 200 with metadata content; significant timing difference for blind detection.
 
-1. **Time-Based Blind:** Inject `'; WAITFOR DELAY '0:0:5'--` (MSSQL), `'; SELECT SLEEP(5)--` (MySQL), `'; SELECT pg_sleep(5)--` (PostgreSQL). If response time > 4.5s (baseline + 3s), flag HIGH. Baseline established by sending a clean request first.
+#### XXE (`xxe.js`)
 
-2. **Error-Based:** Inject `'`, `''`, `\`, `1/0`, `1 AND 1=2`. Parse response body for database error strings:
-   - MySQL: `You have an error in your SQL syntax`, `mysql_fetch_array()`
-   - PostgreSQL: `pg_query()`, `ERROR: unterminated`
-   - MSSQL: `Unclosed quotation mark`, `SqlException`
-   - SQLite: `SQLiteException`, `no such column`
-   - Oracle: `ORA-01756`, `quoted string not properly terminated`
-   Flag CRITICAL + detected DB type.
+Injects XML payloads into request bodies where `Content-Type: application/xml` or XML structure is detected:
 
-3. **Boolean-Based:** Inject `AND 1=1` (true) and `AND 1=2` (false). If response lengths differ by > 10 bytes consistently, flag MEDIUM.
+| Probe | Description |
+| --- | --- |
+| File read (Unix) | `<!ENTITY xxe SYSTEM "file:///etc/passwd">` — checks response for `root:` |
+| File read (Win) | `<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">` — checks for `[fonts]` |
+| Parser delta | Malformed vs well-formed response size/status delta |
+| OAST | `<!ENTITY xxe SYSTEM "http://OAST_HOST/">` (when OAST configured) |
 
-4. **UNION-Based:** Inject `' UNION SELECT NULL--`, `' UNION SELECT NULL,NULL--` (up to 10 columns). If a 200 response contains `NULL` in an unexpected location, flag HIGH.
+#### Command Injection (`cmdInjection.js`)
 
-**Output:** finding with the DB type fingerprint, the injecting parameter name, the effective payload, and a snippet of the error response as evidence.
+| Technique | Payloads | Detection |
+| --- | --- | --- |
+| Output reflection | `; echo NETSPECTRE_CMD_$(id)` | Checks response for `NETSPECTRE_CMD_` followed by uid |
+| Time-based | `; sleep 5 #`, `& timeout 5 >nul` | Response time delta > 4s |
+| OAST curl | `; curl http://OAST_HOST/` | (when OAST configured) |
 
-**Security note:** Payloads are defined as static string constants in `src/shared/webConstants.js`. They are never assembled via string concatenation with user-supplied data.
+#### Path Traversal (`pathTraversal.js`)
 
-### 6C.4 — XSS Module (`src/main/webapp/scanner/xss.js`)
+Tests file path parameters and URL path segments with:
 
-**Canary strategy:** generate a unique `NETSPECTER_<uuid>` string per test. Inject it wrapped in various XSS syntaxes. Check if the raw canary or a variant appears unencoded in the response.
+- Unix traversal: `../../etc/passwd`, `....//....//etc/passwd`, URL-encoded variants
+- Windows traversal: `..\..\..\windows\win.ini`, mixed slash variants
+- Null byte injection: `../etc/passwd%00.jpg`
 
-**Reflected XSS payloads:**
-```javascript
-'<script>alert(1)</script>',
-'"><img src=x onerror=alert(1)>',
-"'><svg onload=alert(1)>",
-'javascript:alert(1)',
-'<body onload=alert(1)>',
-`<details open ontoggle=alert(1)>`,
-```
+Detection: response body contains `/etc/passwd` content (`root:x:0:0`) or Windows ini markers.
 
-**Detection:**
-1. For each input parameter, inject the canary + XSS syntax.
-2. Check if the response body contains the unencoded payload (i.e., `<script>` appears literally in HTML).
-3. Also check for partial reflection: if `<script>` is stripped but `alert(1)` appears, flag LOW (potential filter bypass opportunity).
-4. DOM-based: if the response contains `.innerHTML`, `.document.write(`, `.location.hash` assignments, flag INFO (manual verification needed).
+#### CORS (`cors.js`)
 
-**Stored XSS:** After a POST that stores data, send a subsequent GET to the likely display page. Check if the canary appears. The crawler's sitemap provides the GET endpoint to verify against.
+Sends multiple requests with crafted `Origin` headers:
 
-**Context-aware encoding bypass:** also inject URL-encoded (`%3Cscript%3E`), double-encoded (`%253Cscript%253E`), and Unicode-escaped (`\u003Cscript\u003E`) variants.
+| Test | Origin Header | Success Condition |
+| --- | --- | --- |
+| Arbitrary origin | `https://evil.com` | `ACAO: https://evil.com` + `ACAC: true` |
+| Null origin | `null` | `ACAO: null` |
+| Subdomain bypass | `https://evil.target.com` | `ACAO: https://evil.target.com` |
+| Prefix bypass | `https://targetcom.evil.com` | `ACAO: https://targetcom.evil.com` |
+| Wildcard + credentials | `*` | `ACAO: *` + `ACAC: true` (invalid but misconfigured) |
 
-### 6C.5 — SSRF Module (`src/main/webapp/scanner/ssrf.js`)
+#### HTTP Security Headers (`headers.js`)
 
-Detect parameters that accept URLs (name heuristics: `url`, `uri`, `link`, `href`, `src`, `redirect`, `callback`, `next`, `return`, `image`, `file`, `endpoint`, `host`, `domain`).
+Audits every response for:
 
-**Probe payloads:**
-- Cloud metadata: `http://169.254.169.254/latest/meta-data/`, `http://metadata.google.internal/computeMetadata/v1/`, `http://169.254.169.254/metadata/v1/`
-- Localhost services: `http://localhost:6379/` (Redis), `http://localhost:27017/` (MongoDB), `http://127.0.0.1:9200/` (Elasticsearch)
-- OAST callback (Phase 7E): `http://<oast-domain>/ssrf-probe-<id>`
+| Header | Finding |
+| --- | --- |
+| Missing `Strict-Transport-Security` | Medium severity |
+| Missing `Content-Security-Policy` | Medium severity |
+| Missing `X-Frame-Options` | Medium severity |
+| Missing `X-Content-Type-Options` | Low severity |
+| Missing `Referrer-Policy` | Info |
+| `Server` header revealing version | Low severity |
+| `X-Powered-By` header present | Low severity |
+| `Set-Cookie` missing `Secure` flag | Medium severity |
+| `Set-Cookie` missing `HttpOnly` flag | Low severity |
+| `Set-Cookie` missing `SameSite` | Low severity |
 
-**Detection:**
-- If response body contains AWS metadata keys (`ami-id`, `instance-id`, `iam`) → flag CRITICAL.
-- If response time is significantly higher for internal addresses vs external → flag HIGH (blind SSRF).
-- OAST callback received → flag CRITICAL (blind SSRF confirmed).
+#### Broken Authentication (`brokenAuth.js`)
 
-### 6C.6 — XXE Module (`src/main/webapp/scanner/xxe.js`)
+| Test | Description |
+| --- | --- |
+| Rate limit bypass | Sends 20 identical login requests, checks if all succeed (no lockout) |
+| Username enumeration | Compares response length/time for valid vs invalid usernames |
+| Weak credentials | Tests common pairs (admin/admin, root/root, admin/password) |
+| JWT inspection | Decodes JWT from cookies/headers; checks `alg: none`, weak secret hints, expiry |
+| Session fixation | Checks if session ID changes post-authentication |
 
-**Targeting:** Only applicable to endpoints that accept XML (Content-Type: `application/xml`, `text/xml`, `application/soap+xml`). Check file upload endpoints that may accept SVG or DOCX (which are XML-based).
+#### Deserialization (`deserialize.js`)
 
-**Payloads:**
-```xml
-<!-- File read -->
-<?xml version="1.0"?>
-<!DOCTYPE root [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
-<root>&xxe;</root>
+Detects serialized object patterns in request/response bodies:
 
-<!-- Windows -->
-<!DOCTYPE root [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]>
+| Language | Pattern |
+| --- | --- |
+| PHP | `O:N:"ClassName":` or `a:N:{` |
+| Java | `rO0AB` (Base64 `aced0005`) or `%ac%ed%00%05` |
+| Python pickle | `\x80\x02` or `\x80\x04` opcodes |
+| .NET ViewState | `__VIEWSTATE` parameter (checked for MAC validation) |
+| Node.js | `{"rce":"_$$ND_FUNC$$_function()` |
 
-<!-- SSRF via XXE (triggers OAST) -->
-<!DOCTYPE root [<!ENTITY xxe SYSTEM "http://<oast-domain>/xxe-<id>">]>
+### Finding Severity Levels
 
-<!-- Billion laughs (DoS test — only on user opt-in) -->
-```
+| Severity | Color | Examples |
+| --- | --- | --- |
+| Critical | Red `#ff4444` | SQLi, RCE via CMDi, XXE file read |
+| High | Orange `#ff8c00` | Reflected XSS, SSRF, arbitrary CORS |
+| Medium | Yellow `#ffd700` | CSRF, missing HSTS, session fixation |
+| Low | Blue `#4fc3f7` | Missing headers, version disclosure |
+| Info | Gray `#9e9e9e` | API endpoint found, referrer policy |
 
-**Detection:**
-- Response contains `root:x:0:0` or `[fonts]` (Windows ini) → CRITICAL.
-- OAST callback → CRITICAL.
-- XML parser error changes between baseline and injected → MEDIUM (may be exploitable).
+### Export Formats
 
-### 6C.7 — OS Command Injection (`src/main/webapp/scanner/cmdInjection.js`)
+- **JSON**: Full findings array with all fields
+- **CSV**: Severity, title, URL, parameter, evidence (one row per finding)
+- **HTML Report**: Styled standalone HTML with severity-grouped sections, evidence blocks, and remediation guidance
 
-**Payloads (time-based):**
-```javascript
-'; sleep 5; echo "',
-'| sleep 5',
-'`sleep 5`',
-'; ping -c 5 127.0.0.1;',   // Windows: '| timeout 5'
-'$(sleep 5)',
-```
+### IPC Channels (7C)
 
-**Detection:**
-- Response time > baseline + 4s → flag HIGH (time-based blind command injection).
-- Response body contains `uid=`, `root`, `WINDOWS` → flag CRITICAL (output reflection).
-- OAST callback with `cmdi` prefix → CRITICAL.
-
-### 6C.8 — Path Traversal / LFI (`src/main/webapp/scanner/pathTraversal.js`)
-
-**Target parameters:** `file`, `path`, `page`, `template`, `doc`, `document`, `include`, `load`, `read`, `name`, `filename`.
-
-**Payloads:**
-```javascript
-'../../etc/passwd',
-'../../../etc/passwd',
-'....//....//....//etc/passwd',   // filter bypass
-'%2e%2e%2f%2e%2e%2fetc/passwd',   // URL encoded
-'%252e%252e%252fetc/passwd',       // double encoded
-'..%5c..%5cwindows/win.ini',       // Windows backslash
-'/etc/passwd',                     // absolute
-```
-
-**Detection:**
-- Response body matches regex `root:x:0:0:|daemon:x:` → CRITICAL (Unix passwd file).
-- Response contains `[fonts]` with `MSDOS=` → CRITICAL (Windows ini).
-- Response length is significantly larger than baseline with no error → HIGH (potential LFI).
-
-### 6C.9 — CORS Misconfiguration (`src/main/webapp/scanner/cors.js`)
-
-For every host in the sitemap:
-
-1. Send request with `Origin: https://evil.netspecter.test`.
-2. Check response `Access-Control-Allow-Origin`: if it reflects the injected origin → HIGH.
-3. If `ACAO: *` AND `Access-Control-Allow-Credentials: true` → CRITICAL (impossible per spec but some frameworks do it).
-4. Send `Origin: null` → if `ACAO: null` returned → HIGH.
-5. Send `Origin: https://target.com.evil.test` → if reflected → CRITICAL.
-
-### 6C.10 — HTTP Security Headers (`src/main/webapp/scanner/headers.js`)
-
-Check every response (passively via proxy, no extra requests needed) for missing security headers:
-
-| Header | Severity If Missing | Recommended Value |
-|---|---|---|
-| `Strict-Transport-Security` | HIGH | `max-age=31536000; includeSubDomains` |
-| `Content-Security-Policy` | HIGH | Contextual — flag absence |
-| `X-Content-Type-Options` | MEDIUM | `nosniff` |
-| `X-Frame-Options` | MEDIUM | `DENY` or `SAMEORIGIN` |
-| `Referrer-Policy` | LOW | `strict-origin-when-cross-origin` |
-| `Permissions-Policy` | LOW | Flag absence |
-| `Cross-Origin-Opener-Policy` | LOW | `same-origin` |
-
-Also check for **dangerous header values:**
-- `Server: Apache/2.2.3` → flag INFO (version disclosure).
-- `X-Powered-By: PHP/5.4` → flag INFO.
-- `Access-Control-Allow-Origin: *` combined with `Access-Control-Allow-Credentials: true` → CRITICAL.
-- `Set-Cookie` missing `HttpOnly` → MEDIUM per cookie.
-- `Set-Cookie` missing `Secure` on HTTPS → MEDIUM.
-- `Set-Cookie` missing `SameSite` → LOW.
-
-### 6C.11 — Broken Authentication (`src/main/webapp/scanner/brokenAuth.js`)
-
-1. **Rate limit detection:** Replay a login form POST 20 times with bad credentials. If all 20 succeed without a 429 or CAPTCHA → flag HIGH (no rate limiting).
-2. **Username enumeration:** Send requests with valid vs. invalid usernames. Compare response body length and timing. If delta > 50 bytes or 200ms → flag MEDIUM.
-3. **Cookie attribute audit:** (Merged from `headers.js` — see above.)
-4. **Weak password policy probe:** Attempt login with `password: "password"`, `password: "123456"`. If login succeeds → CRITICAL (predictable default/weak credentials).
-5. **JWT inspection:** Detect JWTs in cookies, Authorization headers, or response bodies. Parse header + payload (no signature verification needed). Flag:
-   - `alg: none` → CRITICAL.
-   - `alg: HS256` with a long secret key (can't test without key) → INFO.
-   - Expiry (`exp`) > 7 days → LOW.
-   - Missing `aud` or `iss` claims → INFO.
-
-### 6C.12 — Insecure Deserialization (`src/main/webapp/scanner/deserialize.js`)
-
-**Detection (passive, no exploitation):**
-
-1. Detect serialized data in cookies, POST bodies, or JSON fields:
-   - PHP: `O:n:"ClassName":{...}` → flag INFO with advisory.
-   - Java: `rO0AB` (Base64-encoded `aced 0005` magic bytes) → flag INFO.
-   - Python Pickle: `\x80\x02` prefix → flag INFO.
-   - .NET `__VIEWSTATE` without `enableViewStateMac` → flag MEDIUM.
-2. For Java-detected objects: optionally send a known ysoserial `CommonsCollections1` gadget chain DNS-lookup payload pointing to the OAST server. If OAST receives a DNS lookup → CRITICAL.
-3. Never send memory-corrupting payloads. The goal is detection, not weaponization.
-
-### 6C.13 — Scanner Renderer Module (`src/renderer/modules/webapp/scanner.js`)
-
-**Scan Configuration Panel:**
-- Target selection: checkboxes over sitemap endpoints, OR "Scan All History", OR paste a URL.
-- Module selection: toggle each of the 10 scan modules on/off.
-- Concurrency slider (1–20).
-- Timeout input.
-- OAST toggle (if Phase 7E is available).
-
-**Findings Table:**
-- Columns: Severity badge | Type | Title | URL | Parameter | Timestamp.
-- Sorted by severity (Critical first).
-- Color-coded severity badges matching the glassmorphic theme: CRITICAL=red, HIGH=orange, MEDIUM=yellow, LOW=blue, INFO=grey.
-- Click a finding row → expand to show: Description, Evidence (request/response raw), Remediation, CWE/OWASP reference.
-- "Send to Repeater" button on each finding (pre-fills repeater with the vulnerable request + payload).
-
-**Progress bar + scan summary:** "Tested 47 / 200 endpoints — 3 Critical, 5 High, 12 Medium found."
-
-**Export:** JSON, CSV, or HTML report (inline CSS report for easy sharing).
-
-### 6C.14 — IPC Channels for Scanner
-
-```javascript
-SCANNER_START:      'scanner-start',
-SCANNER_STOP:       'scanner-stop',
-SCANNER_FINDING:    'scanner-finding',    // main→renderer
-SCANNER_PROGRESS:   'scanner-progress',  // main→renderer
-SCANNER_COMPLETE:   'scanner-complete',  // main→renderer
-SCANNER_ERROR:      'scanner-error',     // main→renderer
-SCANNER_GET_FINDINGS: 'scanner-get-findings',
-SCANNER_EXPORT:     'scanner-export',
-SCANNER_CLEAR:      'scanner-clear',
-```
+| Channel | Direction | Description |
+| --- | --- | --- |
+| `SCANNER_START` | Renderer → Main | Start scan with config (target, modules, concurrency) |
+| `SCANNER_STOP` | Renderer → Main | Abort running scan |
+| `SCANNER_FINDING` | Main → Renderer | Individual finding streamed |
+| `SCANNER_PROGRESS` | Main → Renderer | Requests sent / total |
+| `SCANNER_COMPLETE` | Main → Renderer | Scan finished |
+| `SCANNER_ERROR` | Main → Renderer | Error during scan |
+| `SCANNER_GET_FINDINGS` | Renderer → Main | Return all findings for session |
+| `SCANNER_EXPORT` | Renderer → Main | Export findings (format, filepath) |
+| `SCANNER_CLEAR` | Renderer → Main | Clear findings |
 
 ---
 
 ## 7. Phase 7D — Manual Testing Utilities
 
-### 7D.1 — Repeater (`src/renderer/modules/webapp/repeater.js` + `src/main/webapp/repeaterEngine.js`)
+### Request Repeater (`repeaterEngine.js`)
 
-The Repeater is a standalone request editor and replay tool. It is self-contained in the renderer (for UI) with only a thin main-process relay for sending the actual HTTP request (to avoid CORS restrictions in the renderer).
+Provides raw HTTP request relay independent of the browser/proxy:
 
-**UI Layout:**
-```
-┌──────────────────┬──────────────────────────────────┐
-│ Request Editor   │ Response Viewer                   │
-│ (editable)       │ (read-only)                       │
-│                  │                                   │
-│ GET /api/users   │ HTTP/1.1 200 OK                   │
-│ Host: target.com │ Content-Type: application/json    │
-│ ...              │                                   │
-│                  │ { "users": [...] }                │
-├──────────────────┴──────────────────────────────────┤
-│ [Send] [Cancel] [←] [→] (history navigation)        │
-└─────────────────────────────────────────────────────┘
+**`parseRawRequest(rawString)`** — Parses a raw HTTP request string:
+
+```text
+POST /api/login HTTP/1.1
+Host: target.com
+Content-Type: application/json
+
+{"username":"admin","password":"test"}
 ```
 
-- **Request editor:** plain `<textarea>` with line-number gutter. Monospace. Syntax: first line is the request line (`METHOD PATH HTTP/1.1`), followed by headers, blank line, body. Editable character by character.
-- **Response viewer:** read-only raw display with optional "Pretty" toggle (JSON prettified, HTML rendered in a sandboxed `<iframe>`).
-- **History:** each "Send" push is saved in a session array. `←` / `→` navigate between previous and next versions of the request (like Burp's request history in Repeater).
-- **Tabs:** support multiple independent Repeater tabs (requests come from different "Send to Repeater" actions). Tab bar with `+` button and `×` close per tab.
-- The renderer sends `REPEATER_SEND` IPC; the main process relay (`repeaterEngine.js`) fires the HTTP request (bypassing browser CORS), and returns the raw response.
+Into `{ method, path, headers, body }`.
 
-**IPC:**
-```javascript
-REPEATER_SEND:     'repeater-send',
-REPEATER_RESPONSE: 'repeater-response',  // main→renderer
-REPEATER_ERROR:    'repeater-error',     // main→renderer
-```
+**`sendRepeaterRequest(opts, signal)`** — Executes the request via Node.js `http`/`https`, respecting:
 
-**Main-side `repeaterEngine.js`:** wraps `sendProbe()` from the scanner. Validates that the target URL passes the same allowlist check used in dirFuzzer. Returns `{ statusCode, headers, body, durationMs, rawRequest, rawResponse }`.
+- TLS certificate validation (configurable bypass for self-signed certs)
+- Redirect following (configurable, default off)
+- 5 MB response size cap
+- `AbortSignal` for cancellation
+- Returns `{ statusCode, headers, body, durationMs, rawRequest, rawResponse }`
 
-### 7D.2 — Intruder (`src/renderer/modules/webapp/intruder.js` + `src/main/webapp/intruderEngine.js`)
+### Intruder Engine (`intruderEngine.js`)
 
-The Intruder automates sending many variations of a request template.
+**`parsePositions(template)`** — Finds `§marker§` positions in a raw request template.
 
-**Payload position marking:** User pastes a raw HTTP request into the editor. They select a substring and click "Mark Position" to wrap it in `§markers§`. Multiple positions supported.
+**`buildPayloadMatrix(attackType, positions, payloadLists)`** — Generates the full request set:
 
-**Attack types:**
-- **Sniper:** One position at a time. Payload list iterates through position 1, then position 2, etc.
-- **Battering Ram:** Single payload list applied to ALL positions simultaneously (same value).
-- **Pitchfork:** N payload lists, each mapped to one position. Iterates in parallel (row 1 of list 1 + row 1 of list 2 → one request).
-- **Cluster Bomb:** Cartesian product. Every combination of every payload across all positions.
+| Attack Type | Requests Generated |
+| --- | --- |
+| Sniper | `positions.length × payloadList.length` |
+| Battering Ram | `payloadList.length` |
+| Pitchfork | `min(payloadList lengths)` |
+| Cluster Bomb | `product(all payloadList lengths)` |
 
-**Payload sources:**
-- Simple list (paste in textarea, one per line).
-- Load from file (dialog → `BROWSE_FILE` IPC).
-- Built-in wordlists: `common-passwords.txt` (top 1000), `usernames.txt`, `sqli-payloads.txt`, `xss-payloads.txt` (shipped in `resources/wordlists/`).
-- Payload processing: prefix, suffix, URL encode, Base64 encode, reverse, uppercase (chainable transforms).
+**`startIntruder(opts, onResult, onProgress, onComplete, onError)`** — Runs the attack with configurable concurrency (semaphore-based, default 10).
 
-**Results table:**
-- Columns: `#` | `Payload(s)` | `Status` | `Length` | `Duration` | `Error?`
-- Sortable by any column.
-- Right-click → "Send to Repeater", "Highlight".
-- Color-coded status (same as dirFuzzer): 200=green, 3xx=blue, 4xx=orange, 5xx=red.
+Each result includes: `{ requestIndex, payload, statusCode, responseLength, durationMs, responseBody }`.
 
-**Rate limiting:** configurable delay between requests (ms) and max concurrency.
+### Token Sequencer (`sequencerEngine.js`)
 
-**IPC:**
-```javascript
-INTRUDER_START:    'intruder-start',
-INTRUDER_STOP:     'intruder-stop',
-INTRUDER_RESULT:   'intruder-result',   // main→renderer (one per request)
-INTRUDER_PROGRESS: 'intruder-progress', // main→renderer
-INTRUDER_COMPLETE: 'intruder-complete',
-INTRUDER_ERROR:    'intruder-error',
-```
+Collects token samples and applies:
 
-**Main-side:** `intruderEngine.js` expands positions against the payload matrix, fires requests via `sendProbe()`, emits results via `webContents.send()`. Semaphore-based concurrency. `AbortController` for stop.
+- **Bit-level entropy analysis**: Shannon entropy per bit position across all samples
+- **FIPS 140-2 statistical tests**:
+  - Monobit: count of 1-bits must be 9,725–10,275 per 20,000 bits
+  - Poker: chi-squared test on 4-bit groups
+  - Runs: count of consecutive identical bits
+  - Long runs: no run of 26+ identical bits
+- **Visualization data**: Returns per-bit entropy values for charting in the renderer
 
-### 7D.3 — Sequencer (`src/renderer/modules/webapp/sequencer.js` + `src/main/webapp/sequencerEngine.js`)
+### Encoder/Decoder (`decoder.js` — renderer-side)
 
-Analyzes the randomness quality of tokens (session cookies, CSRF tokens, password reset links).
+Pure renderer-side module (no IPC needed). Supported transforms:
 
-**Token capture modes:**
-1. **Live capture from proxy:** user selects a Set-Cookie header or response field from HTTP history. The sequencer sends that same request N times via the main process, collecting a fresh token each time.
-2. **Manual paste:** user pastes a list of tokens (one per line).
+| Operation | Implementation |
+| --- | --- |
+| URL encode/decode | `encodeURIComponent` / `decodeURIComponent` |
+| HTML encode/decode | DOM `textContent` assign trick |
+| Base64 encode/decode | `btoa` / `atob` |
+| Hex encode/decode | `charCodeAt` / `String.fromCharCode` |
+| MD5 hash | Pure JS implementation |
+| SHA-1/256/512 | Web Crypto API (`crypto.subtle.digest`) |
+| GZIP | `DecompressionStream('gzip')` |
+| Smart decode | Heuristic chain detection |
 
-**Analysis (runs entirely in main process on a worker thread to avoid blocking):**
-- Sample size: minimum 100 tokens, recommended 300+.
-- Extract the varying bits: XOR all tokens together to find which bit positions change.
-- **FIPS 140-2 tests:** monobit test, frequency block test, runs test, longest run test. Implement these directly in JS — they are well-defined bitwise algorithms.
-- **Chi-squared test** on byte frequency distribution.
-- **Entropy calculation:** Shannon entropy (bits per byte) of the effective bits.
-- **Spectral test (FFT):** detect repeating patterns using a DFT on the bit sequence.
+### Response Comparer (`comparer.js` — renderer-side)
 
-**Results display:**
-- Entropy score (0–8 bits per byte). Green if > 6.5, yellow if 4–6.5, red if < 4.
-- Pass/fail per FIPS test.
-- Visual histogram of byte frequency.
-- A summary verdict: "STRONG — token appears cryptographically random" or "WEAK — token has predictable patterns" + remediation advice.
+Pure renderer-side diff using Myers diff algorithm:
 
-**IPC:**
-```javascript
-SEQUENCER_COLLECT:  'sequencer-collect',   // renderer→main: start collecting N tokens
-SEQUENCER_TOKEN:    'sequencer-token',     // main→renderer: one captured token
-SEQUENCER_ANALYZE:  'sequencer-analyze',  // renderer→main: analyze a token list
-SEQUENCER_RESULT:   'sequencer-result',   // main→renderer: analysis output
-SEQUENCER_ERROR:    'sequencer-error',
-```
-
-### 7D.4 — Decoder (`src/renderer/modules/webapp/decoder.js`)
-
-A pure renderer-side utility (no IPC needed — all encoding/decoding is synchronous JS).
-
-**Supported transforms (each is a separate tab or chainable):**
-- Base64 encode / decode
-- URL encode (`encodeURIComponent`) / decode
-- HTML entity encode / decode (`&amp;` `&lt;` etc.)
-- Hex encode / decode (bytes to hex string)
-- Gzip compress / decompress (using `pako` or Node's `zlib` via IPC)
-- JWT decode (header + payload JSON, no signature verification)
-- Unicode escape (`\uXXXX`) encode / decode
-- MD5 / SHA-1 / SHA-256 hash (using `crypto.subtle` in renderer or `crypto` in main via IPC)
-
-**Chain mode:** The output of transform A is fed as the input to transform B. Chain up to 10 transforms. Visualized as a pipeline with arrows.
-
-**Input:** Large `<textarea>` on the left. Output: read-only `<textarea>` on the right. Automatically re-runs the chain on any input change (debounced 300ms).
-
-**IPC (only for Gzip and Hash):**
-```javascript
-DECODER_TRANSFORM: 'decoder-transform',  // renderer→main
-DECODER_RESULT:    'decoder-result',     // main→renderer
-```
-
-### 7D.5 — Comparer (`src/renderer/modules/webapp/comparer.js`)
-
-Side-by-side diff of two HTTP requests or responses.
-
-**Input:** drag a row from HTTP History into "Side A" or "Side B" slots, or paste raw text.
-
-**Diff algorithm:** Implement Myers diff algorithm (standard O(ND) diff) in pure JS — no external library. Highlight added bytes in green, removed in red, unchanged in grey.
-
-**Display modes:**
-- **Word diff** (default): highlights changed words/tokens.
-- **Line diff**: highlights entire changed lines.
-- **Byte diff**: for binary/hex payloads.
-
-**Statistics panel:** bytes added, bytes removed, % similarity, total lines different.
-
-**Use cases surfaced in UI:** "Compare two login responses to find enumeration differences", "Compare scanner baseline vs. payload response".
-
-No IPC needed — pure renderer computation.
+- **Word-level mode**: Tokenizes by whitespace, diffs word tokens
+- **Byte-level mode**: Diffs character-by-character
+- Highlights added content (green), removed content (red), unchanged (gray)
 
 ---
 
-## 8. Phase 7E — Out-of-Band & Advanced Detection
+## 8. Phase 7E — Out-of-Band & Advanced Detection (Planned)
 
-### 8E.1 — OAST Server (`src/main/webapp/oastServer.js`)
+### 8.1 OAST Integration
 
-A local DNS resolver and HTTP callback server that receives out-of-band interactions from injected payloads. Equivalent to Burp Collaborator or `interactsh`, but running entirely locally.
+Out-of-band application security testing requires a callback server to receive DNS/HTTP interactions triggered by injected payloads. Options for implementation:
 
-**DNS callback:**
-- Spawn a local UDP DNS server on port 53 (requires elevated privileges; fallback: use a random high port and note the limitation).
-- Generate a unique subdomain prefix per scan: `<uuid>.oast.local`.
-- Resolve all queries for `*.oast.local` to `127.0.0.1`.
-- Record each DNS query that arrives: `{ id, subdomain, queryType, sourceIp, timestamp }`.
-- On privilege failure (EACCES on port 53): use a localhost-only workaround — inject `http://<oast-http-url>` instead of DNS. Full DNS OAST only works with elevated privileges or on Linux with `CAP_NET_BIND_SERVICE`.
+#### Option A: Self-hosted OAST server (recommended for privacy)
 
-**HTTP callback:**
-- Local HTTP server on a random available port (e.g., 19876).
-- Each callback URL format: `http://127.0.0.1:19876/oast/<id>/<label>`.
-- On request arrival: emit `OAST_CALLBACK` to renderer with `{ id, label, method, path, headers, body, sourceIp, timestamp }`.
+- NetSpecter spins up a DNS server (port 53) and HTTP server in the main process
+- Generates unique subdomain tokens per probe: `<token>.oast.netspectre.local`
+- Correlation: when a DNS query or HTTP request arrives matching a token, the finding is upgraded with "confirmed OOB interaction"
+- Requires elevated privileges on Linux/macOS for port 53
 
-**Integration with scanner:** Each scanner module receives the `oastCallbackUrl` in `opts`. For blind payloads (blind SSRF, blind XXE, blind SQLi, blind CMDi), the module embeds a unique OAST URL in the payload. When the callback arrives, the scanner correlates it back to the originating finding and upgrades it to CRITICAL.
+#### Option B: Interactsh (Projectdiscovery)
 
-```javascript
-export function startOastServer(onCallback)
-export function stopOastServer()
-export function generateCallbackUrl(label)  // returns { url, id }
-export function pollCallbacks(id, timeoutMs) // returns Promise<callback | null>
-```
+- Use the `interactsh-client` library against a self-hosted `interactsh-server` instance
+- User provides their own Interactsh server URL in Settings
+- No dependency on external infrastructure
 
-**IPC:**
-```javascript
-OAST_START:    'oast-start',
-OAST_STOP:     'oast-stop',
-OAST_CALLBACK: 'oast-callback',   // main→renderer
-OAST_STATUS:   'oast-status',     // main→renderer
-```
+Priority: Option B is faster to implement. Option A is the long-term goal.
 
-### 8E.2 — DOM Invader (`src/main/webapp/domInvader.js`)
+### 8.2 GraphQL Scanner Module
 
-A JavaScript agent that is injected into pages browsed through the proxy to trace DOM sources and sinks in real time.
+GraphQL endpoints identified by `apiDetector.js` require specialized testing:
 
-**How it works:**
-- The proxy server's `proxyServer.js` inspects every HTML response. If the Content-Type is `text/html`, it injects a `<script>` tag before `</head>` (or as the first child of `<body>`) that loads `dom-invader-agent.js`.
-- `dom-invader-agent.js` is a small file served by the local OAST HTTP server.
+| Test | Description |
+| --- | --- |
+| Introspection enabled | `{__schema{types{name}}}` — info disclosure |
+| Batch query abuse | Send array of queries in single request |
+| Nested query DoS | Deeply nested queries (e.g., 10 levels) |
+| Field suggestion leakage | Misspelled field names trigger suggestion messages |
+| SQLi via arguments | Inject SQL payloads into resolver arguments |
+| Auth bypass via `__typename` | Query type fields without authentication |
 
-**What the agent instruments:**
-- **Sources:** `location.search`, `location.hash`, `document.cookie`, `document.referrer`, `window.name`, `postMessage` listener registration.
-- **Sinks:** `.innerHTML`, `.outerHTML`, `document.write()`, `document.writeln()`, `eval()`, `setTimeout(string)`, `setInterval(string)`, `.src` assignment on `<script>` elements, `location.href` assignment.
-- **Prototype pollution:** `Object.prototype.__proto__` assignments, `Object.assign` with user-controlled keys.
+### 8.3 WebSocket Fuzzer
 
-**Detection:** When the agent detects data flowing from a source to a dangerous sink, it sends a beacon to `http://127.0.0.1:<oastPort>/dom-invader/<finding-id>` with the source, sink, value, and stack trace. The main process receives this, creates a DOM XSS finding, and pushes `SCANNER_FINDING` to the renderer.
+For WebSocket endpoints discovered by `apiDetector.js`:
 
-**Injection safety:** The agent is injected ONLY when the proxy is active, the user has consented, and the host is within the user-defined target scope. The agent is a self-contained IIFE with no global namespace pollution beyond its own sentinel variable.
+- Establish WS connection via `ws` npm package in main process
+- Send configurable payload list to each message slot
+- Record responses for manual analysis
+- Detect error patterns indicating injection vulnerabilities
 
-**IPC:** Handled via `OAST_CALLBACK` (same callback server).
+### 8.4 JWT Attack Suite
 
-### 8E.3 — GraphQL Testing (`src/main/webapp/apiDetector.js` extension)
+Extend `brokenAuth.js` with a dedicated JWT attack module:
 
-Once a GraphQL endpoint is detected (see 5B.3), additional active tests are run:
+| Attack | Description |
+| --- | --- |
+| `alg: none` | Strip signature, set algorithm to `none` |
+| Weak HMAC secret | Wordlist-based secret brute-force (HMAC-SHA256) |
+| RS256 → HS256 confusion | Use public key as HMAC secret |
+| `kid` injection | Inject path traversal or SQLi into the `kid` header |
+| `jku`/`x5u` spoofing | Point to attacker-controlled JWK Set |
+| Expired token acceptance | Modify `exp` claim, check if server validates |
 
-1. **Introspection enabled:** If `__schema` is returned → INFO (helps attackers map the API). Should be disabled in production.
-2. **Authorization bypass:** Run the same query with no `Authorization` header. If private fields are returned → CRITICAL.
-3. **Injection in arguments:** For each string argument in the schema, inject SQLi and XSS payloads. Same detection logic as modules 6C.3 and 6C.4.
-4. **Batch query abuse:** Send a batched query array with 100 identical operations. If all succeed → flag HIGH (no rate limiting on batch queries).
-5. **Field suggestion:** Send a query with a slightly misspelled field name. If the response contains `"Did you mean ..."` → flag INFO (introspection leakage via suggestions).
-6. **Excessive data exposure:** Request all fields on a type. Compare response size to the size when only a few fields are requested. If the server returns fields the client didn't request → flag HIGH.
+### 8.5 OAuth/OIDC Misconfiguration
 
----
+| Check | Description |
+| --- | --- |
+| Open redirect in `redirect_uri` | Test wildcard/unvalidated redirect URIs |
+| State parameter missing | Detect CSRF vulnerability in authorization flow |
+| Authorization code leakage | Check `Referer` header after code exchange |
+| Token in URL fragment | Check for insecure token delivery |
+| PKCE bypass | Test flows where PKCE is optional but shouldn't be |
 
-## 9. Workspace UI Architecture (Feature 10 Integration)
+### 8.6 Open Redirect Detection
 
-Feature 7 is built to live inside a multi-workspace UI as described in Feature 10 of the brainstorm document.
+Add to scanner orchestrator as a lightweight standalone module:
 
-### 9.1 — Workspace Switcher
-
-Add a top-level tab bar to `index.html`:
-
-```html
-<nav id="workspace-bar">
-  <button class="workspace-tab active" data-workspace="network">
-    🌐 Network
-  </button>
-  <button class="workspace-tab" data-workspace="webapp">
-    🕷️ Web App
-  </button>
-  <button class="workspace-tab" data-workspace="utilities">
-    🔧 Utilities
-  </button>
-</nav>
-```
-
-The workspace switcher shows/hides the appropriate `<section id="ws-network">` / `<section id="ws-webapp">` / `<section id="ws-utilities">` containers via CSS class toggle. No re-rendering; each workspace is pre-rendered in the DOM and toggled with `display: none / flex`.
-
-### 9.2 — Web App Workspace Layout
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  🌐 Network  |  🕷️ Web App  |  🔧 Utilities                   │
-├──────────────┬──────────────────────────────────────────────────┤
-│  Proxy       │  [Proxy controls bar]  Target: _____ Port: ___   │
-│  Sitemap     │  [Intercept toggle] [CA Install] [Clear History]  │
-│  Scanner     ├──────────────────────────────────────────────────┤
-│  Repeater    │                                                   │
-│  Intruder    │   Main content area (switches per sidebar item)   │
-│  Sequencer   │                                                   │
-│  Decoder     │                                                   │
-│  Comparer    │                                                   │
-│  Findings    │                                                   │
-└──────────────┴──────────────────────────────────────────────────┘
-```
-
-The left sidebar is a vertical icon+label nav (like VS Code's Activity Bar). Clicking each item swaps the main content area. The sidebar is narrow (48px collapsed, 160px expanded) with a toggle.
-
-### 9.3 — Pivot from Network Workspace
-
-In the Network workspace, when the user right-clicks on a host card (or clicks the host details panel):
-- If any open ports are HTTP/HTTPS ports (80, 443, 8080, 8443, 3000, 5000, 8000, 8888): show a "🕷️ Open in Web App" button.
-- Clicking it: switches to the Web App workspace, pre-fills the target URL with `http(s)://<ip>:<port>`, and optionally starts the active crawler.
-- This uses a `window.__openWebAppWorkspace(url)` global exposed from `webapp/proxy.js` init, which is the same pattern used by `window.__openDirFuzzPanel(url)` and `window.__openSharePanel(ip)`.
-
-### 9.4 — Shared Data Layer
-
-The host objects in `state.hosts[]` are accessible to the Web App workspace. The scanner writes its findings back to the same `state` object (a new `state.webAppFindings[]` array). When a finding contains a hostname/IP that matches an entry in `state.hosts[]`, a **"⚠️ Web Vulnerabilities"** badge is added to that host's card in the Network workspace. This creates the bidirectional pivot: Network → Web App → findings surfaced back in Network.
+- Test URL parameters containing `http://`, `//`, `/\`, encoded variants
+- Follow redirects and check if final destination is off-domain
+- Severity: Medium (can be chained with XSS for phishing amplification)
 
 ---
 
-## 10. IPC Channel Definitions
+## 9. IPC Channel Definitions
 
-All new channels added to `src/shared/ipc.js`:
+All channel names are defined in `src/shared/ipc.js`. The web app channels use a `PROXY_`, `CRAWLER_`, `SCANNER_`, `REPEATER_`, `INTRUDER_`, `SEQUENCER_` prefix convention.
+
+Key channels per subsystem:
 
 ```javascript
-// ─── Feature 7A — Intercepting Proxy ────────────────────────────────────────
-PROXY_START:                'proxy-start',
-PROXY_STOP:                 'proxy-stop',
-PROXY_STATUS:               'proxy-status',
-PROXY_REQUEST:              'proxy-request',
-PROXY_INTERCEPTED:          'proxy-intercepted',
-PROXY_FORWARD:              'proxy-forward',
-PROXY_DROP:                 'proxy-drop',
-PROXY_SET_INTERCEPT:        'proxy-set-intercept',
-PROXY_GET_HISTORY:          'proxy-get-history',
-PROXY_GET_REQUEST:          'proxy-get-request',
-PROXY_CLEAR_HISTORY:        'proxy-clear-history',
-PROXY_INSTALL_CA:           'proxy-install-ca',
-PROXY_EXPORT_HAR:           'proxy-export-har',
-PROXY_WS_FRAME:             'proxy-ws-frame',
+// Proxy (7A)
+PROXY_START, PROXY_STOP, PROXY_STATUS, PROXY_REQUEST,
+PROXY_GET_HISTORY, PROXY_GET_REQUEST, PROXY_CLEAR_HISTORY,
+PROXY_EXPORT_HAR, PROXY_INTERCEPT_TOGGLE, PROXY_FORWARD,
+PROXY_DROP, PROXY_GET_CA_CERT
 
-// ─── Feature 7B — Crawler & Attack Surface ───────────────────────────────────
-CRAWLER_START:              'crawler-start',
-CRAWLER_STOP:               'crawler-stop',
-CRAWLER_URL_FOUND:          'crawler-url-found',
-CRAWLER_FORM_FOUND:         'crawler-form-found',
-CRAWLER_PROGRESS:           'crawler-progress',
-CRAWLER_COMPLETE:           'crawler-complete',
-CRAWLER_ERROR:              'crawler-error',
-CRAWLER_DEPENDENCY_MISSING: 'crawler-dep-missing',
-SITEMAP_GET:                'sitemap-get',
-SITEMAP_CLEAR:              'sitemap-clear',
-SITEMAP_EXPORT:             'sitemap-export',
-API_DETECT:                 'api-detect',
-API_SCHEMA_FOUND:           'api-schema-found',
+// Crawler (7B)
+CRAWLER_START_ACTIVE, CRAWLER_STOP, CRAWLER_URL_FOUND,
+CRAWLER_EXTERNAL_URL, CRAWLER_PROGRESS, CRAWLER_COMPLETE,
+CRAWLER_GET_SITEMAP, CRAWLER_CLEAR
 
-// ─── Feature 7C — Active Scanner ─────────────────────────────────────────────
-SCANNER_START:              'scanner-start',
-SCANNER_STOP:               'scanner-stop',
-SCANNER_FINDING:            'scanner-finding',
-SCANNER_PROGRESS:           'scanner-progress',
-SCANNER_COMPLETE:           'scanner-complete',
-SCANNER_ERROR:              'scanner-error',
-SCANNER_GET_FINDINGS:       'scanner-get-findings',
-SCANNER_EXPORT:             'scanner-export',
-SCANNER_CLEAR:              'scanner-clear',
+// Scanner (7C)
+SCANNER_START, SCANNER_STOP, SCANNER_FINDING, SCANNER_PROGRESS,
+SCANNER_COMPLETE, SCANNER_ERROR, SCANNER_GET_FINDINGS,
+SCANNER_EXPORT, SCANNER_CLEAR
 
-// ─── Feature 7D — Manual Tools ───────────────────────────────────────────────
-REPEATER_SEND:              'repeater-send',
-REPEATER_RESPONSE:          'repeater-response',
-REPEATER_ERROR:             'repeater-error',
+// Repeater (7D)
+REPEATER_SEND, REPEATER_RESPONSE, REPEATER_ERROR
 
-INTRUDER_START:             'intruder-start',
-INTRUDER_STOP:              'intruder-stop',
-INTRUDER_RESULT:            'intruder-result',
-INTRUDER_PROGRESS:          'intruder-progress',
-INTRUDER_COMPLETE:          'intruder-complete',
-INTRUDER_ERROR:             'intruder-error',
+// Intruder (7D)
+INTRUDER_START, INTRUDER_STOP, INTRUDER_RESULT,
+INTRUDER_PROGRESS, INTRUDER_COMPLETE, INTRUDER_ERROR
 
-SEQUENCER_COLLECT:          'sequencer-collect',
-SEQUENCER_TOKEN:            'sequencer-token',
-SEQUENCER_ANALYZE:          'sequencer-analyze',
-SEQUENCER_RESULT:           'sequencer-result',
-SEQUENCER_ERROR:            'sequencer-error',
-
-DECODER_TRANSFORM:          'decoder-transform',
-DECODER_RESULT:             'decoder-result',
-
-// ─── Feature 7E — OAST / DOM Invader / GraphQL ───────────────────────────────
-OAST_START:                 'oast-start',
-OAST_STOP:                  'oast-stop',
-OAST_CALLBACK:              'oast-callback',
-OAST_STATUS:                'oast-status',
-```
-
-All new channels follow the existing naming convention: `NOUN_VERB` for renderer→main, `NOUN_EVENT` for main→renderer pushes.
-
----
-
-## 11. File & Module Layout
-
-```
-src/
-├── main/
-│   └── webapp/
-│       ├── proxyServer.js        [7A] MITM proxy, CA, TLS, WebSocket
-│       ├── requestStore.js       [7A] SQLite history (better-sqlite3)
-│       ├── crawler.js            [7B] Passive spider
-│       ├── activeCrawler.js      [7B] Playwright headless crawler
-│       ├── apiDetector.js        [7B,7E] OpenAPI / GraphQL detection
-│       ├── scanner/
-│       │   ├── index.js          [7C] Orchestrator
-│       │   ├── probe.js          [7C] sendProbe() shared helper
-│       │   ├── sqli.js           [7C] SQL Injection
-│       │   ├── xss.js            [7C] XSS
-│       │   ├── ssrf.js           [7C] SSRF
-│       │   ├── xxe.js            [7C] XXE
-│       │   ├── cmdInjection.js   [7C] OS Command Injection
-│       │   ├── pathTraversal.js  [7C] LFI / Path Traversal
-│       │   ├── deserialize.js    [7C] Insecure Deserialization
-│       │   ├── brokenAuth.js     [7C] Auth Testing
-│       │   ├── cors.js           [7C] CORS
-│       │   └── headers.js        [7C] Security Headers
-│       ├── repeaterEngine.js     [7D] HTTP request relay
-│       ├── intruderEngine.js     [7D] Payload matrix + request firing
-│       ├── sequencerEngine.js    [7D] Token collection + entropy
-│       ├── oastServer.js         [7E] DNS + HTTP callback server
-│       ├── domInvaderAgent.js    [7E] Injected JS agent (served statically)
-│       └── ipc/
-│           └── webappIpc.js      registerIpcHandlers(ipcMain, getWindow)
-│
-├── renderer/
-│   └── modules/
-│       └── webapp/
-│           ├── index.js          init() + sidebar routing
-│           ├── proxy.js          [7A] HTTP History table + Intercept UI
-│           ├── sitemap.js        [7B] Tree view
-│           ├── scanner.js        [7C] Scanner config + findings list
-│           ├── repeater.js       [7D] Repeater tabs + editor
-│           ├── intruder.js       [7D] Position marker + payload config + results
-│           ├── sequencer.js      [7D] Token capture + entropy charts
-│           ├── decoder.js        [7D] Encoding chain workbench
-│           └── comparer.js       [7D] Myers diff view
-│
-├── shared/
-│   ├── ipc.js                    + new channel constants (section 10)
-│   └── webConstants.js           [NEW] payloads, canaries, wordlists refs
-│
-resources/
-└── wordlists/
-    ├── common-passwords.txt      top 1000 passwords
-    ├── usernames.txt             common usernames
-    ├── sqli-payloads.txt         curated SQLi payload list
-    └── xss-payloads.txt          curated XSS payload list
-
-test/
-├── webapp/
-│   ├── proxyServer.test.js
-│   ├── requestStore.test.js
-│   ├── crawler.test.js
-│   ├── scanner/
-│   │   ├── sqli.test.js
-│   │   ├── xss.test.js
-│   │   ├── ssrf.test.js
-│   │   ├── xxe.test.js
-│   │   ├── cors.test.js
-│   │   ├── headers.test.js
-│   │   └── brokenAuth.test.js
-│   ├── intruderEngine.test.js
-│   └── sequencerEngine.test.js
-└── renderer/
-    └── webapp/
-        ├── proxy.test.js
-        ├── scanner.test.js
-        ├── decoder.test.js
-        └── comparer.test.js
+// Sequencer (7D)
+SEQUENCER_ANALYZE, SEQUENCER_RESULT
 ```
 
 ---
 
-## 12. Security Constraints
+## 10. File & Module Layout
 
-These constraints are **non-negotiable** and must be reviewed before each module is merged.
+### Main Process
 
-### 12.1 — Input Validation
-
-| Input Point | Validation Rule |
-|---|---|
-| Proxy target URL | Must be `http://` or `https://`; reject `file://`, `data://`, `javascript:` |
-| Proxy listen port | Integer 1024–65535 only; reject OS privileged ports |
-| Intruder payload count | Hard cap at 1,000,000 total requests per session |
-| Crawler max depth | Hard cap at 10; user cannot set higher |
-| Repeater target URL | Same URL validation as dirFuzzer (`ALLOWED_SCHEMES`) |
-| Scanner concurrency | Max 50 (same as dirFuzzer) |
-| wordlist file size | Max 500,000 lines; reject binary files |
-
-### 12.2 — Spawn Safety
-
-- `proxyServer.js` installs the CA cert by spawning `certutil` (Windows) with arg arrays. The cert path is validated to be within `userData` before passing to certutil.
-- Active crawler (Playwright): Playwright is not spawned with shell-string args. The `executablePath` comes from `playwright-core`'s own resolution, not user input.
-- OAST DNS server: runs inside the Node.js process (no spawn); uses `dgram.createSocket('udp4')`.
-
-### 12.3 — Data Handling
-
-- HTTP request/response bodies are stored as BLOB in SQLite. They are never echoed back via `eval()` or injected into the DOM without escaping.
-- The HTTP History table renders all content as text (`.textContent`, never `.innerHTML`) to prevent stored XSS from captured content affecting the app's own UI.
-- The Repeater response viewer renders HTML responses in a sandboxed `<iframe>` with `sandbox="allow-scripts"` when the user clicks "Render". The iframe has no access to the Electron `preload` context.
-- Payloads defined in `webConstants.js` are static arrays — never constructed from user-controlled strings.
-
-### 12.4 — Proxy Scope Restriction
-
-- The user defines a **target scope** (list of hostnames/CIDR ranges). The proxy only logs and intercepts in-scope traffic. Out-of-scope traffic is passed through transparently without logging.
-- The scanner and intruder will only send requests to in-scope targets. Out-of-scope URLs are rejected before `sendProbe()` is called.
-- Scope is persisted in `electron-store` as `proxy.scope: string[]`.
-
-### 12.5 — Consent Gates
-
-Two consent gates are required:
-
-1. **Proxy Consent** (first proxy start): explains MITM nature, TLS decryption. Stored in `proxy.consentAccepted`.
-2. **Active Scanner Consent** (first scan start): explains automated vulnerability testing. Stored in `scanner.consentAccepted`. Requires the user to confirm the target is within their authorization scope.
-
----
-
-## 13. Test Strategy
-
-### Coverage Targets
-
-- Main-process modules: ≥ 80% line coverage (Vitest).
-- Renderer modules: ≥ 70% (Vitest + jsdom).
-- Integration: manual test script covering proxy → history → scanner → repeater round-trip.
-
-### Test Patterns
-
-Follow the existing test pattern from `test/nmapScanner.test.js` and `test/cloudEnum.test.js`:
-
-```javascript
-// test/webapp/scanner/sqli.test.js
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { testSqli } from '../../../src/main/webapp/scanner/sqli.js';
-
-// Mock sendProbe — no real network calls
-vi.mock('../../../src/main/webapp/scanner/probe.js', () => ({
-  sendProbe: vi.fn(),
-}));
-
-import { sendProbe } from '../../../src/main/webapp/scanner/probe.js';
+```text
+src/main/webapp/
+├── proxyServer.js       MITM proxy, cert generation, request storage coordination
+├── requestStore.js      SQLite schema, CRUD, HAR export
+├── crawler.js           Passive sitemap builder, external URL recorder
+├── activeCrawler.js     Playwright-based headless browser crawler
+├── apiDetector.js       REST/GraphQL/WS/HTML classification heuristics
+├── repeaterEngine.js    Raw HTTP request relay (parseRawRequest, sendRepeaterRequest)
+├── intruderEngine.js    Payload matrix generation, attack runner (4 types)
+├── sequencerEngine.js   Token entropy analysis, FIPS tests
+├── ipc/
+│   └── webappIpc.js     All web app IPC handler registrations + export helpers
+└── scanner/
+    ├── index.js         Orchestrator: semaphore, AbortController, sendProbe, makeFinding
+    ├── sqli.js          SQL injection (4 techniques, DB fingerprint)
+    ├── xss.js           Cross-site scripting (reflected, DOM, encoded)
+    ├── ssrf.js          Server-side request forgery (cloud metadata, timing)
+    ├── xxe.js           XML external entity (file read, OAST)
+    ├── cmdInjection.js  Command injection (output, time-based, OAST)
+    ├── pathTraversal.js Local file inclusion (Unix/Windows, null byte)
+    ├── cors.js          CORS misconfiguration (5 origin tests)
+    ├── headers.js       HTTP security header audit (10+ checks)
+    ├── brokenAuth.js    Auth weaknesses (rate limit, enum, weak creds, JWT)
+    └── deserialize.js   Deserialization pattern detection (5 languages)
 ```
 
-### Key Test Cases Per Module
+### Renderer
 
-**proxyServer.test.js:**
-- CA cert is generated and cached (not regenerated on second call).
-- CONNECT tunnel correctly intercepts a mock TLS connection.
-- Intercepted request is held until `forwardInterceptedRequest` is called.
-- `stopProxy()` closes all open sockets.
-- URL with `file://` scheme is rejected.
-
-**sqli.test.js:**
-- Time-based detection fires when `sendProbe` resolves after > 4.5s.
-- Error-based detection fires when response body contains MySQL error string.
-- Boolean-based detection fires when response length differs between true/false payloads.
-- Clean request (no injection point) produces no findings.
-- Aborted scan emits no findings after abort.
-
-**xss.test.js:**
-- Canary reflected unencoded → finding emitted with type `xss-reflected`.
-- Canary reflected HTML-encoded → no finding.
-- Multiple parameters tested independently.
-
-**intruderEngine.test.js:**
-- Sniper mode with 2 positions and 3 payloads fires 6 requests.
-- Cluster Bomb with 2 positions of 3 payloads each fires 9 requests.
-- Concurrency limit is respected (semaphore).
-- Abort stops mid-run.
-
-**decoder.test.js:**
-- Base64 round-trip encode/decode.
-- URL encode special chars.
-- JWT decode extracts header and payload JSON.
-- Chain: Base64 → URL encode produces correct output.
-
-**comparer.test.js:**
-- Myers diff correctly identifies added and removed lines.
-- Identical inputs produce zero diff.
-- Large inputs (50kb) complete without hanging.
+```text
+src/renderer/modules/webapp/
+├── index.js        Tab manager, workspace router, init
+├── proxy.js        Proxy history table, filter controls, intercept UI
+├── sitemap.js      Crawl tree, endpoint type icons, context menus
+├── repeater.js     Raw request/response editor, tab management
+├── intruder.js     Position marker UI, payload config, results table
+├── sequencer.js    Token capture, entropy charts, FIPS test results
+├── decoder.js      Encoder/decoder toolbox (pure renderer)
+├── comparer.js     Side-by-side diff (pure renderer)
+└── scanner.js      Module selection, progress, findings table, export
+```
 
 ---
 
-## 14. CSS & Theming
+## 11. Security Constraints
 
-All new UI elements follow the existing glassmorphic dark theme in `src/renderer/style.css`.
+All security rules from the project CLAUDE.md apply. Additional constraints for the web app subsystem:
 
-### New CSS Variables
+1. **Proxy binds `127.0.0.1` only** — the MITM proxy must never be accessible from other hosts on the network.
+2. **URL validation before any outbound request** — `isValidHttpUrl()` from `src/shared/validate.js` must gate all `sendProbe()`, `sendRepeaterRequest()`, and active crawler navigation calls.
+3. **No credentials in SQLite** — if a proxied request contains an `Authorization: Basic` header, the decoded credentials are not stored in the requests table. Only the raw header value is stored (as proxied), and findings from `brokenAuth.js` are never written to disk.
+4. **Consent gate** — the web app workspace requires the same pentest consent as offensive tools. `#pentest-consent-overlay` is shown before any active scanning, intruder, or active crawl operation.
+5. **Max body size** — `proxyServer.js` enforces a 10 MB cap on request/response bodies. `repeaterEngine.js` enforces 5 MB.
+6. **TLS verification bypass** — when the user configures "ignore TLS errors" for repeater/scanner, this is scoped to those specific requests only, using `rejectUnauthorized: false` on the `https.request` options. The main process TLS configuration is never globally mutated.
+7. **No eval, no VM** — scanner payloads are plain strings. No `eval()` or `vm.runInContext()` used anywhere in the web app subsystem.
+8. **Passive-by-default** — the proxy and passive crawler are always-on once started; active crawling and scanning require explicit user action.
+
+---
+
+## 12. Test Strategy
+
+### Unit Tests
+
+All backend modules have corresponding unit tests in `test/webapp/`:
+
+| Test File | Module Under Test | Key Coverage |
+| --- | --- | --- |
+| `requestStore.test.js` | `requestStore.js` | Schema init, insert, query, HAR export, pagination |
+| `proxyServer.test.js` | `proxyServer.js` | CONNECT handling, cert generation mock, request/response piping |
+| `crawler.test.js` | `crawler.js` | URL parsing, sitemap building, external URL recording |
+| `activeCrawler.test.js` | `activeCrawler.js` | Playwright mock, depth limit, page count limit |
+| `apiDetector.test.js` | `apiDetector.js` | REST/GraphQL/WS/HTML/asset classification |
+| `intruderEngine.test.js` | `intruderEngine.js` | Position parsing, payload matrix (all 4 types), concurrency |
+| `sequencerEngine.test.js` | `sequencerEngine.js` | Entropy calculation, FIPS test pass/fail scenarios |
+
+### Scanner Module Tests
+
+Each scanner module should have its own test file in `test/webapp/scanner/`:
+
+| Test File | Coverage |
+| --- | --- |
+| `sqli.test.js` | Time-based mock (delayed response), error pattern match, boolean delta |
+| `xss.test.js` | Canary reflection detection, DOM pattern detection |
+| `ssrf.test.js` | Cloud metadata response matching, timing detection |
+| `xxe.test.js` | File content pattern detection, malformed XML delta |
+| `cmdInjection.test.js` | Output reflection detection, time-based mock |
+| `pathTraversal.test.js` | `/etc/passwd` content detection, encoding variants |
+| `cors.test.js` | All 5 origin test scenarios, ACAO/ACAC header validation |
+| `headers.test.js` | Each missing header produces correct severity finding |
+| `brokenAuth.test.js` | Rate limit detection (20 req), JWT decode, weak cred match |
+| `deserialize.test.js` | All 5 language patterns detected |
+
+### Mocking Conventions
+
+```javascript
+// Mock http/https for scanner tests
+vi.mock('http', () => ({ request: vi.fn() }));
+vi.mock('https', () => ({ request: vi.fn() }));
+
+// Mock better-sqlite3 (function constructor pattern)
+vi.mock('better-sqlite3', () => {
+  function MockDatabase() {
+    this.prepare = vi.fn().mockReturnValue({
+      run: vi.fn(),
+      get: vi.fn(),
+      all: vi.fn().mockReturnValue([]),
+    });
+    this.exec = vi.fn();
+    this.close = vi.fn();
+  }
+  return { default: MockDatabase };
+});
+
+// Always call closeRequestStore() in afterEach for SQLite tests
+afterEach(() => { closeRequestStore(); });
+```
+
+### Coverage Target
+
+The web app subsystem targets **80% line coverage**. Run with:
+
+```bash
+npx vitest run --coverage --reporter=verbose
+```
+
+---
+
+## 13. CSS & Theming
+
+All web app workspace styles live in `src/renderer/webapp.css`. The theme follows the glassmorphic dark pattern from `style.css`.
+
+### Key CSS Variables (webapp context)
 
 ```css
-:root {
-  /* Web App workspace accent — deep purple / violet */
-  --webapp-btn:         #8b5cf6;   /* primary accent */
-  --webapp-btn-hover:   #7c3aed;
-  --webapp-panel-bg:    rgba(30, 20, 50, 0.85);
+--proxy-accent:    #38bdf8;   /* sky blue — proxy/crawler */
+--scanner-accent:  #f97316;   /* orange — scanner findings */
+--critical:        #ff4444;
+--high:            #ff8c00;
+--medium:          #ffd700;
+--low:             #4fc3f7;
+--info:            #9e9e9e;
+--repeater-accent: #a78bfa;   /* purple — repeater/intruder */
+```
 
-  /* Severity colors (scanner findings) */
-  --severity-critical:  #ef4444;
-  --severity-high:      #f97316;
-  --severity-medium:    #eab308;
-  --severity-low:       #3b82f6;
-  --severity-info:      #6b7280;
+### Component Classes
 
-  /* Proxy intercept indicator */
-  --intercept-active:   #ef4444;
-  --intercept-pulse:    rgba(239, 68, 68, 0.4);
+| Class | Usage |
+| --- | --- |
+| `.webapp-tab-bar` | Top tab row (Proxy, Sitemap, Scanner, Repeater, Intruder, ...) |
+| `.webapp-panel` | Each tool's content panel |
+| `.proxy-history-row` | Single history table row, `[data-method]` for coloring |
+| `.finding-row` | Scanner findings table row |
+| `.finding-severity-badge` | Colored pill badge (critical/high/medium/low/info) |
+| `.finding-detail` | Expandable detail row (description, evidence, remediation) |
+| `.web-vuln-badge` | Badge injected onto Network host cards |
+| `.repeater-pane` | Left (request) / right (response) split panes |
+| `.intruder-position` | `§…§` highlighted spans in raw request editor |
+| `.sequencer-chart` | Token entropy visualization container |
 
-  /* HTTP method badges */
-  --method-get:         #22c55e;
-  --method-post:        #3b82f6;
-  --method-put:         #f97316;
-  --method-delete:      #ef4444;
-  --method-patch:       #a855f7;
+---
+
+## 14. Consent & Ethics Gate
+
+The web app workspace displays `#pentest-consent-overlay` before allowing:
+
+- Active scanning (`SCANNER_START`)
+- Active crawling (`CRAWLER_START_ACTIVE`)
+- Intruder attacks (`INTRUDER_START`)
+
+The consent modal explains that:
+
+- These tools send requests to the target host
+- Users must have explicit written authorization to test any system they do not own
+- NetSpecter's authors accept no liability for unauthorized use
+
+Acceptance is persisted to `electron-store` so the modal is shown only once per session (not per action).
+
+---
+
+## 15. Dependency Analysis
+
+### Runtime Dependencies Added by Feature 7
+
+| Package | Version | Purpose | Bundle Impact |
+| --- | --- | --- | --- |
+| `better-sqlite3` | ^12.8.0 | SQLite request history | Native module — requires rebuild |
+| `node-forge` | ^1.3.3 | TLS cert generation for MITM | ~400 KB |
+| `playwright-core` | ^1.58.2 | Active crawler headless browser | Large — Chromium not bundled |
+
+### `better-sqlite3` Native Module
+
+Requires a C++ compiler at `npm install` time (via `node-gyp`). The `postinstall` script runs `electron-rebuild` to compile against the Electron version. This means:
+
+- Windows requires Visual Studio Build Tools
+- macOS requires Xcode Command Line Tools
+- Linux requires `build-essential`
+
+The compiled `.node` binary is excluded from ASAR:
+
+```json
+{
+  "build": {
+    "asarUnpack": ["**/better_sqlite3.node"]
+  }
 }
 ```
 
-### Component Patterns
+> **Note**: This key is not yet in `package.json`. It should be added before the next `dist` build to prevent ASAR extraction errors on packaged app startup.
 
-- **Finding cards:** same card structure as `cloudenum-finding-card` — `border-left: 4px solid var(--severity-<level>)`.
-- **Workspace tab bar:** matches the existing pentest header button bar style — `glass` background, `border-bottom: 2px solid var(--webapp-btn)` on active tab.
-- **Intercept active indicator:** pulsing red ring around the proxy section header, CSS keyframe animation (same pattern as `#revshell-panel` connection indicator).
-- **Virtual scroll table:** `overflow-y: scroll` container with fixed height; rows are absolutely positioned based on scroll offset. Row height: `32px`.
-- **Sidebar nav:** `width: 48px` collapsed, `160px` expanded. Transition `width 0.2s ease`. Each item: icon (SVG inline) + label.
-- **Code/raw editors:** `font-family: 'Fira Code', 'Courier New', monospace; font-size: 12px; tab-size: 2;`
+### `playwright-core` vs `playwright`
+
+`playwright-core` is used (not `playwright`) to avoid bundling browser executables. Active crawling requires the user to have Chromium installed separately. The executable path is configurable in Settings.
 
 ---
 
-## 15. Consent & Ethics Gate
+## 16. OWASP Gap Analysis & Roadmap
 
-The consent and authorization gate for Feature 7 is more stringent than the existing pentest consent (which is a one-time checkbox). Web application scanning carries higher risk of unintended harm because it sends active payloads (SQLi, XSS, etc.) to application backends.
+NetSpecter's scanner covers the OWASP Top 10 2021 as follows:
 
-### Consent Modal Design
+| OWASP 2021 Category | NetSpecter Module | Coverage Level | Gap |
+| --- | --- | --- | --- |
+| A01 Broken Access Control | `cors.js`, `brokenAuth.js` | Partial | No horizontal/vertical privilege escalation testing |
+| A02 Cryptographic Failures | `headers.js` (HSTS, cookie flags) | Partial | No TLS cipher audit, no certificate chain validation |
+| A03 Injection | `sqli.js`, `cmdInjection.js`, `xxe.js`, `pathTraversal.js` | Good | NoSQLi, LDAP injection, template injection not covered |
+| A04 Insecure Design | Manual only | None | By design — requires business logic knowledge |
+| A05 Security Misconfiguration | `headers.js`, `cors.js`, `cloudEnum.js` | Good | No cloud IAM misconfiguration |
+| A06 Vulnerable Components | `nmapScanner.js` (CVE via Nmap) | Partial | No JS dependency audit (npm audit equivalent) |
+| A07 Auth & Identity Failures | `brokenAuth.js` | Good | JWT suite incomplete (7E planned) |
+| A08 Software Integrity Failures | `deserialize.js` | Partial | No SRI check, no CI/CD pipeline inspection |
+| A09 Logging & Monitoring Failures | Manual only | None | Requires access to application logs |
+| A10 SSRF | `ssrf.js` | Good | No DNS rebinding detection; OAST confirmations pending (7E) |
 
-**Trigger:** First time the user attempts to start the Active Scanner (7C) or Intruder (7D.2) with any active payloads.
+### Priority Roadmap (Post 7E)
 
-**Content:**
-> "Web Application Active Scanning
->
-> You are about to send automated attack payloads to a web application. This includes SQL injection, XSS, command injection, and other techniques that may:
-> - Crash the target application
-> - Corrupt or delete data in backend databases
-> - Trigger security alerts on the target network
-> - Violate computer fraud laws if used without authorization
->
-> By proceeding, you confirm:
-> ✓ I own the target application or have explicit written authorization to test it.
-> ✓ I understand this tool is for legitimate security testing only.
-> ✓ I accept full legal responsibility for my use of this feature.
->
-> Type `AUTHORIZED` to continue: [input field]"
-
-The user must type `AUTHORIZED` exactly. This is stored per-session only — it is NOT persisted to electron-store. The user must re-authorize on each app launch. This is intentional friction.
-
-**Scope confirmation:** After typing `AUTHORIZED`, a second step shows the current target scope and asks: "Confirm that all targets listed below are within your authorized scope: [scope list]". If the scope is empty, the user must define at least one scope entry before scanning can start.
-
----
-
-## 16. Implementation Sequence
-
-### Milestone 1 — Proxy Foundation (7A)
-1. Add `better-sqlite3` as a dependency.
-2. Implement `requestStore.js` with SQLite schema + CRUD.
-3. Implement CA generation in `proxyServer.js` (no-dep crypto path first; `node-forge` as fallback).
-4. Implement HTTP-only proxy (no TLS yet) + history logging.
-5. Add IPC handlers in `webappIpc.js`.
-6. Build proxy renderer module: history table (non-virtualized first), basic inspector.
-7. Add workspace switcher to `index.html` and `index.js`.
-8. Write `proxyServer.test.js` and `requestStore.test.js`.
-
-### Milestone 2 — TLS Interception + Intercept Mode
-1. Add CONNECT tunnel handling + dynamic cert generation.
-2. Add intercept mode (pause/forward/drop).
-3. Add WebSocket frame capture.
-4. Update renderer: intercept panel, WS history tab.
-5. Add CA install IPC handler (platform-specific `certutil` spawn).
-6. Update tests.
-
-### Milestone 3 — Repeater (7D.1)
-1. Implement `repeaterEngine.js` in main.
-2. Build `repeater.js` renderer: editor, response view, history nav, tabs.
-3. Wire "Send to Repeater" in HTTP History context menu.
-4. Tests.
-
-### Milestone 4 — Crawler + Sitemap (7B)
-1. Implement passive `crawler.js` (observe requests from proxy).
-2. Build `sitemap.js` renderer: tree view, context menu.
-3. Implement `activeCrawler.js` (Playwright integration, graceful fallback).
-4. Implement `apiDetector.js` (OpenAPI + GraphQL probes).
-5. Tests.
-
-### Milestone 5 — Scanner Core (7C)
-1. Implement `scanner/probe.js` (shared HTTP helper).
-2. Implement `scanner/headers.js` and `scanner/cors.js` (passive, lower risk, good for validating the pipeline).
-3. Implement `scanner/sqli.js`, `scanner/xss.js`, `scanner/pathTraversal.js`.
-4. Implement `scanner/ssrf.js`, `scanner/xxe.js`, `scanner/cmdInjection.js`.
-5. Implement `scanner/brokenAuth.js`, `scanner/deserialize.js`.
-6. Implement `scanner/index.js` orchestrator with queue + concurrency.
-7. Build `scanner.js` renderer: config panel, findings table, export.
-8. Add consent gate.
-9. Tests for all scanner modules.
-
-### Milestone 6 — Intruder + Sequencer (7D.2, 7D.3)
-1. Implement `intruderEngine.js`.
-2. Build `intruder.js` renderer: position marker UI, payload config, results table.
-3. Implement `sequencerEngine.js` (token collection + FIPS entropy tests).
-4. Build `sequencer.js` renderer: capture UI, entropy charts (Canvas-based, no chart library).
-5. Tests.
-
-### Milestone 7 — Decoder + Comparer (7D.4, 7D.5)
-1. Build `decoder.js` renderer (pure renderer, no IPC for most transforms; add `DECODER_TRANSFORM` for gzip/hash).
-2. Build `comparer.js` renderer (Myers diff, pure JS).
-3. Tests.
-
-### Milestone 8 — OAST + DOM Invader + GraphQL (7E)
-1. Implement `oastServer.js` (HTTP callback; DNS callback with privilege fallback).
-2. Write `domInvaderAgent.js` (injected script).
-3. Integrate OAST URL injection into scanner modules (ssrf.js, xxe.js, sqli.js, cmdInjection.js).
-4. Implement DOM Invader injection in `proxyServer.js`.
-5. Extend `apiDetector.js` with GraphQL active tests.
-6. Tests.
-
-### Milestone 9 — Polish + Integration
-1. Network workspace pivot: "Open in Web App" button on host cards.
-2. Web vuln badge on host cards in network workspace.
-3. Unified findings export (JSON + HTML report).
-4. Settings modal additions: proxy port, proxy scope, wordlist paths, scanner concurrency.
-5. Update `README.md` and `getting-started-guide.md` with Web App workspace documentation.
-6. Full integration test pass (manual).
-
----
-
-## 17. Dependency Analysis
-
-### New npm Dependencies
-
-| Package | Version | Used For | Rationale |
-|---|---|---|---|
-| `better-sqlite3` | latest | Request history DB | Synchronous, no native addon issues on Electron; previously recommended in Feature 1 brainstorm |
-| `playwright-core` | latest | Active crawler | Soft dep (graceful fallback); user installs separately. Do NOT bundle. |
-| `node-html-parser` | latest | Passive spider HTML parsing | Zero-dep, fast, forgiving parser; no `jsdom` overhead |
-
-### Avoided Dependencies (intentional)
-
-| Package | Why Avoided |
-|---|---|
-| `http-mitm-proxy` | Adds ~15 transitive deps; implementing CONNECT tunnel in Node's `net` is ~150 lines and gives full control |
-| `node-forge` | Only needed if `crypto.generateKeyPairSync` X.509 builder proves too complex; use as fallback, not primary |
-| `axios` / `node-fetch` | Scanner uses same `http`/`https` pattern as `dirFuzzer.js` — zero new deps |
-| `sqlmap` (binary) | Would be an external dependency; internal SQLi detection is sufficient for detection (not exploitation) |
-| `jsdom` | Too heavy for sitemap parsing; `node-html-parser` is sufficient |
-| `d3` / `chart.js` | Sequencer charts done with Canvas API directly; no charting library needed |
-| `diff` (npm) | Myers diff implemented in ~80 lines of pure JS; Comparer has no external dep |
-
-### Existing Dependencies Leveraged
-
-- `electron` — `BrowserWindow`, `contextBridge`, `ipcMain`, `ipcRenderer`, `net`, `shell`
-- Node built-ins: `http`, `https`, `net`, `dgram`, `crypto`, `fs`, `url`, `worker_threads`
-- Existing patterns: `createSemaphore()` (from `cloudEnum.js`), `httpGet()` (from `cloudEnum.js`), `SAFE_PATH_RE` (from `dirFuzzer.js`)
-
----
-
-*End of Feature 7 Implementation Plan*
+1. **NoSQL Injection** — MongoDB `$where`, Elasticsearch injection
+2. **SSTI (Server-Side Template Injection)** — `{{7*7}}` canary for Jinja2, Twig, Freemarker
+3. **Open Redirect** — URL parameter redirect detection (standalone module)
+4. **GraphQL Scanner** — Introspection, batch abuse, nested DoS
+5. **WebSocket Fuzzer** — Payload injection into WS message frames
+6. **JWT Attack Suite** — Full implementation of 7E.4
+7. **TLS/Certificate Audit** — Cipher suite weakness, expired certs, chain validation
+8. **Dependency Audit Integration** — Parse `package.json` / `requirements.txt` from responses and cross-reference against vulnerability databases

