@@ -90,4 +90,7 @@ export const api = {
 
   // Feature 7B: Web Crawler & Attack Surface
   crawler: window.electronAPI.crawler,
+
+  // Feature 7C: Active Vulnerability Scanner
+  scanner: window.electronAPI.scanner,
 };
