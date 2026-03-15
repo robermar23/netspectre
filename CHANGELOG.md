@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.17.0](https://github.com/robermar23/netspectre/compare/v1.16.0...v1.17.0) (2026-03-15)
+
+
+### Features
+
+* **proxy, sitemap:** add "Probe in Network" functionality to resolve hostnames and update network workspace ([e093cef](https://github.com/robermar23/netspectre/commit/e093cef6485eb92264f92e492a73d85504124cea))
+* **scanner:** add modules for vulnerability scanning including broken authentication, command injection, CORS misconfiguration, insecure deserialization, and enhance IPC channels for scanner control ([2a2d715](https://github.com/robermar23/netspectre/commit/2a2d7156818f06b30eead64101336f0a00497dc8))
+* **scanner:** add SSRF, XSS, and XXE scanning modules ([5f8c678](https://github.com/robermar23/netspectre/commit/5f8c678acb04af1d2142415ad48fa91acc23b6a3))
+* **scanner:** implement active vulnerability scanner functionality and IPC handlers ([e2f5361](https://github.com/robermar23/netspectre/commit/e2f5361122dc462be96d468c9f155e4fdce7ed9e))
+* **scanner:** implement DNS resolution for hostname to IP conversion in network workspace ([8240fc3](https://github.com/robermar23/netspectre/commit/8240fc3f7c28bb4157129ac1fb6d431da1d14513))
+* **scanner:** implement vulnerability scanner UI and functionality ([8855bc7](https://github.com/robermar23/netspectre/commit/8855bc78fe9ec0550026d857523a3c676f632f71))
+* **scanner:** implement vulnerability scanner UI and functionality ([f05d4e8](https://github.com/robermar23/netspectre/commit/f05d4e8e84e0ae99e5b6b76fa3ca58307109098a))
+
+
+### Bug Fixes
+
+* **scanner:** improve error handling and enhance checkbox styling for scanner modules ([967fa51](https://github.com/robermar23/netspectre/commit/967fa51f465efbb482c7b8aae4ea6db51b151a75))
+
 ## [1.16.0](https://github.com/robermar23/netspectre/compare/v1.15.0...v1.16.0) (2026-03-15)
 
 
