@@ -32,7 +32,7 @@ describe('Dir Fuzzer UI', () => {
   });
 
   it('dirfuzz open button exists in DOM', () => {
-    const btn = document.getElementById('btn-dirfuzz-open');
+    const btn = document.getElementById('btn-webapp-dirfuzz-open');
     expect(btn).not.toBeNull();
   });
 
@@ -64,52 +64,38 @@ describe('Dir Fuzzer UI', () => {
     expect(urlInput.value).toBe('');
   });
 
-  it('clicking btn-dirfuzz-open opens the panel when closed', () => {
-    const panel = document.getElementById('dirfuzz-panel');
-    const btn = document.getElementById('btn-dirfuzz-open');
-    const resizer = document.getElementById('dirfuzz-resizer');
+  it('clicking btn-webapp-dirfuzz-open activates the webapp dirfuzz sidebar item', () => {
+    const btn = document.getElementById('btn-webapp-dirfuzz-open');
+    const sidebarItem = document.querySelector('#webapp-sidebar [data-panel="dirfuzz"]');
 
-    // Wire toggle as module does
+    // Track whether the sidebar item was clicked (as webapp/index.js does)
+    let sidebarClicked = false;
+    if (sidebarItem) sidebarItem.addEventListener('click', () => { sidebarClicked = true; });
+
     btn.addEventListener('click', () => {
-      if (panel.classList.contains('open')) {
-        panel.classList.remove('open');
-        setTimeout(() => {
-          panel.style.display = 'none';
-          if (resizer) resizer.style.display = 'none';
-        }, 300);
-      } else {
-        panel.style.display = 'flex';
-        panel.classList.add('open');
-        if (resizer) resizer.style.display = 'block';
-      }
+      document.querySelector('#webapp-sidebar [data-panel="dirfuzz"]')?.click();
     });
 
-    // Start closed
-    panel.style.display = 'none';
-    panel.classList.remove('open');
-
     btn.click();
-    expect(panel.classList.contains('open')).toBe(true);
-    expect(panel.style.display).toBe('flex');
+    expect(sidebarClicked).toBe(true);
   });
 
-  it('clicking btn-dirfuzz-open closes the panel when already open', () => {
-    const panel = document.getElementById('dirfuzz-panel');
-    const btn = document.getElementById('btn-dirfuzz-open');
+  it('webapp dirfuzz panel becomes visible when sidebar item is clicked', () => {
+    const sidebarItem = document.querySelector('#webapp-sidebar [data-panel="dirfuzz"]');
+    const webappPanel = document.getElementById('webapp-panel-dirfuzz');
 
-    // Open first
-    panel.classList.add('open');
+    if (!sidebarItem || !webappPanel) return; // skip if not in DOM
 
-    btn.addEventListener('click', () => {
-      if (panel.classList.contains('open')) {
-        panel.classList.remove('open');
-      } else {
-        panel.classList.add('open');
-      }
+    // Simulate the sidebar navigation logic from webapp/index.js
+    sidebarItem.addEventListener('click', () => {
+      document.querySelectorAll('#webapp-main .webapp-panel').forEach(p => {
+        p.style.display = p.id === 'webapp-panel-dirfuzz' ? 'flex' : 'none';
+      });
     });
 
-    btn.click();
-    expect(panel.classList.contains('open')).toBe(false);
+    webappPanel.style.display = 'none';
+    sidebarItem.click();
+    expect(webappPanel.style.display).toBe('flex');
   });
 
   it('close button removes "open" class from dirfuzz panel', () => {

@@ -194,6 +194,7 @@ function _wireProxyControls() {
     filteredRows = [];
     _renderVirtualRows();
     _showEmptyState(true);
+    _updateRequestCount();
   });
 
   btnExportHar?.addEventListener('click', async () => {
@@ -366,7 +367,7 @@ async function _probeHostInNetwork(host) {
     window.dispatchEvent(new CustomEvent('network:hostAdded', { detail: newHost }));
   }
 
-  document.querySelector('.workspace-tab[data-workspace="network"]')?.click();
+  document.querySelector('.ws-tab[data-workspace="network"]')?.click();
 }
 
 // ─── Virtual Scroll History Table ──────────────────────────────────────────────
@@ -442,9 +443,17 @@ function _wireHistoryTable() {
   });
 }
 
+function _updateRequestCount() {
+  const el = document.getElementById('webapp-request-count');
+  if (!el) return;
+  const n = allRows.length;
+  el.textContent = `${n} request${n !== 1 ? 's' : ''}`;
+}
+
 function _appendToHistory(record) {
   allRows.unshift(record);
   filteredRows.unshift(record); // prepend — newest first
+  _updateRequestCount();
   _showEmptyState(false);
   _renderVirtualRows();
 }
@@ -715,6 +724,31 @@ function _updateInterceptUI() {
     if (!interceptOn) interceptEmpty.textContent = 'Intercept mode is off.';
     else interceptEmpty.textContent = 'Waiting for a request…';
   }
+
+  // Sync the toolbar intercept button with current intercept state
+  syncInterceptToolbarBtn(interceptOn);
+}
+
+/** Toggle intercept mode: update state, checkbox, API, and toolbar button. */
+export async function toggleIntercept() {
+  const newState = !state.proxy.interceptMode;
+  state.proxy.interceptMode = newState;
+  if (interceptToggle) interceptToggle.checked = newState;
+  await api.proxy?.setIntercept?.(newState);
+  syncInterceptToolbarBtn(newState);
+}
+
+/** Keep the toolbar intercept button in sync with proxy intercept state. */
+export function syncInterceptToolbarBtn(isActive) {
+  const btn = document.getElementById('btn-proxy-intercept');
+  if (!btn) return;
+  btn.classList.toggle('intercept-on',  isActive);
+  btn.classList.toggle('intercept-off', !isActive);
+  const icon = btn.querySelector('.icon');
+  if (icon) icon.textContent = isActive ? '⏹' : '⏸';
+  btn.title = isActive
+    ? 'Intercept ON — click to forward all requests'
+    : 'Intercept OFF — click to start intercepting';
 }
 
 // ─── WebSocket Panel ──────────────────────────────────────────────────────────

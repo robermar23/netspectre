@@ -317,7 +317,7 @@ async function _probeHostInNetwork(url) {
     window.dispatchEvent(new CustomEvent('network:hostAdded', { detail: newHost }));
   }
 
-  document.querySelector('.workspace-tab[data-workspace="network"]')?.click();
+  document.querySelector('.ws-tab[data-workspace="network"]')?.click();
 }
 
 // ─── Crawl Lifecycle ──────────────────────────────────────────────────────────
@@ -735,7 +735,7 @@ function _handleContextAction(action, url) {
     }
     case 'send-dirfuzzer':
       // Switch to the Network workspace first so the panel is visible.
-      document.querySelector('.workspace-tab[data-workspace="network"]')?.click();
+      document.querySelector('.ws-tab[data-workspace="network"]')?.click();
       openDirFuzzPanel(url);
       break;
     case 'api-detect':

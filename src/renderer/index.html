@@ -32,146 +32,226 @@
         title="Dismiss">✕</button>
     </div>
 
-    <!-- Header / Controls -->
-    <header class="glass-panel main-header" style="flex-direction: column; gap: 16px; align-items: stretch;">
-      <div class="header-top" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-        <div class="header-titles" style="display: flex; align-items: center; gap: 14px;">
-          <img src="./icon.png" alt="NetSpecter Icon"
-            style="height: 38px; width: auto; object-fit: contain; filter: drop-shadow(0 0 8px rgba(0, 255, 128, 0.4));">
+    <!-- ── Header ─────────────────────────────────────────────────────────────── -->
+    <header class="glass-panel main-header">
+
+      <!-- Row 1: Universal — always visible -->
+      <div class="header-universal">
+
+        <div class="header-brand">
+          <img src="./icon.png" alt="NetSpecter Icon">
           <div>
-            <h1 style="margin: 0; line-height: 1.2; font-size: 24px; letter-spacing: -0.5px;">NetSpecter</h1>
-            <p class="subtitle" id="status-text" style="margin: 0; font-size: 13px; opacity: 0.8;">Ready to scan.</p>
+            <h1>NetSpecter</h1>
+            <p class="subtitle" id="status-text">Ready to scan.</p>
           </div>
         </div>
 
-        <div class="control-group">
-          <button id="btn-add-hosts" class="btn primary">
+        <nav class="workspace-switcher" aria-label="Workspace">
+          <button class="ws-tab active" data-workspace="network" title="Network Scanning Workspace">
+            <span class="icon">🌐</span> Network
+          </button>
+          <button class="ws-tab" data-workspace="webapp" title="Web Application Security Workspace">
+            <span class="icon">🕷️</span> Web App
+            <span id="proxy-intercept-badge" class="intercept-badge" style="display:none;"></span>
+          </button>
+        </nav>
+
+        <div class="header-global-actions">
+          <button id="btn-save"     class="btn secondary" title="Save current session">Save</button>
+          <button id="btn-load"     class="btn secondary" title="Load a saved session">Load</button>
+          <div class="h-divider"></div>
+          <button id="btn-settings" class="btn secondary" title="Settings">
+            <span class="icon">⚙️</span> Settings
+          </button>
+          <div class="h-divider"></div>
+          <button id="btn-exit"     class="btn danger-outline" title="Exit NetSpecter">Exit</button>
+        </div>
+
+      </div><!-- /.header-universal -->
+
+      <!-- ── Row 2a: Network contextual toolbar ─────────────────────────────── -->
+      <div class="header-contextual header-network" id="toolbar-network" role="toolbar"
+           aria-label="Network workspace tools">
+
+        <!-- A: Scope management -->
+        <div class="toolbar-group" data-group="scope">
+          <button id="btn-add-hosts" class="btn primary" title="Add hosts to scan">
             <span class="icon">＋</span> Add Hosts
           </button>
           <button id="btn-blacklist" class="btn secondary" title="Manage Out-of-Scope Blacklist">
             <span class="icon">🛡️</span> Blacklist
           </button>
-          <div class="divider"></div>
-          <button id="btn-save" class="btn secondary">Save</button>
-          <button id="btn-load" class="btn secondary">Load</button>
-          <button id="btn-clear" class="btn secondary">Clear</button>
-          <div class="divider"></div>
-          <button id="btn-settings" class="btn secondary" title="Settings">
-            <span class="icon">⚙️</span> Settings
-          </button>
-          <div class="divider msf-only" style="display: none;"></div>
-          <button id="btn-msf-open" class="btn pentest msf-only" title="Metasploit RPC" style="display: none;">
-            <span class="icon">💀</span> Metasploit
-          </button>
-          <div class="divider"></div>
+          <button id="btn-clear" class="btn secondary" title="Clear all discovered hosts">Clear</button>
+        </div>
+
+        <div class="h-divider"></div>
+
+        <!-- B: Offensive pentest tools -->
+        <div class="toolbar-group" data-group="offense">
           <button id="btn-revshell-open" class="btn pentest" title="Reverse Shell Listener">
             <span class="icon">💻</span> RevShell
           </button>
           <button id="btn-credspray-open" class="btn pentest" title="Default Credential Spray">
             <span class="icon">🔑</span> Cred Spray
           </button>
-          <button id="btn-share-enum-open" class="btn pentest smbclient-only" title="SMB/NFS Share Enumeration"
-            style="display: none;">
+          <button id="btn-share-enum-open" class="btn pentest smbclient-only"
+                  title="SMB/NFS Share Enumeration" style="display:none;">
             <span class="icon">📂</span> Shares
           </button>
-          <button id="btn-dirfuzz-open" class="btn pentest" title="Web Directory Fuzzer">
-            <span class="icon">🔎</span> Dir Fuzz
+          <button id="btn-msf-open" class="btn pentest msf-only"
+                  title="Metasploit RPC" style="display:none;">
+            <span class="icon">💀</span> Metasploit
           </button>
-          <button id="btn-hardening-open" class="btn hardening" title="Hardening Monitor — Continuous Delta Monitoring">
+        </div>
+
+        <div class="h-divider"></div>
+
+        <!-- C: Passive / monitoring -->
+        <div class="toolbar-group" data-group="passive">
+          <button id="btn-hardening-open" class="btn hardening"
+                  title="Hardening Monitor — Continuous Delta Monitoring">
             <span class="icon">🛡</span> Monitor
             <span id="hardening-alert-badge" class="hardening-badge" style="display:none;"></span>
           </button>
-          <button id="btn-cloudenum-open" class="btn cloudenum" title="Container &amp; Cloud Enumeration — Probe for Docker, Kubernetes, etcd, cloud metadata">
+          <button id="btn-cloudenum-open" class="btn cloudenum"
+                  title="Container &amp; Cloud Enumeration">
             <span class="icon">🐳</span> Cloud Enum
             <span id="cloudenum-finding-badge" class="cloudenum-badge" style="display:none;"></span>
           </button>
-          <div class="divider"></div>
-          <button id="btn-exit" class="btn danger-outline">Exit</button>
+          <button id="btn-toggle-vlan-panel" class="btn secondary tshark-only"
+                  title="VLAN Discovery" style="display:none;">
+            <span class="icon">🦈</span> VLAN
+          </button>
+          <button id="btn-toggle-passive-panel" class="btn secondary tshark-only"
+                  title="Passive Intelligence" style="display:none;">
+            <span class="icon">🕵️</span> Intel
+          </button>
         </div>
-      </div>
 
-      <div class="header-bottom"
-        style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-        <div class="filter-group" style="display: flex; gap: 8px; align-items: center;">
-          <input type="text" id="filter-ip" class="text-input" placeholder="IP...">
-          <input type="text" id="filter-os" class="text-input" placeholder="OS...">
-          <input type="text" id="filter-vendor" class="text-input" placeholder="Vendor...">
+        <div class="h-divider"></div>
 
-          <div class="divider"></div>
-
+        <!-- D: Filters -->
+        <div class="toolbar-group toolbar-group--filters" data-group="filters">
+          <input type="text" id="filter-ip"     class="text-input" placeholder="IP…">
+          <input type="text" id="filter-os"     class="text-input" placeholder="OS…">
+          <input type="text" id="filter-vendor" class="text-input" placeholder="Vendor…">
+          <div class="h-divider"></div>
           <select id="sort-select" class="dropdown-select">
             <option value="ip">Sort IP</option>
             <option value="os">Sort OS</option>
             <option value="vendor">Sort Vendor</option>
           </select>
-          <button id="btn-sort-dir" class="btn secondary icon-only" title="Toggle Sort Direction"
-            data-dir="asc">⬇️</button>
-
-          <div class="divider"></div>
-          <span class="subtitle" id="result-count-text">Showing 0 of 0 hosts</span>
+          <button id="btn-sort-dir" class="btn secondary icon-only"
+                  title="Toggle Sort Direction" data-dir="asc">⬇️</button>
+          <div class="h-divider"></div>
+          <span class="subtitle" id="result-count-text" title="Visible hosts / total hosts">0 / 0 hosts</span>
         </div>
 
-        <div class="action-group" style="display: flex; gap: 12px; align-items: center;">
-          <div id="scan-all-group" class="scan-all-group" style="display: none;">
+        <!-- E: Scan-all + view toggles (right-aligned) -->
+        <div class="toolbar-group toolbar-group--right" data-group="view">
+
+          <div id="scan-all-group" class="scan-all-group" style="display:none;">
             <button id="btn-deep-scan-all" class="btn info scan-all-main"
-              title="Run selected scan type against all visible hosts">
-              <span class="icon">⚡</span> <span id="scan-all-label">Deep Scan All</span>
+                    title="Run selected scan type against all visible hosts">
+              <span class="icon">⚡</span>
+              <span id="scan-all-label">Deep Scan All</span>
             </button>
-            <button id="btn-scan-all-menu" class="btn info scan-all-toggle" title="Choose scan type">▾</button>
+            <button id="btn-scan-all-menu" class="btn info scan-all-toggle"
+                    title="Choose scan type">▾</button>
             <div id="scan-all-dropdown" class="scan-all-dropdown hidden">
               <button class="scan-all-option active" data-scan-type="native" data-label="Deep Scan All">
                 <span class="icon">⚡</span> Native Deep Scan
               </button>
-              <button class="scan-all-option nmap-only" data-scan-type="nmap-host" data-label="Nmap Host Scan All"
-                style="display: none;">
+              <button class="scan-all-option nmap-only" data-scan-type="nmap-host"
+                      data-label="Nmap Host Scan All" style="display:none;">
                 <span class="icon">🖥️</span> Nmap Host Scan
               </button>
-              <button class="scan-all-option nmap-only" data-scan-type="nmap-vuln" data-label="Nmap Vuln Scan All"
-                style="display: none;">
+              <button class="scan-all-option nmap-only" data-scan-type="nmap-vuln"
+                      data-label="Nmap Vuln Scan All" style="display:none;">
                 <span class="icon">🛡️</span> Nmap Vuln Scan
               </button>
-              <button class="scan-all-option nmap-only" data-scan-type="nmap-deep" data-label="Nmap Deep Scan All"
-                style="display: none;">
+              <button class="scan-all-option nmap-only" data-scan-type="nmap-deep"
+                      data-label="Nmap Deep Scan All" style="display:none;">
                 <span class="icon">☢️</span> Nmap Deep Scan
               </button>
             </div>
           </div>
-          <div class="divider"></div>
-          <button id="btn-toggle-vlan-panel" class="btn secondary tshark-only" title="VLAN Discovery"
-            style="display: none;">
-            <span class="icon">🦈</span> VLAN Discovery
-          </button>
-          <div class="divider tshark-only" style="display: none;"></div>
-          <button id="btn-toggle-passive-panel" class="btn secondary tshark-only" title="Passive Intelligence"
-            style="display: none;">
-            <span class="icon">🕵️</span> Passive Intelligence
-          </button>
-          <div class="divider"></div>
-          <div class="view-toggles"
-            style="display: flex; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 2px; border: 1px solid var(--border-glass);">
-            <button id="btn-view-grid" class="btn icon-only active" title="Grid View"
-              style="padding: 4px 8px; border-radius: 4px; box-shadow: none;">⏹️</button>
-            <button id="btn-view-list" class="btn icon-only" title="List View"
-              style="padding: 4px 8px; border-radius: 4px; box-shadow: none;">☰</button>
-            <button id="btn-view-table" class="btn icon-only" title="Table View"
-              style="padding: 4px 8px; border-radius: 4px; box-shadow: none;">🗄️</button>
-            <button id="btn-view-topology" class="btn icon-only" title="Topology View"
-              style="padding: 4px 8px; border-radius: 4px; box-shadow: none;">📡</button>
-          </div>
-        </div>
-      </div>
-    </header>
 
-    <!-- Workspace Switcher Bar -->
-    <nav id="workspace-bar" class="workspace-bar">
-      <button class="workspace-tab active" data-workspace="network" title="Network Scanning Workspace">
-        <span class="icon">🌐</span> Network
-      </button>
-      <button class="workspace-tab" data-workspace="webapp" title="Web Application Security Workspace">
-        <span class="icon">🕷️</span> Web App
-        <span id="proxy-intercept-badge" class="intercept-badge" style="display:none;"></span>
-      </button>
-    </nav>
+          <div class="view-toggles">
+            <button id="btn-view-grid"     class="btn icon-only active" title="Grid View">⏹️</button>
+            <button id="btn-view-list"     class="btn icon-only"        title="List View">☰</button>
+            <button id="btn-view-table"    class="btn icon-only"        title="Table View">🗄️</button>
+            <button id="btn-view-topology" class="btn icon-only"        title="Topology View">📡</button>
+          </div>
+
+        </div>
+
+      </div><!-- /#toolbar-network -->
+
+      <!-- ── Row 2b: Web App contextual toolbar ─────────────────────────────── -->
+      <div class="header-contextual header-webapp" id="toolbar-webapp" role="toolbar"
+           aria-label="Web App workspace tools" hidden>
+
+        <!-- A: Proxy control -->
+        <div class="toolbar-group" data-group="target">
+          <button id="btn-proxy-intercept" class="btn webapp intercept-off"
+                  title="Toggle proxy intercept (pause/forward requests)">
+            <span class="icon">⏸</span> Intercept
+          </button>
+        </div>
+
+        <div class="h-divider"></div>
+
+        <!-- B: Active analysis tools -->
+        <div class="toolbar-group" data-group="webtools">
+          <button id="btn-webapp-scanner-open" class="btn webapp"
+                  title="Active Vulnerability Scanner">
+            <span class="icon">🔬</span> Scanner
+            <span id="webapp-vuln-badge" class="toolbar-vuln-badge" style="display:none;"></span>
+          </button>
+          <button id="btn-webapp-repeater-open" class="btn webapp"
+                  title="HTTP Repeater — manually craft &amp; resend requests">
+            <span class="icon">↩</span> Repeater
+          </button>
+          <button id="btn-webapp-intruder-open" class="btn webapp"
+                  title="Intruder — automated attack campaigns">
+            <span class="icon">⚡</span> Intruder
+          </button>
+          <button id="btn-webapp-dirfuzz-open" class="btn webapp"
+                  title="Web Directory Fuzzer">
+            <span class="icon">🔎</span> Dir Fuzz
+          </button>
+        </div>
+
+        <div class="h-divider"></div>
+
+        <!-- C: Session management -->
+        <div class="toolbar-group" data-group="session">
+          <button id="btn-webapp-history-clear" class="btn secondary"
+                  title="Clear all captured proxy history">
+            <span class="icon">🗑</span> Clear History
+          </button>
+          <button id="btn-webapp-export-har" class="btn secondary"
+                  title="Export captured history as HAR 1.2 file">
+            <span class="icon">⬇</span> Export HAR
+          </button>
+        </div>
+
+        <!-- D: Right-aligned live counters -->
+        <div class="toolbar-group toolbar-group--right" data-group="webapp-status">
+          <span id="webapp-request-count" class="toolbar-badge" title="Captured requests">
+            0 requests
+          </span>
+          <span id="webapp-finding-count" class="toolbar-badge toolbar-badge--warn"
+                title="Open vulnerability findings" style="display:none;">
+            0 findings
+          </span>
+        </div>
+
+      </div><!-- /#toolbar-webapp -->
+
+    </header>
+    <!-- ── (workspace-bar <nav> removed — switcher is now in .header-universal) ── -->
 
     <!-- NETWORK WORKSPACE -->
     <div id="ws-network" class="workspace-container active">
@@ -1468,6 +1548,10 @@
             <span class="sidebar-icon">🔍</span>
             <span class="sidebar-label">Scanner</span>
           </button>
+          <button class="sidebar-item" data-panel="dirfuzz" title="Web Directory Fuzzer">
+            <span class="sidebar-icon">🔎</span>
+            <span class="sidebar-label">Dir Fuzz</span>
+          </button>
           <button class="sidebar-item" data-panel="repeater" title="Request Repeater (Phase 7D)">
             <span class="sidebar-icon">↩️</span>
             <span class="sidebar-label">Repeater</span>
@@ -1988,6 +2072,12 @@
             </div>
 
           </section><!-- end #webapp-panel-scanner -->
+
+          <!-- DIR FUZZ PANEL (Web App Workspace) — reuses IPC from dirFuzzer.js -->
+          <section id="webapp-panel-dirfuzz" class="webapp-panel" style="display:none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;">
+            <!-- The dirFuzz module populates this panel via _initWebAppPanel() -->
+          </section><!-- end #webapp-panel-dirfuzz -->
+
           <!-- REPEATER PANEL (7D) — dynamically rendered by repeater.js -->
           <section id="webapp-panel-repeater" class="webapp-panel" style="display:none;"></section>
 

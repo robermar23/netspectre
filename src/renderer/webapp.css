@@ -21,44 +21,8 @@
   --method-patch:        #a855f7;
 }
 
-/* ── Workspace Bar ───────────────────────────────────────────────────────────── */
-.workspace-bar {
-  display: flex;
-  gap: 4px;
-  padding: 6px 8px;
-  background: var(--bg-panel);
-  backdrop-filter: var(--blur-glass);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-md);
-  flex-shrink: 0;
-}
-
-.workspace-tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  position: relative;
-}
-
-.workspace-tab:hover {
-  background: rgba(255,255,255,0.06);
-  color: var(--text-main);
-}
-
-.workspace-tab.active {
-  background: rgba(139,92,246,0.15);
-  border-color: var(--webapp-btn);
-  color: var(--text-main);
-}
+/* ── Workspace Bar (REMOVED — switcher now in .header-universal) ─────────────── */
+/* .workspace-bar, .workspace-tab rules deleted; replaced by .workspace-switcher / .ws-tab in style.css */
 
 /* ── Workspace Containers ──────────────────────────────────────────────────── */
 .workspace-container {
@@ -188,6 +152,38 @@
 .btn.webapp:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* ── Web App Toolbar (header-contextual row) ─────────────────────────────────── */
+
+/* Intercept button state when ON */
+.btn.webapp.intercept-on {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid var(--intercept-active);
+  color: var(--intercept-active);
+  animation: intercept-pulse 1.5s ease infinite;
+}
+
+@keyframes intercept-pulse {
+  0%, 100% { box-shadow: 0 0 0 0   var(--intercept-pulse); }
+  50%       { box-shadow: 0 0 0 6px transparent; }
+}
+
+/* Vulnerability badge appended to Scanner toolbar button */
+.toolbar-vuln-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--severity-critical);
+  color: #fff;
+  margin-left: 2px;
+  line-height: 1;
 }
 
 /* ── Proxy Controls Bar ──────────────────────────────────────────────────────── */
