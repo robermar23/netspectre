@@ -14,6 +14,8 @@ import { init as initIntruder, openWithRequest as openIntruderWith } from './int
 import { init as initSequencer }                         from './sequencer.js';
 import { init as initDecoder }                           from './decoder.js';
 import { init as initComparer }                          from './comparer.js';
+import { init as initWsFuzzer, openWithUrl as openWsFuzzerUrl } from './wsFuzzer.js';
+import { init as initOast } from './oast.js';
 
 // ─── Workspace Switcher ────────────────────────────────────────────────────────
 
@@ -216,6 +218,8 @@ export function init() {
   initSequencer();
   initDecoder();
   initComparer();
+  initWsFuzzer();
+  initOast();
 
   // Expose pivot functions globally for cross-workspace integration
   window.__openWebAppWorkspace = openInWebApp;
@@ -232,5 +236,12 @@ export function init() {
       const dfInput = document.getElementById('wdf-target-url');
       if (dfInput) dfInput.value = url;
     }
+  };
+
+  // WS Fuzzer pivot: switch workspace, open wsfuzzer panel, pre-fill URL
+  window.__openWsFuzzerPanel = (url) => {
+    document.querySelector('.ws-tab[data-workspace="webapp"]')?.click();
+    document.querySelector('#webapp-sidebar [data-panel="wsfuzzer"]')?.click();
+    if (url) openWsFuzzerUrl(url);
   };
 }

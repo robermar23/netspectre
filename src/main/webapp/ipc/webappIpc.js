@@ -36,6 +36,8 @@ import {
 import {
   collectTokens, stopCollection, analyzeTokens,
 } from '../sequencerEngine.js';
+import { registerIpcHandlers as registerOastHandlers, stopOast } from '../oastManager.js';
+import { registerIpcHandlers as registerWsFuzzerHandlers, cleanupWsFuzz } from '../wsFuzzer.js';
 import zlib from 'zlib';
 import crypto from 'crypto';
 
@@ -44,6 +46,10 @@ const MAX_DECODER_INPUT   = 4 * 1024 * 1024; // 4 MB for any transform
 const MAX_GZIP_COMPRESSED = 1 * 1024 * 1024; // 1 MB base64 input before gzip-decompress
 
 export function registerIpcHandlers(ipcMain, getWindow) {
+
+  // ─── Feature 7E — OAST + WebSocket Fuzzer ────────────────────────────────────
+  registerOastHandlers(ipcMain, getWindow);
+  registerWsFuzzerHandlers(ipcMain, getWindow);
 
   // ─── Proxy Lifecycle ─────────────────────────────────────────────────────────
 
@@ -584,6 +590,8 @@ export function cleanupWebapp() {
   cleanupIntruder();
   stopCollection();
   closeRequestStore();
+  stopOast();
+  cleanupWsFuzz();
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────

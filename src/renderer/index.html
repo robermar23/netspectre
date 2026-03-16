@@ -1572,6 +1572,16 @@
             <span class="sidebar-icon">⇄</span>
             <span class="sidebar-label">Comparer</span>
           </button>
+          <!-- Phase 7E separaor -->
+          <div class="sidebar-separator" title="Phase 7E — Advanced"></div>
+          <button class="sidebar-item" data-panel="wsfuzzer" title="WebSocket Fuzzer (Phase 7E)">
+            <span class="sidebar-icon">🔌</span>
+            <span class="sidebar-label">WS Fuzz</span>
+          </button>
+          <button class="sidebar-item" data-panel="oast" title="OAST Listener (Phase 7E)">
+            <span class="sidebar-icon">📡</span>
+            <span class="sidebar-label">OAST</span>
+          </button>
         </nav>
         <div id="webapp-sidebar-toggle" class="webapp-sidebar-toggle" title="Toggle Sidebar">‹</div>
 
@@ -2006,6 +2016,23 @@
                       <input type="checkbox" class="scanner-module-cb" value="deserialize" checked>
                       <span class="scanner-module-chip severity-medium">Deserial.</span>
                     </label>
+                    <!-- Phase 7E modules -->
+                    <label class="scanner-module-label" title="GraphQL Security — introspection, batch abuse, nested DoS, field suggestions, SQLi via arguments">
+                      <input type="checkbox" class="scanner-module-cb" value="graphql" checked>
+                      <span class="scanner-module-chip module-chip" data-module="graphql" style="border-color:#a78bfa;color:#a78bfa;">GraphQL</span>
+                    </label>
+                    <label class="scanner-module-label" title="JWT Attack Suite — alg:none, weak HMAC, kid injection, jku spoofing, expired tokens">
+                      <input type="checkbox" class="scanner-module-cb" value="jwtAttack" checked>
+                      <span class="scanner-module-chip module-chip" data-module="jwtAttack" style="border-color:#fb923c;color:#fb923c;">JWT</span>
+                    </label>
+                    <label class="scanner-module-label" title="OAuth/OIDC Misconfiguration — open redirect_uri, missing state, token in URL, implicit flow">
+                      <input type="checkbox" class="scanner-module-cb" value="oauthScan" checked>
+                      <span class="scanner-module-chip module-chip" data-module="oauthScan" style="border-color:#38bdf8;color:#38bdf8;">OAuth</span>
+                    </label>
+                    <label class="scanner-module-label" title="Open Redirect Detection — 8 bypass variants, HTTP and JS/meta body redirects">
+                      <input type="checkbox" class="scanner-module-cb" value="openRedirect" checked>
+                      <span class="scanner-module-chip module-chip" data-module="openRedirect" style="border-color:#fbbf24;color:#fbbf24;">Redirect</span>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -2092,6 +2119,79 @@
 
           <!-- COMPARER PANEL (7D) — dynamically rendered by comparer.js -->
           <section id="webapp-panel-comparer" class="webapp-panel" style="display:none;"></section>
+
+          <!-- WS FUZZER PANEL (7E) — dynamically rendered by wsFuzzer.js -->
+          <section id="webapp-panel-wsfuzzer" class="webapp-panel" style="display:none; flex-direction:column; flex:1; min-height:0; overflow:hidden;"></section>
+
+          <!-- OAST PANEL (7E) -->
+          <section id="webapp-panel-oast" class="webapp-panel oast-panel" style="display:none; flex-direction:column; flex:1; min-height:0;">
+            <div class="panel-header" style="padding:14px 18px 10px; flex-shrink:0;">
+              <h3 style="margin:0; font-size:14px; font-weight:600; color:var(--oast-accent,#34d399);">
+                📡 OAST — Out-of-Band Callback Listener
+              </h3>
+              <p style="margin:4px 0 0; font-size:11px; color:var(--text-muted);">
+                Starts a local HTTP server. Inject the generated URLs into scanner payloads to confirm blind SSRF, XXE, CMDi, and GraphQL vulnerabilities via out-of-band callbacks.
+              </p>
+            </div>
+
+            <!-- Config + controls -->
+            <div class="glass-panel" style="margin:0 16px; padding:12px 14px; flex-shrink:0; display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+              <div>
+                <label class="form-label">Listener Port</label>
+                <input id="oast-port" type="number" class="text-input" style="width:90px;" value="7331" min="1025" max="65534" />
+              </div>
+              <button id="oast-start-btn" class="btn" style="background:var(--oast-accent,#34d399);color:#000;font-weight:600;">▶ Start</button>
+              <button id="oast-stop-btn"  class="btn danger-outline" disabled>⏹ Stop</button>
+              <div id="oast-status-badge" style="display:none; padding:4px 12px; border-radius:12px; font-size:11px; font-weight:600; background:rgba(52,211,153,0.15); color:var(--oast-accent,#34d399); border:1px solid var(--oast-accent,#34d399);">
+                ● Listening
+              </div>
+              <div id="oast-url-display" style="display:none; font-family:monospace; font-size:11px; color:var(--text-muted); flex:1; word-break:break-all;"></div>
+            </div>
+
+            <!-- OAST token generator -->
+            <div class="glass-panel" style="margin:8px 16px 0; padding:10px 14px; flex-shrink:0; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <span style="font-size:11px; color:var(--text-muted);">Generate probe URL:</span>
+              <input id="oast-token-meta" type="text" class="text-input" style="flex:1; min-width:160px;" placeholder='Label / context (optional)' />
+              <button id="oast-gen-btn" class="btn secondary" style="font-size:11px;">Generate Token</button>
+              <input id="oast-token-out" type="text" class="text-input" style="flex:2; min-width:200px; font-family:monospace; font-size:11px; color:var(--oast-accent,#34d399);" readonly placeholder="(token URL appears here)" />
+              <button id="oast-copy-btn" class="btn secondary icon-only" title="Copy to clipboard" style="font-size:11px;">📋</button>
+            </div>
+
+            <!-- Callbacks table toolbar -->
+            <div style="padding:6px 16px; display:flex; gap:8px; align-items:center; flex-shrink:0;">
+              <span style="font-size:12px; font-weight:600; color:var(--oast-accent,#34d399);">Callbacks</span>
+              <span id="oast-callback-count" style="font-size:11px; color:var(--text-muted);">0 received</span>
+              <div style="flex:1;"></div>
+              <button id="oast-clear-btn" class="btn secondary" style="font-size:11px; padding:3px 10px;">Clear</button>
+            </div>
+
+            <!-- Callbacks table -->
+            <div style="flex:1; min-height:0; overflow:auto; padding:0 16px 16px;">
+              <table class="data-table" style="width:100%; font-size:11px; table-layout:fixed;">
+                <colgroup>
+                  <col style="width:140px;" />
+                  <col style="width:120px;" />
+                  <col style="width:100px;" />
+                  <col style="width:auto;" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Remote IP</th>
+                    <th>Method</th>
+                    <th>Context / Token</th>
+                  </tr>
+                </thead>
+                <tbody id="oast-callbacks-tbody">
+                  <tr id="oast-empty-row">
+                    <td colspan="4" style="text-align:center; color:var(--text-muted); padding:24px;">
+                      No callbacks yet. Start the listener and inject OAST URLs into scanner probes.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section><!-- end #webapp-panel-oast -->
         </main>
       </div>
     </div> <!-- End #ws-webapp -->

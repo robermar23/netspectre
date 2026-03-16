@@ -2757,3 +2757,112 @@
 }
 .diff-eq   { color: var(--text-main); }
 .diff-empty { display: block; background: rgba(0,0,0,0.15); min-height: 1.5em; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Feature 7E — Out-of-Band & Advanced Detection Styles
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --oast-accent:       #34d399;   /* emerald green — OAST callbacks */
+  --oast-bg:           rgba(52, 211, 153, 0.08);
+  --wsfuzz-accent:     #f97316;   /* orange — ws fuzzer (matches pentest) */
+  --wsfuzz-anomaly-bg: rgba(239, 68, 68, 0.07);
+}
+
+/* ── Sidebar separator between 7D and 7E tools ─────────────────────────────── */
+.sidebar-separator {
+  height: 1px;
+  background: rgba(255,255,255,0.1);
+  margin: 4px 8px;
+  flex-shrink: 0;
+}
+
+/* ── WebSocket Fuzzer panel layout ──────────────────────────────────────────── */
+.wsfuzz-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+}
+
+.wsfuzz-config {
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+#wsf-tbody tr.anomaly-row {
+  background: var(--wsfuzz-anomaly-bg);
+}
+
+/* ── OAST panel ──────────────────────────────────────────────────────────────── */
+.oast-panel {
+  background: var(--webapp-panel-bg);
+}
+
+.oast-panel .panel-header h3 {
+  color: var(--oast-accent);
+}
+
+#oast-callbacks-tbody tr {
+  border-left: 3px solid transparent;
+  transition: border-color 0.2s;
+}
+#oast-callbacks-tbody tr:hover {
+  border-left-color: var(--oast-accent);
+  background: var(--oast-bg);
+}
+
+/* Pulse animation for the listening badge */
+#oast-status-badge {
+  animation: oast-pulse 2s ease-in-out infinite;
+}
+
+@keyframes oast-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+/* ── Scanner module chips for 7E (in scanner panel module selector) ──────────── */
+.module-chip[data-module="graphql"]      { border-color: #a78bfa; }
+.module-chip[data-module="graphql"]:hover,
+.module-chip[data-module="graphql"].active { background: rgba(167,139,250,0.2); color: #a78bfa; }
+
+.module-chip[data-module="jwtAttack"]    { border-color: #fb923c; }
+.module-chip[data-module="jwtAttack"]:hover,
+.module-chip[data-module="jwtAttack"].active { background: rgba(251,146,60,0.2); color: #fb923c; }
+
+.module-chip[data-module="oauthScan"]   { border-color: #38bdf8; }
+.module-chip[data-module="oauthScan"]:hover,
+.module-chip[data-module="oauthScan"].active { background: rgba(56,189,248,0.2); color: #38bdf8; }
+
+.module-chip[data-module="openRedirect"] { border-color: #fbbf24; }
+.module-chip[data-module="openRedirect"]:hover,
+.module-chip[data-module="openRedirect"].active { background: rgba(251,191,36,0.2); color: #fbbf24; }
+
+/* ── WS pivot badge on network host cards ────────────────────────────────────── */
+.web-ws-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(249,115,22,0.2);
+  color: var(--wsfuzz-accent);
+  border: 1px solid var(--wsfuzz-accent);
+  cursor: pointer;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.web-ws-badge:hover {
+  background: rgba(249,115,22,0.35);
+}
+
+/* ── OAST token output field ─────────────────────────────────────────────────── */
+#oast-token-out {
+  background: rgba(52,211,153,0.05);
+  border-color: rgba(52,211,153,0.3);
+}
+#oast-token-out:focus {
+  border-color: var(--oast-accent);
+  box-shadow: 0 0 0 2px rgba(52,211,153,0.2);
+}

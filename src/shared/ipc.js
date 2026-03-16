@@ -252,4 +252,22 @@ export const IPC_CHANNELS = {
 
   DECODER_TRANSFORM:          'decoder-transform',
   DECODER_RESULT:             'decoder-result',              // main → renderer
+
+  // ─── Feature 7E — Out-of-Band & Advanced Detection ───────────────────────────
+
+  // OAST (Out-of-Band Application Security Testing)
+  OAST_START:                 'oast-start',                  // renderer → main (start listener)
+  OAST_STOP:                  'oast-stop',                   // renderer → main
+  OAST_STATUS:                'oast-status',                 // main → renderer
+  OAST_CALLBACK:              'oast-callback',               // main → renderer (hit received)
+  OAST_GET_TOKEN:             'oast-get-token',              // renderer → main (allocate probe token)
+  OAST_CLEAR:                 'oast-clear',                  // renderer → main
+
+  // WebSocket Fuzzer
+  WS_FUZZ_START:              'ws-fuzz-start',               // renderer → main
+  WS_FUZZ_STOP:               'ws-fuzz-stop',                // renderer → main
+  WS_FUZZ_RESULT:             'ws-fuzz-result',              // main → renderer (per frame)
+  WS_FUZZ_PROGRESS:           'ws-fuzz-progress',            // main → renderer
+  WS_FUZZ_COMPLETE:           'ws-fuzz-complete',            // main → renderer
+  WS_FUZZ_ERROR:              'ws-fuzz-error',               // main → renderer
 };
