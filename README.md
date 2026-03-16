@@ -4,7 +4,7 @@
 
 # NetSpecter: Network Host Detection & Forensic Scanner
 
-**Version 1.18.0** — A modern, cross-platform desktop application built with Electron 40, Node.js, and Vanilla JS that provides deep network visibility, OS fingerprinting, forensic-level port scanning, passive packet intelligence, and a full-stack web application security testing workspace. Includes a comprehensive **Offensive Penetration Testing** suite for red team operations.
+**Version 1.21.0** — A modern, cross-platform desktop application built with Electron 40, Node.js, and Vanilla JS that provides deep network visibility, OS fingerprinting, forensic-level port scanning, passive packet intelligence, and a full-stack web application security testing workspace. Includes a comprehensive **Offensive Penetration Testing** suite for red team operations.
 
 ![App Dashboard Preview](resources/dashboard-preview.png)
 
@@ -78,10 +78,35 @@ NetSpecter includes a complete web application security testing workspace access
   - **HTTP Security Headers** — Missing `CSP`, `HSTS`, `X-Frame-Options`, `X-Content-Type-Options`, version disclosure, insecure cookie flags
   - **Broken Authentication** — Rate-limit bypass (20-request replay), username enumeration, weak credential testing, JWT inspection
   - **Deserialization** — PHP object injection, Java serialization gadget headers, Python pickle patterns, ViewState analysis
+  - **GraphQL Security** — Introspection enabled (schema disclosure), batch query abuse (rate-limit bypass), deeply nested query DoS, field suggestion leakage, SQL injection via resolver arguments, OAST-confirmed blind injection
+  - **JWT Attack Suite** — `alg:none` bypass, weak HMAC secret brute-force (15 common secrets), `kid` header path traversal / SQL injection, `jku`/`x5u` passive header spoofing detection, expired token acceptance, privilege claim escalation advisory
+  - **OAuth / OIDC Misconfiguration** — Open `redirect_uri` (unvalidated external redirect), missing `state` CSRF protection, authorization code leakage via Referer header, token in URL query parameter or fragment, deprecated implicit flow, missing PKCE on code flow, `client_secret` exposed in URL
+  - **Open Redirect** — 8 bypass technique variants (direct, `//`, `///`, backslash, URL-encoded, double-encoded, tab-encoded, `@`-sign), HTTP `Location` header detection and body-based JS / meta-refresh redirect detection
 - **Scan Targets**: URL (single target), Proxy History (bulk scan captured requests), or Sitemap (crawled endpoints)
 - **Live Findings Table**: Severity-sorted (Critical → Info), expandable rows with description, evidence, remediation, and OWASP/CVE reference links
 - **Network Badge Injection**: When a scanner finding URL matches a known network host, a `.web-vuln-badge` is injected onto the host card in the Network workspace
 - **Export**: JSON, CSV, and styled HTML report
+
+#### 📡 OAST Listener — Out-of-Band Callback Server (Feature 7E)
+
+- **Local HTTP Server**: Starts a zero-dependency HTTP callback server (`http` module only) bound on all interfaces (`0.0.0.0`) so that targets on the same LAN can reach it — not just localhost
+- **Interface Selector**: Dropdown populated at startup with all non-internal IPv4 NICs on the machine. Select the NIC whose IP should appear in generated callback URLs (e.g., select your lab VPN adapter, not your public Wi-Fi)
+- **Probe Token Generation**: Each token is 24 hex characters (12 random bytes). Tokens are tied to metadata (module name, target URL, parameter) so every callback is fully correlated to its originating probe
+- **Live Callback Table**: Incoming callbacks are shown in real time — remote IP, HTTP method, timestamp, and the full correlation context (which scanner module, which target, which payload)
+- **TTL Cleanup**: Unresolved tokens are automatically expired after 2 minutes to cap memory usage. Resolved (hit) tokens are kept for the session
+- **Scanner Integration**: SSRF, XXE, CMDi, and GraphQL scanner modules automatically use the OAST server when it is running, embedding callback URLs in injection payloads for blind out-of-band confirmation
+
+#### 🔌 WebSocket Fuzzer (Feature 7E)
+
+- **Zero External Dependencies**: Implements the full RFC 6455 WebSocket handshake and frame encoding/decoding using only Node.js `net` and `tls` modules — no `ws` npm package required
+- **Protocol Support**: Works with both `ws://` (plain) and `wss://` (TLS) endpoints. Validates and auto-converts `http://`/`https://` URLs typed in the Network workspace pivot
+- **Payload Sources**: Manual textarea (one payload per line) or file picker for large wordlists; arbitrary payload sizes supported (7-bit, 16-bit, and 64-bit WebSocket frame length variants all handled)
+- **Concurrency Control**: Semaphore-based parallelism — configure 1–20 simultaneous WebSocket connections. Each connection performs a full RFC 6455 upgrade handshake independently
+- **Anomaly Detection**: 8 built-in error pattern categories: Java exception stack traces, JavaScript errors, SQL syntax errors, Python tracebacks, PHP MySQL warnings, Internal Server Error strings, database access denied messages, PHP undefined variable warnings
+- **Timing-Based Detection**: Frames that exceed the configured timeout are flagged as timing anomalies — useful for time-based blind injection confirmation over WebSocket
+- **Results Table**: Per-payload results showing response text, duration in ms, frame types (text/binary/close), and anomaly badge. Filter to anomalies-only with a single checkbox
+- **CSV Export**: Export all results (including normal responses) for offline analysis
+- **Network Pivot**: `window.__openWsFuzzerPanel(url)` global allows the Network workspace to open the WS Fuzzer with a pre-populated URL from any HTTP-port context menu
 
 #### 🔁 Request Repeater (Feature 7D)
 
@@ -298,7 +323,9 @@ NetSpecter/
 │   │   │   ├── repeaterEngine.js # Raw HTTP request relay
 │   │   │   ├── intruderEngine.js # Fuzzer (Sniper/BatRam/Pitchfork/ClusterBomb)
 │   │   │   ├── sequencerEngine.js # Token entropy analysis
-│   │   │   ├── scanner/         # Vulnerability scanner modules (11 files)
+│   │   │   ├── oastManager.js   # OAST HTTP callback server + token lifecycle
+│   │   │   ├── wsFuzzer.js      # RFC 6455 WebSocket fuzzer (net/tls only)
+│   │   │   ├── scanner/         # Vulnerability scanner modules (15 files incl. 7E)
 │   │   │   └── ipc/webappIpc.js # Web app IPC handler registration
 │   │   ├── nmapScanner.js       # Nmap CLI orchestration + XML parsing
 │   │   ├── deepScanner.js       # Raw TCP 65535-port scanner
@@ -347,7 +374,9 @@ NetSpecter/
 │   │           ├── sequencer.js # Token sequencer UI
 │   │           ├── decoder.js   # Encoder/decoder UI
 │   │           ├── comparer.js  # Response diff UI
-│   │           └── scanner.js   # Vulnerability scanner UI
+│   │           ├── scanner.js   # Vulnerability scanner UI
+│   │           ├── wsFuzzer.js  # WebSocket fuzzer UI
+│   │           └── oast.js      # OAST listener panel UI
 │   └── shared/                  # Shared across all processes
 │       ├── ipc.js               # All IPC channel constants (source of truth)
 │       ├── networkConstants.js  # IP regexes, port sets, vendor map, payloads
@@ -455,7 +484,8 @@ Coverage output is generated in `coverage/` using `@vitest/coverage-v8`. The tar
 | Security Monitoring | `hardeningMonitor`, `securityAnalyzer`, `cloudEnum` | Monitoring and cloud enum |
 | App Core | `store`, `main`, `windowManager`, `networkConstants`, `topology` | Core infrastructure |
 | Renderer | `renderer/bruteForce`, `renderer/cloudEnum`, `renderer/credSpray`, `renderer/dirFuzz`, `renderer/hardeningMonitor`, `renderer/revshellUI`, `renderer/settings`, `renderer/shareEnum` | UI module unit tests |
-| Web App | `webapp/requestStore`, `webapp/proxyServer`, `webapp/crawler`, `webapp/activeCrawler`, `webapp/apiDetector`, `webapp/intruderEngine`, `webapp/sequencerEngine` | Full web app subsystem |
+| Web App | `webapp/requestStore`, `webapp/proxyServer`, `webapp/crawler`, `webapp/activeCrawler`, `webapp/apiDetector`, `webapp/intruderEngine`, `webapp/sequencerEngine`, `webapp/oastManager`, `webapp/wsFuzzer` | Full web app subsystem |
+| Web App Scanner | `webapp/scanner/graphql`, `webapp/scanner/jwtAttack`, `webapp/scanner/oauthScan`, `webapp/scanner/openRedirect` | Phase 7E scanner modules |
 
 ---
 
