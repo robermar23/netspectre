@@ -274,6 +274,8 @@ var IPC_CHANNELS = {
   // renderer → main (allocate probe token)
   OAST_CLEAR: "oast-clear",
   // renderer → main
+  OAST_GET_INTERFACES: "oast-get-interfaces",
+  // renderer → main (list local IPv4 interfaces)
   // WebSocket Fuzzer
   WS_FUZZ_START: "ws-fuzz-start",
   // renderer → main
@@ -527,6 +529,7 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   },
   // Feature 7E: OAST (Out-of-Band Application Security Testing)
   oast: {
+    getInterfaces: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.OAST_GET_INTERFACES),
     start: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.OAST_START, opts),
     stop: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.OAST_STOP),
     getToken: (meta) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.OAST_GET_TOKEN, meta),
