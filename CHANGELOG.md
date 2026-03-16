@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.20.0](https://github.com/robermar23/netspectre/compare/v1.19.0...v1.20.0) (2026-03-16)
+
+
+### Features
+
+* add web app dir fuzz panel with IPC integration and UI enhancements ([e8d59af](https://github.com/robermar23/netspectre/commit/e8d59afd93e676ee443f55f926e28353b12c4e4d))
+* enhance web app quick-actions for HTTP/HTTPS ports with scanning and sitemap options ([7333c46](https://github.com/robermar23/netspectre/commit/7333c463a18335903aad40226b4e97a64cddd046))
+* implement intercept toggle functionality in web app proxy ([0d011b5](https://github.com/robermar23/netspectre/commit/0d011b57c4a732fecb36202c4d866f1be41feb58))
+* Implement two-tier workspace-aware header redesign ([49e9918](https://github.com/robermar23/netspectre/commit/49e991865b30d39773c1e0ef5ec7001633825f86))
+
 ## [1.19.0](https://github.com/robermar23/netspectre/compare/v1.18.0...v1.19.0) (2026-03-15)
 
 
