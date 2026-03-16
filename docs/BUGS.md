@@ -43,10 +43,14 @@
   Starting passive module arp at tshark with args: -l -i Ethernet 2 -Y arp.opcode == 2 -T fields -e arp.src.proto_ipv4 -e arp.src.hw_mac -e arp.dst.proto_ipv4 -e arp.dst.hw_mac
   Starting passive capture module: creds on Ethernet 2
   Starting passive module creds at tshark with args: -l -i Ethernet 2 -Y ftp.request.command == USER or ftp.request.command == PASS or telnet.data or http.authorization contains     "Basic" or pop.request.command == USER or pop.request.command == PASS or imap.request contains "LOGIN" -T fields -e ip.src -e ip.dst -e tcp.dstport -e ftp.request.command -e ftp.request.arg -e http.authorization -e pop.request.command -e pop.request.arg -e imap.request   Passive module creds exited with code 1"
-- [ ] On the CloudEnum Panel, after you have discovered some hosts, the "scan host" button on each does nothing.
-- [ ] on the host details panel, under nmap, nmap-scripts.  It used to show info on each script, including it risk and what not.  All that no longer shows up
-- [ ] For the Cloud Enum feature, once a host is discovered, the cloud evidence needs to be stored with the host and show on the host detais panel. The host on the dashboard should get a badge as well signifying that cloud enum found data on it
-- [ ] On the host details panel, only the native port scan, shows options to connect to ports like 22,3389,443,80, etc.  Those ports, discovered by ANY means/tool should be an option under the main ports section where we already offer other netspectre feature quick access buttons.
+- [x] On the CloudEnum Panel, after you have discovered some hosts, the "scan host" button on each does nothing.
+- [x] on the host details panel, under nmap, nmap-scripts.  It used to show info on each script, including it risk and what not.  All that no longer shows up
+- [x] For the Cloud Enum feature, once a host is discovered, the cloud evidence needs to be stored with the host and show on the host detais panel. The host on the dashboard should get a badge as well signifying that cloud enum found data on it
+- [x] On the host details panel, only the native port scan, shows options to connect to ports like 22,3389,443,80, etc.  Those ports, discovered by ANY means/tool should be an option under the main ports section where we already offer other netspectre feature quick access buttons.
+- [ ] When a web vulnerability is found, I never see a web vulnerability badge appear on the host the web app is on.  I performed a web scan by IP and that host exists by that same IP.  The count should be included in the badge as well as show up on host details panel.  If the scan is performed on a domain and that domain matches the hostname of an existing host, it should update that host.  The web vulnerabilities should then also stick with the host in its json when the session is saved.
+- [ ] The Brute force feature appears as a modal.  Like every other features, this should be its own panel that is resizable.
+- [ ] Just like the Web workspace vulnerability scanner, the Web workspace SiteMap and DirFuzz features/panels need a visually appealing activity log
+
 
 
 

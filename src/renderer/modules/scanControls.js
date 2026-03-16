@@ -267,6 +267,18 @@ function getSecurityBadgeData(host) {
     };
   }
 
+  // Web vulnerability findings from the active scanner take high priority
+  if (host.hasWebVulns && host.webVulnCount > 0) {
+    const critical = (host.webVulnFindings || []).some(f =>
+      f.severity === 'critical' || f.severity === 'high'
+    );
+    return {
+      posture:    `${host.webVulnCount} Web Vuln${host.webVulnCount !== 1 ? 's' : ''}`,
+      badgeClass: critical ? 'danger' : 'warning',
+      icon:       '🌐',
+    };
+  }
+
   if (host.deepAudit && host.deepAudit.vulnerabilities > 0) {
     posture = `${host.deepAudit.vulnerabilities} Critical/High CVEs`;
     badgeClass = 'danger';

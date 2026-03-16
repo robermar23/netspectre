@@ -462,6 +462,50 @@ function _toggleExpand(id) {
 
 // ─── Network badge integration ────────────────────────────────────────────────
 
+const WEB_VULN_FINDINGS_CAP = 200;
+
+/**
+ * Attach a finding to a host object, maintaining a capped ring-buffer of
+ * findings and updating the count / flag for badge rendering.
+ */
+function _attachFindingToHost(host, finding) {
+  if (!Array.isArray(host.webVulnFindings)) host.webVulnFindings = [];
+  host.webVulnFindings.push(finding);
+  if (host.webVulnFindings.length > WEB_VULN_FINDINGS_CAP) {
+    host.webVulnFindings.shift();
+  }
+  host.webVulnCount = host.webVulnFindings.length;
+  host.hasWebVulns = true;
+}
+
+/**
+ * Update or create the web-vuln badge on a host card, reflecting the current count.
+ */
+function _refreshWebVulnBadge(card, host) {
+  if (!card) return;
+  let badge = card.querySelector('.web-vuln-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'web-vuln-badge';
+    badge.title = 'Web vulnerabilities found by active scanner';
+    card.querySelector('.host-meta')?.appendChild(badge);
+  }
+  const count = host.webVulnCount || 0;
+  badge.textContent = `⚠ Web Vulns${count > 0 ? ` (${count})` : ''}`;
+}
+
+/**
+ * Re-apply web-vuln badges to all host cards after a re-render.
+ * Called by the network workspace whenever hosts are re-rendered.
+ */
+export function reapplyWebVulnBadges() {
+  for (const host of (state.hosts || [])) {
+    if (!host.hasWebVulns) continue;
+    const card = document.querySelector(`.host-card[data-ip="${host.ip}"]`);
+    _refreshWebVulnBadge(card, host);
+  }
+}
+
 /**
  * Async — resolve the finding's hostname to an IP (with caching), then
  * stamp the matching network host card with a web-vuln badge.
@@ -492,15 +536,9 @@ async function _updateNetworkBadge(finding) {
   );
 
   if (match) {
-    match.hasWebVulns = true;
+    _attachFindingToHost(match, finding);
     const card = document.querySelector(`.host-card[data-ip="${match.ip}"]`);
-    if (card && !card.querySelector('.web-vuln-badge')) {
-      const badge = document.createElement('span');
-      badge.className = 'web-vuln-badge';
-      badge.textContent = '⚠ Web Vulns';
-      badge.title = 'Web vulnerabilities found by active scanner';
-      card.querySelector('.host-meta')?.appendChild(badge);
-    }
+    _refreshWebVulnBadge(card, match);
   }
 }
 

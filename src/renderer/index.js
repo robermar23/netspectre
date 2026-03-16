@@ -29,6 +29,7 @@ import { init as initDeepScan } from './modules/deepScan.js';
 import { init as initPassiveIntel } from './modules/passiveIntel.js';
 import { init as initPcap } from './modules/pcap.js';
 import { init as initWebApp } from './modules/webapp/index.js';
+import { reapplyWebVulnBadges } from './modules/webapp/scanner.js';
 
 // --- Boot Sequence ---
 
@@ -70,7 +71,13 @@ async function boot() {
   // 6. Scan controls — host grid, scope modal, scan-all orchestrator, scan IPC events.
   //    Pass openDetailsPanel so "View Details" card buttons work.
   //    Pass onHostsRendered so cloud-enum badges survive re-renders.
-  initScanControls({ openDetailsPanel: hostDetails.openPanel, onHostsRendered: cloudEnum.reapplyBadges });
+  initScanControls({
+    openDetailsPanel: hostDetails.openPanel,
+    onHostsRendered: () => {
+      cloudEnum.reapplyBadges();
+      reapplyWebVulnBadges();
+    },
+  });
 
   // 7. Wire openDetailsPanel into both scanControls (for late-rendered host cards)
   //    and hardeningMonitor (for "Investigate" alert buttons).

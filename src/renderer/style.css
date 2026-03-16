@@ -1881,12 +1881,6 @@ body {
   color: var(--text-main);
 }
 
-/* Brute-Force Modal */
-.bf-modal {
-  max-width: 560px;
-  width: 100%;
-}
-
 /* Range Slider (Pentest Accent) */
 .bf-range-slider {
   -webkit-appearance: none;

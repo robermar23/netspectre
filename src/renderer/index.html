@@ -1145,6 +1145,16 @@
           style="display: none; margin: 8px 16px 0; padding: 8px 12px; background: rgba(235,94,94,0.1); border-left: 3px solid var(--danger); border-radius: 4px; font-size: 12px; color: var(--danger); flex-shrink: 0;">
         </div>
 
+        <!-- Dir Fuzzer Activity Log -->
+        <div id="dirfuzz-activity-wrap" class="scanner-activity-wrap activity-collapsed" style="margin: 8px 16px 0; flex-shrink: 0;">
+          <div class="scanner-activity-header">
+            <button id="dirfuzz-activity-toggle" class="scanner-activity-toggle-btn">▸ Activity Log</button>
+            <span class="scanner-activity-hint">Per-request probe log — highlighted rows are hits</span>
+            <button id="dirfuzz-activity-clear" class="btn secondary scanner-activity-clear-btn">Clear Log</button>
+          </div>
+          <div id="dirfuzz-activity-list" class="scanner-activity-list"></div>
+        </div>
+
         <!-- Results table -->
         <div style="flex: 1; overflow-y: auto; min-height: 0; background: rgba(0,0,0,0.15);">
           <table class="data-table dirfuzz-results-table" style="width: 100%; font-size: 11px; table-layout: fixed;">
@@ -1176,6 +1186,134 @@
             style="font-size: 11px; padding: 4px 10px;">Clear</button>
           <button id="btn-dirfuzz-export" class="btn secondary" style="font-size: 11px; padding: 4px 10px;"
             disabled>Export CSV</button>
+        </div>
+      </aside>
+
+      <!-- Brute-Force Panel -->
+      <div id="bruteforce-resizer" class="resizer" style="display: none;"></div>
+      <aside id="bruteforce-panel" class="details-panel glass-panel" style="width: 580px; display: none;">
+        <div class="panel-header" style="border-bottom-color: rgba(231, 76, 60, 0.3);">
+          <h2><span class="icon">⚔️</span> Brute-Force Attack</h2>
+          <button id="btn-close-bruteforce-panel" class="btn icon-only" title="Close Panel">✕</button>
+        </div>
+
+        <div class="panel-body" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; flex: 1;">
+
+          <!-- Target Info -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">Target IP</label>
+              <input type="text" id="bf-target-ip" class="text-input full-width" placeholder="e.g. 192.168.1.10" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Port</label>
+              <input type="number" id="bf-port" class="text-input full-width" value="22" min="1" max="65535">
+            </div>
+          </div>
+
+          <!-- Protocol -->
+          <div class="form-group">
+            <label class="form-label">Protocol</label>
+            <select id="bf-protocol" class="dropdown-select full-width">
+              <option value="ssh">SSH (22)</option>
+              <option value="ftp">FTP (21)</option>
+              <option value="smb">SMB (445)</option>
+              <option value="smb2">SMB2 (445)</option>
+              <option value="rdp">RDP (3389)</option>
+              <option value="http-get">HTTP GET (80)</option>
+              <option value="http-post">HTTP POST (80)</option>
+              <option value="telnet">Telnet (23)</option>
+              <option value="mysql">MySQL (3306)</option>
+              <option value="mssql">MSSQL (1433)</option>
+              <option value="postgres">PostgreSQL (5432)</option>
+              <option value="vnc">VNC (5900)</option>
+            </select>
+          </div>
+
+          <!-- Credentials -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">Username
+                <span style="font-size: 10px; color: var(--text-muted);">(single login name)</span>
+              </label>
+              <input type="text" id="bf-username" class="text-input full-width" placeholder="e.g. admin">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password Wordlist
+                <span style="font-size: 10px; color: var(--text-muted);">(one per line)</span>
+              </label>
+              <div style="display: flex; gap: 6px;">
+                <input type="text" id="bf-wordlist-path" class="text-input" style="flex: 1;"
+                  placeholder="Select .txt file…" readonly>
+                <button id="btn-bf-browse-wordlist" class="btn secondary icon-only"
+                  title="Browse for password wordlist file">📂</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Options -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">
+                Threads <span id="bf-threads-val" style="color: var(--pentest);">4</span>
+              </label>
+              <input type="range" id="bf-threads" min="1" max="16" value="4" class="bf-range-slider">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Delay (ms)</label>
+              <input type="number" id="bf-delay" class="text-input full-width" value="0" min="0" max="10000">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Max Attempts</label>
+              <input type="number" id="bf-max-attempts" class="text-input full-width" value="10000" min="1" max="50000">
+            </div>
+          </div>
+
+          <!-- Controls -->
+          <div style="display: flex; gap: 8px;">
+            <button id="btn-bf-start" class="btn pentest full-width">
+              <span class="icon">⚔️</span> Start Attack
+            </button>
+            <button id="btn-bf-stop" class="btn danger-outline" style="width: 120px;" disabled>
+              <span class="icon">🛑</span> Stop
+            </button>
+          </div>
+
+          <!-- Progress -->
+          <div id="bf-progress-container" style="display: none;">
+            <div class="bf-progress-bar">
+              <div id="bf-progress-fill" class="bf-progress-fill"></div>
+            </div>
+            <div id="bf-progress-text" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">0 attempts</div>
+          </div>
+
+          <!-- Results Table -->
+          <div id="bf-results-container"
+            style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-glass); border-radius: 6px; background: rgba(0,0,0,0.3); flex-shrink: 0;">
+            <table class="data-table bf-results-table" style="width: 100%; font-size: 11px;">
+              <thead style="position: sticky; top: 0; background: #16161c; z-index: 1;">
+                <tr>
+                  <th style="width: 70px;">Time</th>
+                  <th>Username</th>
+                  <th>Password</th>
+                  <th style="width: 60px;">Status</th>
+                </tr>
+              </thead>
+              <tbody id="bf-results-body">
+                <tr>
+                  <td colspan="4" style="text-align:center; color: var(--text-muted); padding: 16px;">
+                    Configure and start an attack above
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Error Display -->
+          <div id="bf-error-display"
+            style="display: none; color: var(--danger); font-size: 12px; padding: 8px; background: rgba(235,94,94,0.1); border-radius: 4px; border-left: 3px solid var(--danger);">
+          </div>
+
         </div>
       </aside>
 
@@ -1788,6 +1926,16 @@
                 <div id="sitemap-progress-bar" class="sitemap-progress-bar" style="width:0%"></div>
               </div>
               <span id="sitemap-progress-label" class="sitemap-progress-label">Starting…</span>
+            </div>
+
+            <!-- SiteMap Activity Log -->
+            <div id="sitemap-activity-wrap" class="scanner-activity-wrap activity-collapsed" style="margin: 8px 12px; flex-shrink: 0;">
+              <div class="scanner-activity-header">
+                <button id="sitemap-activity-toggle" class="scanner-activity-toggle-btn">▸ Activity Log</button>
+                <span class="scanner-activity-hint">Live crawl output — each URL and form discovered</span>
+                <button id="sitemap-activity-clear" class="btn secondary scanner-activity-clear-btn">Clear Log</button>
+              </div>
+              <div id="sitemap-activity-list" class="scanner-activity-list"></div>
             </div>
 
             <!-- Main Split: Tree + Detail -->
@@ -2590,127 +2738,6 @@
         <div style="margin-top: 16px; display: flex; gap: 12px; justify-content: flex-end;">
           <button id="btn-pentest-consent-reject" class="btn secondary">Cancel</button>
           <button id="btn-pentest-consent-accept" class="btn pentest">I Accept — Proceed</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Brute-Force Modal -->
-  <div id="bruteforce-modal-overlay" class="modal-overlay hidden">
-    <div class="modal-content bf-modal">
-      <div class="modal-header" style="border-bottom-color: rgba(231, 76, 60, 0.3);">
-        <h2>⚔️ Brute-Force Attack</h2>
-        <button id="btn-close-bf-modal" class="btn icon-only modal-close">✕</button>
-      </div>
-      <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-        <!-- Target Info -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label class="form-label">Target IP</label>
-            <input type="text" id="bf-target-ip" class="text-input full-width" placeholder="e.g. 192.168.1.10" readonly>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Port</label>
-            <input type="number" id="bf-port" class="text-input full-width" value="22" min="1" max="65535">
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Protocol</label>
-          <select id="bf-protocol" class="dropdown-select full-width">
-            <option value="ssh">SSH (22)</option>
-            <option value="ftp">FTP (21)</option>
-            <option value="smb">SMB (445)</option>
-            <option value="smb2">SMB2 (445)</option>
-            <option value="rdp">RDP (3389)</option>
-            <option value="http-get">HTTP GET (80)</option>
-            <option value="http-post">HTTP POST (80)</option>
-            <option value="telnet">Telnet (23)</option>
-            <option value="mysql">MySQL (3306)</option>
-            <option value="mssql">MSSQL (1433)</option>
-            <option value="postgres">PostgreSQL (5432)</option>
-            <option value="vnc">VNC (5900)</option>
-          </select>
-        </div>
-
-        <!-- Credentials -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label class="form-label">Username <span style="font-size: 10px; color: var(--text-muted);">(single login
-                name)</span></label>
-            <input type="text" id="bf-username" class="text-input full-width" placeholder="e.g. admin">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Password Wordlist <span style="font-size: 10px; color: var(--text-muted);">(one
-                password per line)</span></label>
-            <div style="display: flex; gap: 6px;">
-              <input type="text" id="bf-wordlist-path" class="text-input" style="flex: 1;"
-                placeholder="Select .txt file..." readonly>
-              <button id="btn-bf-browse-wordlist" class="btn secondary icon-only"
-                title="Browse for password wordlist file">📂</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Advanced Options -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label class="form-label">Threads <span id="bf-threads-val" style="color: var(--pentest);">4</span></label>
-            <input type="range" id="bf-threads" min="1" max="16" value="4" class="bf-range-slider">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Delay (ms)</label>
-            <input type="number" id="bf-delay" class="text-input full-width" value="0" min="0" max="10000">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Max Attempts</label>
-            <input type="number" id="bf-max-attempts" class="text-input full-width" value="10000" min="1" max="50000">
-          </div>
-        </div>
-
-        <!-- Controls -->
-        <div style="display: flex; gap: 8px;">
-          <button id="btn-bf-start" class="btn pentest full-width">
-            <span class="icon">⚔️</span> Start Attack
-          </button>
-          <button id="btn-bf-stop" class="btn danger-outline" style="width: 120px;" disabled>
-            <span class="icon">🛑</span> Stop
-          </button>
-        </div>
-
-        <!-- Progress -->
-        <div id="bf-progress-container" style="display: none;">
-          <div class="bf-progress-bar">
-            <div id="bf-progress-fill" class="bf-progress-fill"></div>
-          </div>
-          <div id="bf-progress-text" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">0 attempts
-          </div>
-        </div>
-
-        <!-- Results Table -->
-        <div id="bf-results-container"
-          style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border-glass); border-radius: 6px; background: rgba(0,0,0,0.3);">
-          <table class="data-table bf-results-table" style="width: 100%; font-size: 11px;">
-            <thead style="position: sticky; top: 0; background: #16161c; z-index: 1;">
-              <tr>
-                <th style="width: 70px;">Time</th>
-                <th>Username</th>
-                <th>Password</th>
-                <th style="width: 60px;">Status</th>
-              </tr>
-            </thead>
-            <tbody id="bf-results-body">
-              <tr>
-                <td colspan="4" style="text-align:center; color: var(--text-muted); padding: 16px;">Configure and start
-                  an attack above</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Error Display -->
-        <div id="bf-error-display"
-          style="display: none; color: var(--danger); font-size: 12px; padding: 8px; background: rgba(235,94,94,0.1); border-radius: 4px; border-left: 3px solid var(--danger);">
         </div>
       </div>
     </div>

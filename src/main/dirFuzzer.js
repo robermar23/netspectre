@@ -213,8 +213,9 @@ function probeUrl(baseUrl, testPath, { timeout, followRedirects, customHeaders, 
  * @param {function} onProgress  Called with {tested, total, percent}
  * @param {function} onComplete  Called with {total, hits, elapsed}
  * @param {function} onError     Called with {message} on fatal error
+ * @param {function} [onActivity]  Called with {status, url, method, statusCode, isHit, timestamp} for every probe
  */
-export async function startDirFuzz(options, onHit, onProgress, onComplete, onError) {
+export async function startDirFuzz(options, onHit, onProgress, onComplete, onError, onActivity) {
   if (isRunning) {
     onError({ message: 'A fuzzing run is already in progress. Stop it first.' });
     return;
@@ -287,10 +288,22 @@ export async function startDirFuzz(options, onHit, onProgress, onComplete, onErr
       await sem.acquire();
       try {
         if (signal.aborted) return;
+        const probeFullUrl = new URL(testPath, baseUrl).toString();
         const result = await probeUrl(baseUrl, testPath, { timeout, followRedirects, customHeaders, signal });
-        if (result && statusFilter.includes(result.statusCode)) {
-          hits++;
-          onHit(result);
+        if (result) {
+          const isHit = statusFilter.includes(result.statusCode);
+          onActivity?.({
+            status:     'done',
+            url:        probeFullUrl,
+            method:     'HEAD',
+            statusCode: result.statusCode,
+            isHit,
+            timestamp:  Date.now(),
+          });
+          if (isHit) {
+            hits++;
+            onHit(result);
+          }
         }
       } finally {
         sem.release();
@@ -363,7 +376,8 @@ export function registerIpcHandlers(ipcMain, getWindow) {
       (hit)      => getWindow()?.webContents.send(IPC_CHANNELS.DIRFUZZ_HIT, hit),
       (progress) => getWindow()?.webContents.send(IPC_CHANNELS.DIRFUZZ_PROGRESS, progress),
       (complete) => getWindow()?.webContents.send(IPC_CHANNELS.DIRFUZZ_COMPLETE, complete),
-      (err)      => getWindow()?.webContents.send(IPC_CHANNELS.DIRFUZZ_ERROR, err)
+      (err)      => getWindow()?.webContents.send(IPC_CHANNELS.DIRFUZZ_ERROR, err),
+      (activity) => getWindow()?.webContents.send(IPC_CHANNELS.DIRFUZZ_ACTIVITY, activity)
     );
 
     return { status: 'started' };
