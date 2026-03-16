@@ -39,6 +39,8 @@ Welcome to NetSpecter — a full-stack network security and web application test
     - [19F. Token Sequencer](#19f-token-sequencer)
     - [19G. Encoder / Decoder](#19g-encoder--decoder)
     - [19H. Response Comparer](#19h-response-comparer)
+    - [19I. OAST — Out-of-Band Callback Listener](#19i-oast--out-of-band-callback-listener)
+    - [19J. WebSocket Fuzzer](#19j-websocket-fuzzer)
 20. [Persisting & Sharing Session Data](#20-persisting--sharing-session-data)
 21. [Keyboard Shortcuts & UI Tips](#21-keyboard-shortcuts--ui-tips)
 
@@ -966,6 +968,10 @@ Ten scan modules are available — each maps to an OWASP 2021 category. Toggle e
 | HTTP Headers | A05 Misconfiguration | Missing security headers, version disclosure, cookie flags |
 | Broken Auth | A07 Auth Failures | Rate-limit bypass, user enum, weak creds, JWT |
 | Deserialization | A08 Integrity Failures | PHP, Java, Python, .NET, Node.js object patterns |
+| GraphQL Security | A03 Injection / A05 Misconfig | Introspection, batch abuse, nested DoS, field suggestion leakage, SQLi via resolver args |
+| JWT Attacks | A07 Auth Failures | alg:none bypass, weak HMAC brute-force, kid injection, jku/x5u spoofing, expired token |
+| OAuth / OIDC | A07 Auth Failures / A05 Misconfig | Open redirect_uri, missing state, code leakage via Referer, token in URL, PKCE absence |
+| Open Redirect | A01 Access Control | 8 bypass techniques, Location header + JS/meta body redirect detection |
 
 #### Scanner Settings
 
@@ -987,6 +993,77 @@ Each finding row shows: severity badge, module name, affected URL, and parameter
 | **Evidence** | The specific request and response that triggered the finding (payload sent, response snippet) |
 | **Remediation** | Specific fix guidance for this finding type |
 | **References** | Links to OWASP, CVE, or CWE entries |
+
+#### New in Phase 7E — Advanced Web Security Modules
+
+The four modules below are automatically run alongside the existing ten when their respective toggles are enabled in the Scanner module selector.
+
+##### GraphQL Security Scanner
+
+This module first performs a heuristic check to identify whether the target endpoint is a GraphQL endpoint — looking for `/graphql`, `/gql`, or `/query` in the path, or a JSON response body containing `data` or `errors` keys. Non-GraphQL endpoints are skipped immediately.
+
+When a GraphQL endpoint is confirmed, five probes run in sequence:
+
+1. **Introspection probe** — sends `{__schema{types{name kind}}}` and checks if the server returns full type information. Introspection enabled in production leaks your entire API schema.
+2. **Batch query probe** — sends an array of 100 `{__typename}` queries in a single HTTP request. If the server returns 100 results, batching is enabled, which allows rate-limit bypass and query amplification.
+3. **Deeply nested query DoS** — sends a 12-level nested query. If the server takes over 5 seconds without returning HTTP 400, it lacks query depth limiting and is vulnerable to resource exhaustion.
+4. **Field suggestion leakage** — intentionally misspells a field name (`nsProbeField_typo`). If the response body contains "Did you mean", the server is leaking schema hints even when introspection is disabled.
+5. **SQL injection via resolver arguments** — embeds `1' OR '1'='1` in a GraphQL argument. If the response contains a SQL error pattern, the GraphQL layer is passing user input directly to SQL resolvers.
+6. **OAST probe** (if OAST listener is running) — embeds the OAST callback URL in a resolver argument. A callback confirms blind server-side request forgery or command injection through the GraphQL layer.
+
+##### JWT Attack Suite
+
+This module activates on any request that carries a JWT — either in the `Authorization: Bearer <token>` header or in a cookie named `token`, `jwt`, `access_token`, `id_token`, or `auth`. Requests without a JWT are skipped.
+
+The JWT is decoded (no signature verification) and the following attacks are attempted:
+
+1. **alg:none bypass** — forges a new token with `"alg":"none"` and an empty signature segment. If the server returns a 200-class response or the same successful body, it is accepting unsigned tokens.
+2. **Weak HMAC brute-force** — tests 15 common secrets (`secret`, `password`, `12345`, `key`, `jwt`, `admin`, etc.) by constructing a valid HMAC-SHA256 signature and replaying the request. The first working secret is reported with its value.
+3. **kid path traversal / SQL injection** — if the original header contains a `kid` field, forges tokens using path traversal strings (`../../dev/null`) and SQL injection payloads as the `kid` value. Server acceptance of these is a critical finding.
+4. **jku / x5u spoofing** (passive detection) — if the token header contains `jku` or `x5u` pointing to an external domain, this is flagged as high severity without active probing. These headers instruct the server to fetch the signing key from an attacker-controlled URL.
+5. **Expired token acceptance** — if the `exp` claim is in the past, the original token is replayed as-is. Server acceptance means tokens are never validated for expiry.
+6. **Privilege claim advisory** — if the payload contains `role`, `admin`, `scope`, or `groups` claims, an informational advisory is emitted recommending server-side authorization validation regardless of token claims.
+
+All attack probes use the exact same request as the original (same URL, same headers, same body) — only the `Authorization` header or cookie value is replaced with the forged token.
+
+##### OAuth / OIDC Misconfiguration Scanner
+
+This module detects OAuth/OIDC endpoints by matching URL patterns: `/oauth`, `/authorize`, `/auth/`, `/connect/`, `/openid`, `/token`, `/callback`, or query parameters `response_type=`, `client_id=`, `redirect_uri=`. Non-OAuth endpoints are skipped.
+
+Seven checks run passively (no active probing required for most) plus one active probe:
+
+1. **Open redirect in redirect_uri** (active) — replaces the `redirect_uri` parameter with each of the configured test domains (e.g., `https://evil.com`) and checks whether the server redirects to it. This is the highest-severity finding (High) as it enables authorization code or token theft.
+2. **Missing state parameter** (passive) — if a `response_type` parameter is present but `state` is absent, the flow is vulnerable to CSRF. The attacker can force a victim to authorize their own malicious client.
+3. **Code leakage via Referer** (passive) — if the request URL contains an authorization `code` parameter AND a `Referer` header pointing to a different origin, the authorization code may be transmitted to third-party analytics or CDN servers before it is exchanged.
+4. **Token in URL query parameter** (passive) — if `access_token` or `id_token` appear as URL query parameters, they will be logged in server access logs and browser history.
+5. **Token in URL fragment** (passive) — if `access_token` or `id_token` appear in the URL fragment (`#`), this indicates implicit flow usage, which is deprecated in OAuth 2.1.
+6. **Missing PKCE** (passive) — if `response_type=code` is present without `code_challenge`, the authorization code flow lacks PKCE protection, making it vulnerable to code interception attacks, especially for public (SPA / mobile) clients.
+7. **Client secret in URL** (passive) — if `client_secret` appears as a URL query parameter, it will be leaked in logs, browser history, and Referer headers.
+8. **Implicit flow** (passive) — if `response_type=token` or `response_type=id_token token`, the deprecated implicit flow is flagged.
+
+##### Open Redirect Scanner
+
+This module scans every URL parameter whose name suggests it holds a redirect destination. The recognized parameter names include: `redirect`, `redirect_url`, `redirect_uri`, `return`, `return_url`, `returnUrl`, `next`, `to`, `goto`, `url`, `link`, `target`, `dest`, `destination`, `continue`, `forward`, `rurl`, `ref`, `checkout_url`, `successUrl`, `cancelUrl`, `go`, `callback`, `r`. Additionally, any parameter whose current value begins with `http://` or `https://` is also tested (URL-value heuristic).
+
+For each candidate parameter, 8 bypass technique probes are sent in sequence, stopping after the first confirmed hit per parameter:
+
+| Probe | Payload Example | Bypass Technique |
+| --- | --- | --- |
+| 1 | `https://evil-redir.netspectre.test/phish` | Direct external URL |
+| 2 | `//evil-redir.netspectre.test/phish` | Protocol-relative (double-slash) |
+| 3 | `///evil-redir.netspectre.test/phish` | Triple-slash |
+| 4 | `\evil-redir.netspectre.test/phish` | Backslash separator |
+| 5 | `%68%74%74%70%73://evil-redir.netspectre.test` | URL-encoded scheme |
+| 6 | `%2568%2574%2574%2570%2573://evil-redir.netspectre.test` | Double URL-encoded |
+| 7 | `https://evil-redir.netspectre.test%09/phish` | Tab-encoded path separator |
+| 8 | `https://target.com@evil-redir.netspectre.test/phish` | `@`-sign authority confusion |
+
+A redirect is confirmed when either:
+
+- The HTTP response `Location` header redirects to the probe domain (not the original target domain)
+- The response body contains a JavaScript `window.location` assignment or a `<meta http-equiv="refresh">` pointing to the probe domain
+
+Findings are deduplicated per parameter — only one finding is emitted per confirmed-vulnerable parameter, using the first successful bypass technique as the evidence.
 
 #### Send to Repeater
 
@@ -1218,6 +1295,252 @@ There are three ways to populate the two comparison panes:
 
 ---
 
+### 19I. OAST — Out-of-Band Callback Listener
+
+OAST (Out-of-Band Application Security Testing) is the technique of confirming blind vulnerabilities by making the target server initiate an outbound network connection to a callback URL that you control. This is the gold standard for confirming SSRF, XXE, blind Command Injection, and blind GraphQL injection — vulnerabilities that produce no visible output in the HTTP response.
+
+> **When to use OAST:** Use OAST when the scanner's in-band probes (response analysis, timing) are inconclusive, or when testing over-the-LAN targets that cannot reach the internet. Because the OAST server binds on all interfaces (`0.0.0.0`), any target on the same LAN segment as your machine can reach the callback URL.
+
+#### Setting Up the OAST Listener
+
+1. In the Web App workspace, click **📡 OAST** in the left sidebar
+2. The OAST panel opens, showing the configuration strip at the top
+
+##### Selecting the Callback Interface
+
+The **Callback Interface** dropdown is populated at startup with all non-internal IPv4 network interfaces detected on your machine. Each entry shows the interface name and its IP address, for example:
+
+- `Ethernet (192.168.1.10)` — your LAN adapter
+- `tun0 (10.8.0.5)` — a VPN or lab tunnel
+- `All interfaces (0.0.0.0)` — auto-detect (uses the first non-internal IP found)
+
+**Select the interface whose IP is reachable by your target.** For example:
+
+- If your target is on the same LAN, select your Ethernet or Wi-Fi adapter
+- If your target is behind a VPN, select your VPN tunnel interface
+- If you are unsure, leave it on "All interfaces (0.0.0.0)" — NetSpecter will auto-detect
+
+The selected IP becomes the base of all generated callback URLs (e.g., `http://192.168.1.10:7331/oast/{token}`). The server itself always binds on all interfaces regardless of this selection.
+
+##### Setting the Port
+
+The default listener port is **7331**. Change it to any value between 1025 and 65534. Make sure no firewall rule blocks inbound TCP on this port from the target host.
+
+##### Starting the OAST Listener
+
+Click **▶ Start**. The status badge changes to **● Listening** and the full callback URL template appears below the controls, for example:
+
+```text
+Listening at http://192.168.1.10:7331/oast/{token}
+```
+
+The interface dropdown and port field are disabled while the listener is running. Click **⏹ Stop** to shut down the server.
+
+#### Generating Probe Tokens
+
+Probe tokens are the mechanism for correlating which scanner payload triggered which callback.
+
+1. In the **Generate probe URL** row, optionally type a label in the **Label / context** field (e.g., `xxe-test`, `ssrf-aws`, `sqli-outband`). Labels help you identify findings in the callbacks table.
+2. Click **Generate Token** — a unique 24-character hex token is allocated and the full callback URL appears in the output field:
+
+   ```text
+   http://192.168.1.10:7331/oast/a3f8c12e9b04d7a1fe2c5d89
+   ```
+
+3. Click **📋** to copy the URL to clipboard
+4. Paste this URL into your target payload — in a request body parameter, a URL field, an XML entity, a GraphQL argument, etc.
+
+#### Reading the Callbacks Table
+
+When the target application makes an HTTP request to any `http://<your-ip>:7331/oast/<token>` URL:
+
+- A new row is **prepended** to the callbacks table (newest first)
+- The row shows: **Time**, **Remote IP** (the source IP of the callback — the target server), **Method** (usually GET), and the **Context** (your label + shortened token)
+
+If the remote IP is an internal cloud address (e.g., `169.254.169.254`, `metadata.google.internal`), it confirms SSRF to a cloud metadata endpoint. If it is the target's own IP, it confirms the server is executing your payload. If it is an unexpected IP, the target may be using a reverse proxy — investigate the infrastructure.
+
+The callback count is shown in the toolbar. Click **Clear** to reset the table and release all allocated tokens.
+
+#### Using OAST with the Active Scanner
+
+When the OAST listener is running, the Active Vulnerability Scanner automatically uses it for blind confirmation probes in the following modules:
+
+| Scanner Module | How OAST Is Used |
+| --- | --- |
+| **SSRF** | Embeds the OAST callback URL as the value in URL, hostname, and `Host` header probes. A callback confirms the server fetched the URL server-side. |
+| **XXE** | Injects an XML external entity declaration that fetches the OAST URL via HTTP. A callback confirms the XML parser is resolving external entities. |
+| **Command Injection** | Appends a `curl <oast-url>` or `wget <oast-url>` payload. A callback confirms OS-level command execution. |
+| **GraphQL** | Embeds the OAST URL in a resolver argument. A callback via the GraphQL server confirms blind SSRF or server-side injection through the GraphQL layer. |
+
+You do not need to do anything special to enable this — start the OAST listener before running a scan and it is used automatically.
+
+#### Advanced: Manual OAST Injection Workflow
+
+For targets that cannot be reached by the automatic scanner (e.g., targets you interact with manually through the Repeater):
+
+1. Start the OAST listener and generate a token with a descriptive label (e.g., `repeater-xxe-test`)
+2. Copy the callback URL
+3. In the Repeater, craft an XXE or SSRF payload containing the callback URL
+4. Send the request and watch the OAST callbacks table
+5. If a callback arrives, you have confirmed blind exploitation. The remote IP shows you whether the callback came directly from the target or through an intermediary (reverse proxy, WAF, cloud egress NAT, etc.)
+
+---
+
+### 19J. WebSocket Fuzzer
+
+The WebSocket Fuzzer sends a configurable list of payloads over real WebSocket connections, detecting error patterns, timing anomalies, and upgrade failures that indicate injection vulnerabilities in WebSocket message handlers.
+
+> **No external dependencies required.** The fuzzer implements the complete RFC 6455 WebSocket protocol using only Node.js `net` and `tls` modules — masking, frame encoding, variable-length payload headers (7-bit, 16-bit, and 64-bit), and connection upgrade are all handled natively.
+
+#### Opening the WebSocket Fuzzer
+
+**Method 1 — From the sidebar:**
+
+1. Switch to the **Web App** workspace (click the Web App tab at the top)
+2. Click **🔌 WS Fuzz** in the left sidebar
+
+**Method 2 — From the Network workspace:**
+When you find a host with an HTTP port open (80, 443, 8080, 8443, etc.), right-click the port or use the **Dir Fuzz** action button and the WS Fuzzer can be opened pre-populated with that host's URL converted to `ws://` or `wss://`.
+
+**Method 3 — Programmatic pivot:**
+`window.__openWsFuzzerPanel('https://target.com')` — called automatically by the Scanner or Sitemap when a WebSocket endpoint is detected. The URL is converted from `https://` to `wss://` or from `http://` to `ws://` automatically.
+
+#### Configuring the Fuzzer
+
+##### Target URL
+
+Enter the WebSocket endpoint URL. Must use the `ws://` or `wss://` scheme:
+
+- `ws://target.com/ws` — plain WebSocket
+- `wss://target.com/socket` — WebSocket over TLS (self-signed certificates are accepted)
+
+If you paste an `http://` or `https://` URL (e.g., from the proxy history), the scheme is automatically converted.
+
+##### Payloads
+
+Two payload source modes are available, toggled by radio button:
+
+**Manual (textarea):**
+Type or paste one payload per line in the text area. Useful for targeted injection strings:
+
+```text
+' OR '1'='1
+<script>alert(1)</script>
+{"$gt": ""}
+../../etc/passwd
+; ls -la
+```
+
+**File:**
+Click **Browse** and select a `.txt` wordlist (one payload per line). Files up to hundreds of thousands of entries are supported. The fuzzer streams through the list with the configured concurrency — memory usage stays flat regardless of file size.
+
+##### Concurrency
+
+The **Connections** slider (1–20, default 5) controls how many simultaneous WebSocket connections are maintained. Each slot:
+
+1. Opens a TCP (or TLS) socket
+2. Performs the full HTTP Upgrade handshake
+3. Sends one payload frame
+4. Waits for the server's response frame
+5. Closes the connection
+
+Set concurrency low (2–3) for targets that rate-limit or close sockets aggressively. Higher concurrency (10–20) is suitable for local lab targets.
+
+##### Timeout
+
+Per-connection timeout in milliseconds (default 8000 ms / 8 seconds). This covers both the upgrade handshake and the wait for a response frame. Connections that exceed this limit are recorded as timing anomalies — useful for detecting time-based blind injection.
+
+##### Extra Headers
+
+The **Extra Headers (JSON)** field accepts an optional JSON object of additional HTTP headers to include in the WebSocket Upgrade request. Useful for:
+
+- Adding `Authorization` headers for authenticated endpoints:
+
+  ```json
+  {"Authorization": "Bearer eyJ..."}
+  ```
+
+- Setting `Cookie` headers to maintain session state:
+
+  ```json
+  {"Cookie": "session=abc123; csrf=xyz"}
+  ```
+
+- Adding application-specific headers required by the target's WebSocket server
+
+#### Running the WebSocket Fuzz
+
+Click **▶ Start Fuzzing**. The progress bar fills as payloads complete. The **Hits** counter increments for each anomalous response (error pattern detected, upgrade rejected, or timeout).
+
+Click **⏹ Stop** at any time to abort remaining payloads. Already-in-flight connections complete naturally; queued connections are cancelled.
+
+#### Reading the Results Table
+
+Each row in the results table corresponds to one payload:
+
+| Column | Description |
+| --- | --- |
+| **#** | Payload index (1-based) |
+| **Payload** | The exact string sent over the WebSocket |
+| **Response** | The server's response text (first frame body, truncated to 200 chars) |
+| **ms** | Round-trip time from payload send to response frame receipt |
+| **Status** | Badge indicating the result type |
+
+##### Status Badges
+
+| Badge | Meaning |
+| --- | --- |
+| **Error** (red) | Response matched one of the 8 error patterns (Java exception, SQL error, JS error, Python traceback, PHP warning, internal server error, DB access denied, PHP undefined variable) |
+| **Timeout** (orange) | No response frame received within the timeout period — possible time-based blind injection |
+| **No Upgrade** (orange) | Server rejected the WebSocket Upgrade handshake (`101 Switching Protocols` not received) |
+| **OK** (green / default) | Server accepted the upgrade and returned a response frame without triggering any anomaly patterns |
+
+##### Filtering to Anomalies
+
+Toggle the **Anomalies only** checkbox to hide all non-anomalous rows. This brings the signal out of the noise when fuzzing with large wordlists, so you can focus on the payloads that caused unusual server behavior.
+
+#### Analyzing Findings
+
+**Error pattern hit (red badge):**
+The server's response message reveals implementation details. A "You have an error in your SQL syntax" response to a WebSocket message means the WebSocket handler is passing message content directly into a SQL query — treat this as a critical SQLi finding. Send the triggering payload to Repeater for manual follow-up.
+
+**Timeout (orange badge):**
+If a payload consistently causes the server to take significantly longer than others, a time-based blind vulnerability may be present. Compare the duration of a benign payload (e.g., `hello`) versus the anomalous one. A consistent 5-second delay for `'; WAITFOR DELAY '0:0:5'--` confirms time-based SQL injection.
+
+**No Upgrade (orange badge):**
+Some payloads in the URL path or query string can trigger server-side validation errors before the WebSocket upgrade completes. This is still a useful finding — it indicates the server is processing your input before allowing the connection.
+
+**Normal responses (green):**
+Review the Response column even for non-anomalous results. Reflected content, internal path disclosures, or verbose error structures can appear in normal-looking WebSocket responses.
+
+#### Exporting WebSocket Fuzz Results
+
+Click **Export CSV** to download the full results table as a CSV file with columns: index, payload, response, duration_ms, upgraded, error_type, timed_out, anomaly. This file can be imported into spreadsheet tools for bulk analysis or included in a pentest report.
+
+#### Example: Testing a Chat Application for Command Injection
+
+A target application uses WebSockets for its chat feature. You suspect the message handler passes user input to a shell command.
+
+1. Open the WebSocket Fuzzer and enter `wss://target.com/chat`
+2. Add the header `{"Cookie": "session=your-valid-session-token"}`
+3. Select **Manual** payloads and enter:
+
+   ```text
+   hello
+   ; id
+   `id`
+   $(id)
+   ' && id && echo '
+   | id
+   ```
+
+4. Set concurrency to 2 (to avoid flooding the chat server)
+5. Click **Start Fuzzing**
+6. If any payload returns a response containing `uid=` or `www-data`, command injection is confirmed
+7. Combine with the OAST listener: add `; curl http://192.168.1.10:7331/oast/<token>` as a payload — a callback confirms blind RCE even when the response doesn't reflect output
+
+---
+
 ## 20. Persisting & Sharing Session Data
 
 ### Saving a Session
@@ -1252,6 +1575,7 @@ Most features have their own export options:
 | Brute Force Results | CSV | Brute Force modal → Export |
 | Credential Spray | CSV | Cred Spray panel → Export |
 | SNMP Walk Data | Clipboard / text | SNMP results → Copy |
+| WS Fuzzer Results | CSV | WS Fuzz panel → Export CSV |
 | Topology Graph | PNG | Topology tab → Camera icon |
 
 ---
