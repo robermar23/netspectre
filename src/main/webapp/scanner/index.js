@@ -158,7 +158,7 @@ const MODULE_META = {
     label: 'JWT Attack Suite',
     description:
       'Inspects all JWT tokens found in request/response headers and cookies. Attacks: alg:none ' +
-      'signature bypass, weak HMAC secret brute-force (15 common secrets), RS256→HS256 confusion, ' +
+      'signature bypass, weak HMAC secret brute-force (common secrets), RS256→HS256 confusion, ' +
       'kid header path-traversal and SQL injection, jku/x5u spoofing header detection, expired ' +
       'token acceptance, and privilege claim enumeration.',
   },

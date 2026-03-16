@@ -7,6 +7,7 @@
  */
 
 import { api } from '../../api.js';
+import { OAST_DEFAULT_PORT } from '../../../shared/webConstants.js';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,8 @@ function _timeStr(ts) {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 export async function init() {
+  const portEl = document.getElementById('oast-port');
+  if (portEl && !portEl.value) portEl.value = String(OAST_DEFAULT_PORT);
   await _populateInterfaces();
   _bindEvents();
   _subscribeIpc();
