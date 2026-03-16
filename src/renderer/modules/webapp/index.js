@@ -253,7 +253,7 @@ export function init() {
     document.querySelector('.ws-tab[data-workspace="webapp"]')?.click();
     document.querySelector('#webapp-sidebar [data-panel="dirfuzz"]')?.click();
     if (url) {
-      const dfInput = document.getElementById('dirfuzz-target-url');
+      const dfInput = document.getElementById('wdf-target-url');
       if (dfInput) dfInput.value = url;
     }
   };

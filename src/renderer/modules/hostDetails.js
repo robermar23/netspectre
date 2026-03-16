@@ -586,31 +586,62 @@ function openDetailsPanel(host) {
     portsList.parentElement.appendChild(shareSection);
   }
 
-  // Dir Fuzzer quick-action for HTTP/HTTPS hosts
+  // Web App quick-actions for discovered HTTP/HTTPS ports
   if (host.ports) {
     const HTTP_PORTS = [80, 443, 8080, 8443, 8000, 8888, 3000, 5000];
     const webPorts = host.ports.filter(p => HTTP_PORTS.includes(p));
     if (webPorts.length > 0) {
-      const fuzzSection = document.createElement('div');
-      fuzzSection.style.cssText = 'margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
-      const fuzzLabel = document.createElement('span');
-      fuzzLabel.style.cssText = 'font-size: 11px; color: var(--text-muted);';
-      fuzzLabel.textContent = '🔎 Dir Fuzz:';
-      fuzzSection.appendChild(fuzzLabel);
+      const webSection = document.createElement('div');
+      webSection.style.cssText = 'margin-top: 12px; display: flex; flex-direction: column; gap: 6px;';
+
+      const webHeader = document.createElement('span');
+      webHeader.style.cssText = 'font-size: 11px; color: var(--text-muted); font-weight: 500;';
+      webHeader.textContent = '🌐 Web App:';
+      webSection.appendChild(webHeader);
+
       webPorts.forEach(port => {
         const scheme = (port === 443 || port === 8443) ? 'https' : 'http';
         const url = `${scheme}://${host.ip}:${port}`;
-        const btn = document.createElement('button');
-        btn.className = 'btn-action pentest-action';
-        btn.style.cssText = 'font-size: 10px; padding: 3px 8px;';
-        btn.textContent = `${scheme.toUpperCase()}:${port}`;
-        btn.title = `Fuzz web directories on ${url}`;
-        btn.addEventListener('click', () => {
-          if (_dirFuzz) _dirFuzz.openPanel(url);
-        });
-        fuzzSection.appendChild(btn);
+
+        const portRow = document.createElement('div');
+        portRow.style.cssText = 'display: flex; align-items: center; gap: 6px; flex-wrap: wrap;';
+
+        const portLabel = document.createElement('span');
+        portLabel.style.cssText = 'font-size: 10px; color: var(--text-muted); min-width: 68px; font-family: monospace;';
+        portLabel.textContent = `${scheme}:${port}`;
+        portRow.appendChild(portLabel);
+
+        // Scan button
+        const btnScan = document.createElement('button');
+        btnScan.className = 'btn-action webapp-action';
+        btnScan.style.cssText = 'font-size: 10px; padding: 3px 8px; border-color: var(--webapp-btn); color: var(--webapp-btn);';
+        btnScan.innerHTML = '<span class="icon">🔬</span> Scan';
+        btnScan.title = `Run vulnerability scanner against ${url}`;
+        btnScan.addEventListener('click', () => window.__openScannerPanel?.(url));
+        portRow.appendChild(btnScan);
+
+        // Sitemap button
+        const btnSitemap = document.createElement('button');
+        btnSitemap.className = 'btn-action webapp-action';
+        btnSitemap.style.cssText = 'font-size: 10px; padding: 3px 8px; border-color: var(--webapp-btn); color: var(--webapp-btn);';
+        btnSitemap.innerHTML = '<span class="icon">🗺️</span> Sitemap';
+        btnSitemap.title = `Crawl and map the site at ${url}`;
+        btnSitemap.addEventListener('click', () => window.__openSitemapTarget?.(url));
+        portRow.appendChild(btnSitemap);
+
+        // Dir Fuzz button
+        const btnFuzz = document.createElement('button');
+        btnFuzz.className = 'btn-action pentest-action';
+        btnFuzz.style.cssText = 'font-size: 10px; padding: 3px 8px;';
+        btnFuzz.innerHTML = '<span class="icon">🔎</span> Dir Fuzz';
+        btnFuzz.title = `Fuzz web directories on ${url}`;
+        btnFuzz.addEventListener('click', () => window.__openDirFuzzPanel?.(url));
+        portRow.appendChild(btnFuzz);
+
+        webSection.appendChild(portRow);
       });
-      portsList.parentElement.appendChild(fuzzSection);
+
+      portsList.parentElement.appendChild(webSection);
     }
   }
 
