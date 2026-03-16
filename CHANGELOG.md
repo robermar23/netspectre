@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.21.0](https://github.com/robermar23/netspectre/compare/v1.20.0...v1.21.0) (2026-03-16)
+
+
+### Features
+
+* add comprehensive test suites for OAST Manager, GraphQL Scanner, JWT Attack Suite, OAuth/OIDC Scanner, Open Redirect Detection, and WebSocket Fuzzer ([fe40bbf](https://github.com/robermar23/netspectre/commit/fe40bbfd765073cd50268187b0408dfbe3b67c5d))
+* add GraphQL Scanner Module for endpoint testing and vulnerability detection ([cbf0c26](https://github.com/robermar23/netspectre/commit/cbf0c26e0a82b55532f3e77f3a3f5318a9efb89c))
+* add IPC channel for retrieving local IPv4 interfaces in OAST ([0c24c33](https://github.com/robermar23/netspectre/commit/0c24c33435d7b8751a5edd2a5b9224e81193125b))
+* add JWT Attack Suite for comprehensive JWT vulnerability testing ([c2045ed](https://github.com/robermar23/netspectre/commit/c2045ed20cc82837d3867c83d65af71e77f05cb1))
+* add OAST and WebSocket Fuzzer IPC channels and API integration ([1810037](https://github.com/robermar23/netspectre/commit/1810037d3f1e0601b003b077c0641135b6e10b28))
+* add OAST Listener Renderer Module for managing HTTP callbacks and token generation ([77869c2](https://github.com/robermar23/netspectre/commit/77869c27380ba291de25508a5d5d02b86f98e406))
+* add OAuth/OIDC Misconfiguration Scanner for detecting vulnerabilities in authorization flows ([516862c](https://github.com/robermar23/netspectre/commit/516862ca9ab08cbc2704c31b7311b93c24665168))
+* add Open Redirect Detection Module for identifying vulnerabilities in redirect parameters ([fce973d](https://github.com/robermar23/netspectre/commit/fce973d890b1978b4a5410cdf954d0a285c03cbf))
+* add WebSocket Fuzzer implementation with support for payload injection and error detection ([23eb4d6](https://github.com/robermar23/netspectre/commit/23eb4d652c88c8113a6702a0f330f023c7c77f88))
+* add WebSocket Fuzzer Renderer Module for testing WebSocket endpoints ([3621db8](https://github.com/robermar23/netspectre/commit/3621db84249fbdb619c2f1f1e2b01d9854424ddf))
+* enhance Getting Started Guide with OAST Listener and WebSocket Fuzzer modules ([6ef2526](https://github.com/robermar23/netspectre/commit/6ef2526f0dd019e2bb9127b7f1fe9e991d632bb7))
+* implement OAST and WebSocket Fuzzer features with UI integration and IPC channels ([159da82](https://github.com/robermar23/netspectre/commit/159da82b9d9d04d73c7476baf0c4fdd179168e6d))
+* implement OAST Manager for Out-of-Band Application Security Testing with local HTTP listener and external server integration ([6618bee](https://github.com/robermar23/netspectre/commit/6618bee53e04221b6f9119f1f4c8781258e9b58a))
+* update Feature 7 status to reflect completion of Phase 7E and revise related sections ([626f984](https://github.com/robermar23/netspectre/commit/626f984a910d306e8eb2894afe6ee5a24721f1e4))
+* update version to 1.21.0 and enhance README with new features for OAST Listener and WebSocket Fuzzer ([f264d0b](https://github.com/robermar23/netspectre/commit/f264d0b7b62f153eb8c22baffef055c161325ce7))
+
+
+### Bug Fixes
+
+* update JWT attack suite description and fix minor typos in HTML ([10d83d0](https://github.com/robermar23/netspectre/commit/10d83d021655884178998bf071e159d37c19cc29))
+
 ## [1.20.0](https://github.com/robermar23/netspectre/compare/v1.19.0...v1.20.0) (2026-03-16)
 
 
