@@ -2137,6 +2137,12 @@
             <!-- Config + controls -->
             <div class="glass-panel" style="margin:0 16px; padding:12px 14px; flex-shrink:0; display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
               <div>
+                <label class="form-label">Callback Interface</label>
+                <select id="oast-iface" class="text-input" style="min-width:200px;">
+                  <option value="0.0.0.0">Auto-detect</option>
+                </select>
+              </div>
+              <div>
                 <label class="form-label">Listener Port</label>
                 <input id="oast-port" type="number" class="text-input" style="width:90px;" value="7331" min="1025" max="65534" />
               </div>

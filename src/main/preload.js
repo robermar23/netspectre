@@ -268,12 +268,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Feature 7E: OAST (Out-of-Band Application Security Testing)
   oast: {
-    start:      (opts)  => ipcRenderer.invoke(IPC_CHANNELS.OAST_START, opts),
-    stop:       ()      => ipcRenderer.invoke(IPC_CHANNELS.OAST_STOP),
-    getToken:   (meta)  => ipcRenderer.invoke(IPC_CHANNELS.OAST_GET_TOKEN, meta),
-    clear:      ()      => ipcRenderer.invoke(IPC_CHANNELS.OAST_CLEAR),
-    onStatus:   (cb)    => ipcRenderer.on(IPC_CHANNELS.OAST_STATUS,   (_e, v) => cb(v)),
-    onCallback: (cb)    => ipcRenderer.on(IPC_CHANNELS.OAST_CALLBACK, (_e, v) => cb(v)),
+    getInterfaces: ()      => ipcRenderer.invoke(IPC_CHANNELS.OAST_GET_INTERFACES),
+    start:         (opts)  => ipcRenderer.invoke(IPC_CHANNELS.OAST_START, opts),
+    stop:          ()      => ipcRenderer.invoke(IPC_CHANNELS.OAST_STOP),
+    getToken:      (meta)  => ipcRenderer.invoke(IPC_CHANNELS.OAST_GET_TOKEN, meta),
+    clear:         ()      => ipcRenderer.invoke(IPC_CHANNELS.OAST_CLEAR),
+    onStatus:      (cb)    => ipcRenderer.on(IPC_CHANNELS.OAST_STATUS,   (_e, v) => cb(v)),
+    onCallback:    (cb)    => ipcRenderer.on(IPC_CHANNELS.OAST_CALLBACK, (_e, v) => cb(v)),
   },
 
   // Feature 7E: WebSocket Fuzzer

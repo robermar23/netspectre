@@ -258,7 +258,34 @@ var IPC_CHANNELS = {
   SEQUENCER_ERROR: "sequencer-error",
   // main → renderer
   DECODER_TRANSFORM: "decoder-transform",
-  DECODER_RESULT: "decoder-result"
+  DECODER_RESULT: "decoder-result",
+  // main → renderer
+  // ─── Feature 7E — Out-of-Band & Advanced Detection ───────────────────────────
+  // OAST (Out-of-Band Application Security Testing)
+  OAST_START: "oast-start",
+  // renderer → main (start listener)
+  OAST_STOP: "oast-stop",
+  // renderer → main
+  OAST_STATUS: "oast-status",
+  // main → renderer
+  OAST_CALLBACK: "oast-callback",
+  // main → renderer (hit received)
+  OAST_GET_TOKEN: "oast-get-token",
+  // renderer → main (allocate probe token)
+  OAST_CLEAR: "oast-clear",
+  // renderer → main
+  // WebSocket Fuzzer
+  WS_FUZZ_START: "ws-fuzz-start",
+  // renderer → main
+  WS_FUZZ_STOP: "ws-fuzz-stop",
+  // renderer → main
+  WS_FUZZ_RESULT: "ws-fuzz-result",
+  // main → renderer (per frame)
+  WS_FUZZ_PROGRESS: "ws-fuzz-progress",
+  // main → renderer
+  WS_FUZZ_COMPLETE: "ws-fuzz-complete",
+  // main → renderer
+  WS_FUZZ_ERROR: "ws-fuzz-error"
   // main → renderer
 };
 
@@ -498,6 +525,24 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   decoder: {
     transform: (transform, input) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.DECODER_TRANSFORM, { transform, input })
   },
+  // Feature 7E: OAST (Out-of-Band Application Security Testing)
+  oast: {
+    start: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.OAST_START, opts),
+    stop: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.OAST_STOP),
+    getToken: (meta) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.OAST_GET_TOKEN, meta),
+    clear: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.OAST_CLEAR),
+    onStatus: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.OAST_STATUS, (_e, v) => cb(v)),
+    onCallback: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.OAST_CALLBACK, (_e, v) => cb(v))
+  },
+  // Feature 7E: WebSocket Fuzzer
+  wsFuzzer: {
+    start: (opts) => import_electron.ipcRenderer.invoke(IPC_CHANNELS.WS_FUZZ_START, opts),
+    stop: () => import_electron.ipcRenderer.invoke(IPC_CHANNELS.WS_FUZZ_STOP),
+    onResult: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.WS_FUZZ_RESULT, (_e, v) => cb(v)),
+    onProgress: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.WS_FUZZ_PROGRESS, (_e, v) => cb(v)),
+    onComplete: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.WS_FUZZ_COMPLETE, (_e, v) => cb(v)),
+    onError: (cb) => import_electron.ipcRenderer.on(IPC_CHANNELS.WS_FUZZ_ERROR, (_e, v) => cb(v))
+  },
   // Cleanup listeners
   removeListeners: () => {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -587,5 +632,11 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SEQUENCER_TOKEN);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SEQUENCER_RESULT);
     import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.SEQUENCER_ERROR);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.OAST_STATUS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.OAST_CALLBACK);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.WS_FUZZ_RESULT);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.WS_FUZZ_PROGRESS);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.WS_FUZZ_COMPLETE);
+    import_electron.ipcRenderer.removeAllListeners(IPC_CHANNELS.WS_FUZZ_ERROR);
   }
 });

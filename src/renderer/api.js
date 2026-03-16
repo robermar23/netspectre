@@ -96,4 +96,10 @@ export const api = {
 
   // Feature 7C: Active Vulnerability Scanner
   scanner: window.electronAPI.scanner,
+
+  // Feature 7E: OAST Listener
+  oast: window.electronAPI.oast,
+
+  // Feature 7E: WebSocket Fuzzer
+  wsFuzzer: window.electronAPI.wsFuzzer,
 };

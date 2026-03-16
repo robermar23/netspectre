@@ -262,6 +262,7 @@ export const IPC_CHANNELS = {
   OAST_CALLBACK:              'oast-callback',               // main → renderer (hit received)
   OAST_GET_TOKEN:             'oast-get-token',              // renderer → main (allocate probe token)
   OAST_CLEAR:                 'oast-clear',                  // renderer → main
+  OAST_GET_INTERFACES:        'oast-get-interfaces',         // renderer → main (list local IPv4 interfaces)
 
   // WebSocket Fuzzer
   WS_FUZZ_START:              'ws-fuzz-start',               // renderer → main
