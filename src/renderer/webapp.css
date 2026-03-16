@@ -155,9 +155,6 @@
 }
 
 /* ── Web App Toolbar (header-contextual row) ─────────────────────────────────── */
-.text-input--wide {
-  width: 260px;
-}
 
 /* Intercept button state when ON */
 .btn.webapp.intercept-on {

@@ -533,10 +533,6 @@ function _initWebAppPanel() {
     URL.revokeObjectURL(url);
   });
 
-  // Pre-fill URL from webapp-target-url when the panel becomes active
-  document.addEventListener('webapp:targetChanged', (e) => {
-    if (wdfTargetUrl && e.detail?.url) wdfTargetUrl.value = e.detail.url;
-  });
 }
 
 function _getWdfStatusCodes() {

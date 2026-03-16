@@ -343,6 +343,40 @@ body {
   gap: 6px;
 }
 
+/* ── Web App Toolbar — same compact treatment for consistency ─────────────────── */
+
+/* Groups B (webtools) and C (session): icon-only */
+#toolbar-webapp .toolbar-group[data-group="webtools"] .btn,
+#toolbar-webapp .toolbar-group[data-group="session"] .btn {
+  font-size: 0;
+  padding: 7px 10px;
+  gap: 0;
+  min-width: 0;
+}
+#toolbar-webapp .toolbar-group[data-group="webtools"] .btn .icon,
+#toolbar-webapp .toolbar-group[data-group="session"] .btn .icon {
+  font-size: 17px;
+  line-height: 1;
+}
+/* Restore vuln badge inside Scanner button */
+#toolbar-webapp #btn-webapp-scanner-open {
+  position: relative;
+}
+#toolbar-webapp #btn-webapp-scanner-open .toolbar-vuln-badge {
+  font-size: 10px !important;
+  position: absolute;
+  top: 3px;
+  right: 3px;
+}
+
+/* Tighter group gaps */
+#toolbar-webapp .toolbar-group {
+  gap: 6px;
+}
+#toolbar-webapp {
+  gap: 6px;
+}
+
 /* ── View Toggles Container ──────────────────────────────────────────────────── */
 .view-toggles {
   display: flex;

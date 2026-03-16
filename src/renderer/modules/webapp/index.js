@@ -102,13 +102,6 @@ function _initWebToolbar() {
       _syncInterceptToolbarBtn(newState);
     });
 
-  // Target URL → broadcast to sub-modules
-  document.getElementById('webapp-target-url')
-    ?.addEventListener('change', (e) => {
-      state.webAppTargetUrl = e.target.value.trim();
-      document.dispatchEvent(new CustomEvent('webapp:targetChanged',
-        { detail: { url: state.webAppTargetUrl } }));
-    });
 }
 
 /** Keep the toolbar intercept button in sync with proxy state. */
@@ -260,8 +253,6 @@ export function init() {
     document.querySelector('.ws-tab[data-workspace="webapp"]')?.click();
     document.querySelector('#webapp-sidebar [data-panel="dirfuzz"]')?.click();
     if (url) {
-      const targetInput = document.getElementById('webapp-target-url');
-      if (targetInput) targetInput.value = url;
       const dfInput = document.getElementById('dirfuzz-target-url');
       if (dfInput) dfInput.value = url;
     }
