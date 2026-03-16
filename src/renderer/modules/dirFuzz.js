@@ -1,15 +1,6 @@
 import { api } from '../api.js';
 import { getPentestConsentAccepted, setPendingBfConfig } from './bruteForce.js';
 
-function escapeHtml(unsafe) {
-  if (unsafe == null) return '';
-  return String(unsafe)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
 
 function openPanelHelper(panelEl, sidebarResizerEl) {
   panelEl.style.display = 'flex';
@@ -125,15 +116,29 @@ function appendDirFuzzHit(hit) {
   const row = document.createElement('tr');
   row.className = `dirfuzz-row-${hit.statusCode}`;
   const sc = statusClass(hit.statusCode);
-  const path = escapeHtml(hit.path);
-  const redirect = hit.redirectUrl ? ` → ${escapeHtml(hit.redirectUrl)}` : '';
-  row.innerHTML = `
-    <td class="dirfuzz-status-cell dirfuzz-status-${sc}">${hit.statusCode}</td>
-    <td class="col-path" title="${path}${redirect}">${path}</td>
-    <td style="text-align:right;">${formatBytes(hit.contentLength)}</td>
-    <td title="${escapeHtml(hit.contentType)}">${escapeHtml(shortMime(hit.contentType))}</td>
-    <td style="text-align:right;">${hit.responseTime}</td>
-  `;
+
+  const tdStatus = document.createElement('td');
+  tdStatus.className = `dirfuzz-status-cell dirfuzz-status-${sc}`;
+  tdStatus.textContent = hit.statusCode;
+
+  const tdPath = document.createElement('td');
+  tdPath.className = 'col-path';
+  tdPath.title = hit.path + (hit.redirectUrl ? ` → ${hit.redirectUrl}` : '');
+  tdPath.textContent = hit.path;
+
+  const tdSize = document.createElement('td');
+  tdSize.style.textAlign = 'right';
+  tdSize.textContent = formatBytes(hit.contentLength);
+
+  const tdType = document.createElement('td');
+  tdType.title = hit.contentType || '';
+  tdType.textContent = shortMime(hit.contentType);
+
+  const tdTime = document.createElement('td');
+  tdTime.style.textAlign = 'right';
+  tdTime.textContent = hit.responseTime;
+
+  row.append(tdStatus, tdPath, tdSize, tdType, tdTime);
   dirfuzzResultsTbody?.appendChild(row);
 
   const tableWrap = dirfuzzResultsTbody?.closest('div[style*="overflow-y"]');
@@ -231,7 +236,6 @@ function initResizer(resizerEl, panelEl) {
 
 export function init() {
   _initWebAppPanel();
-  _registerWebAppIpc();
   initResizer(dirfuzzResizer, dirfuzzPanel);
 
   if (dirfuzzConcurrency) {
@@ -304,9 +308,11 @@ export function init() {
     URL.revokeObjectURL(url);
   });
 
-  // IPC event listeners
+  // IPC event listeners — fan out to both network and webapp panels
   window.electronAPI.onDirFuzzHit?.((hit) => {
     appendDirFuzzHit(hit);
+    const wdfPanel = document.getElementById('webapp-panel-dirfuzz');
+    if (wdfPanel && wdfPanel.style.display !== 'none') _appendWdfHit(hit);
   });
 
   window.electronAPI.onDirFuzzProgress?.((data) => {
@@ -314,6 +320,12 @@ export function init() {
     if (dirfuzzProgressBar) dirfuzzProgressBar.style.width = `${percent}%`;
     if (dirfuzzProgressText) dirfuzzProgressText.textContent = `${tested} / ${total} paths`;
     if (dirfuzzStatsText) dirfuzzStatsText.textContent = `${dirfuzzHits.length} hit${dirfuzzHits.length !== 1 ? 's' : ''}`;
+    const wdfPanel = document.getElementById('webapp-panel-dirfuzz');
+    if (wdfPanel && wdfPanel.style.display !== 'none') {
+      if (wdfProgressBar)  wdfProgressBar.style.width = `${percent}%`;
+      if (wdfProgressText) wdfProgressText.textContent = `${tested} / ${total} paths`;
+      if (wdfStatsText)    wdfStatsText.textContent = `${wdfHits.length} hit${wdfHits.length !== 1 ? 's' : ''}`;
+    }
   });
 
   window.electronAPI.onDirFuzzComplete?.((data) => {
@@ -323,12 +335,24 @@ export function init() {
     if (dirfuzzProgressText) dirfuzzProgressText.textContent = `Complete — ${data.hits} hit${data.hits !== 1 ? 's' : ''} in ${secs}s`;
     if (dirfuzzStatsText) dirfuzzStatsText.textContent = `${data.total} paths tested`;
     if (dirfuzzFooterHits) dirfuzzFooterHits.textContent = `${data.hits} hit${data.hits !== 1 ? 's' : ''}`;
+    const wdfPanel = document.getElementById('webapp-panel-dirfuzz');
+    if (wdfPanel && wdfPanel.style.display !== 'none') {
+      _setWdfRunning(false);
+      if (wdfProgressBar)  wdfProgressBar.style.width = '100%';
+      if (wdfProgressText) wdfProgressText.textContent = `Complete — ${data.hits} hit${data.hits !== 1 ? 's' : ''} in ${secs}s`;
+    }
   });
 
   window.electronAPI.onDirFuzzError?.((err) => {
     setDirFuzzRunning(false);
     showDirFuzzError(err.message || 'Fuzzing error');
     if (dirfuzzProgressText) dirfuzzProgressText.textContent = 'Error';
+    const wdfPanel = document.getElementById('webapp-panel-dirfuzz');
+    if (wdfPanel && wdfPanel.style.display !== 'none') {
+      _setWdfRunning(false);
+      if (wdfErrorBanner) { wdfErrorBanner.textContent = err.message || 'Fuzzing error'; wdfErrorBanner.style.display = 'block'; }
+      if (wdfProgressText) wdfProgressText.textContent = 'Error';
+    }
   });
 
   return { openPanel };
@@ -569,17 +593,35 @@ function _appendWdfHit(hit) {
 
   wdfHits.push(hit);
 
-  const row  = document.createElement('tr');
-  const sc   = statusClass(hit.statusCode);
-  const path = escapeHtml(hit.path);
-  const redirect = hit.redirectUrl ? ` → ${escapeHtml(hit.redirectUrl)}` : '';
-  row.innerHTML = `
-    <td><span class="dirfuzz-status-badge status-${sc}">${hit.statusCode}</span></td>
-    <td style="font-family:monospace;font-size:11px;word-break:break-all;">${path}${redirect}</td>
-    <td style="font-size:11px;">${formatBytes(hit.contentLength)}</td>
-    <td style="font-size:11px;">${shortMime(hit.contentType)}</td>
-    <td style="font-size:11px;">${hit.responseTime}ms</td>
-  `;
+  const row = document.createElement('tr');
+  const sc  = statusClass(hit.statusCode);
+
+  const tdStatus = document.createElement('td');
+  const badge = document.createElement('span');
+  badge.className = `dirfuzz-status-badge status-${sc}`;
+  badge.textContent = hit.statusCode;
+  tdStatus.appendChild(badge);
+
+  const tdPath = document.createElement('td');
+  tdPath.style.cssText = 'font-family:monospace;font-size:11px;word-break:break-all;';
+  tdPath.textContent = hit.path;
+  if (hit.redirectUrl) {
+    tdPath.appendChild(document.createTextNode(` → ${hit.redirectUrl}`));
+  }
+
+  const tdSize = document.createElement('td');
+  tdSize.style.fontSize = '11px';
+  tdSize.textContent = formatBytes(hit.contentLength);
+
+  const tdType = document.createElement('td');
+  tdType.style.fontSize = '11px';
+  tdType.textContent = shortMime(hit.contentType);
+
+  const tdTime = document.createElement('td');
+  tdTime.style.fontSize = '11px';
+  tdTime.textContent = `${hit.responseTime}ms`;
+
+  row.append(tdStatus, tdPath, tdSize, tdType, tdTime);
   wdfResultsTbody?.appendChild(row);
   if (wdfExport) wdfExport.disabled = false;
 }
@@ -620,40 +662,4 @@ async function _runWebAppDirFuzz() {
   }
 }
 
-// Register IPC events for the webapp panel (same IPC as the network panel)
-function _registerWebAppIpc() {
-  window.electronAPI?.onDirFuzzHit?.((hit) => {
-    // Update webapp panel if it is visible
-    const panel = document.getElementById('webapp-panel-dirfuzz');
-    if (panel && panel.style.display !== 'none') _appendWdfHit(hit);
-  });
 
-  window.electronAPI?.onDirFuzzProgress?.((data) => {
-    const panel = document.getElementById('webapp-panel-dirfuzz');
-    if (panel && panel.style.display !== 'none') {
-      const { tested, total, percent } = data;
-      if (wdfProgressBar)  wdfProgressBar.style.width = `${percent}%`;
-      if (wdfProgressText) wdfProgressText.textContent = `${tested} / ${total} paths`;
-      if (wdfStatsText)    wdfStatsText.textContent = `${wdfHits.length} hit${wdfHits.length !== 1 ? 's' : ''}`;
-    }
-  });
-
-  window.electronAPI?.onDirFuzzComplete?.((data) => {
-    const panel = document.getElementById('webapp-panel-dirfuzz');
-    if (panel && panel.style.display !== 'none') {
-      _setWdfRunning(false);
-      if (wdfProgressBar)  wdfProgressBar.style.width = '100%';
-      const secs = (data.elapsed / 1000).toFixed(1);
-      if (wdfProgressText) wdfProgressText.textContent = `Complete — ${data.hits} hit${data.hits !== 1 ? 's' : ''} in ${secs}s`;
-    }
-  });
-
-  window.electronAPI?.onDirFuzzError?.((err) => {
-    const panel = document.getElementById('webapp-panel-dirfuzz');
-    if (panel && panel.style.display !== 'none') {
-      _setWdfRunning(false);
-      if (wdfErrorBanner) { wdfErrorBanner.textContent = err.message || 'Fuzzing error'; wdfErrorBanner.style.display = 'block'; }
-      if (wdfProgressText) wdfProgressText.textContent = 'Error';
-    }
-  });
-}

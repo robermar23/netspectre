@@ -6,7 +6,7 @@
 
 import { state } from '../../state.js';
 import { api } from '../../api.js';
-import { init as initProxy }                              from './proxy.js';
+import { init as initProxy, toggleIntercept } from './proxy.js';
 import { init as initSitemap, setTargetUrl as setSitemapTarget } from './sitemap.js';
 import { init as initScanner, scanUrl }                  from './scanner.js';
 import { init as initRepeater, openTab as openRepeaterTab } from './repeater.js';
@@ -91,34 +91,10 @@ function _initWebToolbar() {
       api.proxy?.exportHar?.([]);
     });
 
-  // Intercept toggle (toolbar button — mirrors the in-panel checkbox)
+  // Intercept toggle (toolbar button — proxy.js owns state, checkbox, API call, and UI sync)
   document.getElementById('btn-proxy-intercept')
-    ?.addEventListener('click', async () => {
-      const toggle = document.getElementById('proxy-intercept-toggle');
-      const newState = !state.proxy.interceptMode;
-      state.proxy.interceptMode = newState;
-      if (toggle) toggle.checked = newState;
-      await api.proxy?.setIntercept?.(newState);
-      _syncInterceptToolbarBtn(newState);
-    });
+    ?.addEventListener('click', toggleIntercept);
 
-}
-
-/** Keep the toolbar intercept button in sync with proxy state. */
-export function syncInterceptToolbarBtn(isActive) {
-  _syncInterceptToolbarBtn(isActive);
-}
-
-function _syncInterceptToolbarBtn(isActive) {
-  const btn = document.getElementById('btn-proxy-intercept');
-  if (!btn) return;
-  btn.classList.toggle('intercept-on',  isActive);
-  btn.classList.toggle('intercept-off', !isActive);
-  const icon = btn.querySelector('.icon');
-  if (icon) icon.textContent = isActive ? '⏹' : '⏸';
-  btn.title = isActive
-    ? 'Intercept ON — click to forward all requests'
-    : 'Intercept OFF — click to start intercepting';
 }
 
 // ─── Sidebar Navigation ────────────────────────────────────────────────────────

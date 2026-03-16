@@ -726,10 +726,20 @@ function _updateInterceptUI() {
   }
 
   // Sync the toolbar intercept button with current intercept state
-  _syncToolbarInterceptBtn(interceptOn);
+  syncInterceptToolbarBtn(interceptOn);
 }
 
-function _syncToolbarInterceptBtn(isActive) {
+/** Toggle intercept mode: update state, checkbox, API, and toolbar button. */
+export async function toggleIntercept() {
+  const newState = !state.proxy.interceptMode;
+  state.proxy.interceptMode = newState;
+  if (interceptToggle) interceptToggle.checked = newState;
+  await api.proxy?.setIntercept?.(newState);
+  syncInterceptToolbarBtn(newState);
+}
+
+/** Keep the toolbar intercept button in sync with proxy intercept state. */
+export function syncInterceptToolbarBtn(isActive) {
   const btn = document.getElementById('btn-proxy-intercept');
   if (!btn) return;
   btn.classList.toggle('intercept-on',  isActive);
