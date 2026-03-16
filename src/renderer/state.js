@@ -27,6 +27,7 @@ export const state = {
 
   // Feature 7A: Web App Workspace
   activeWorkspace: 'network',   // 'network' | 'webapp'
+  webAppTargetUrl: '',           // active target URL shown in the web app toolbar
   proxy: {
     running:        false,
     port:           8888,

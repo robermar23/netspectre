@@ -24,6 +24,17 @@
   
   --transition-fast: 0.15s ease;
   --transition-smooth: 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Header layout */
+  --header-row-height:    44px;
+  --toolbar-group-gap:    8px;
+  --toolbar-divider-w:    1px;
+  --toolbar-divider-h:    20px;
+  --toolbar-divider-clr:  rgba(255, 255, 255, 0.08);
+
+  /* Contextual toolbar accent colours */
+  --network-toolbar-accent: rgba(94, 114, 235, 0.06);
+  --webapp-toolbar-accent:  rgba(139, 92, 246, 0.06);
 }
 
 /* Base Resets */
@@ -62,7 +73,7 @@ body {
   flex-direction: column;
   height: 100vh;
   padding: 45px 24px 24px; /* Account for titlebar drag */
-  gap: 24px;
+  gap: 12px;
 }
 
 /* Glass Panels */
@@ -75,18 +86,169 @@ body {
   border-radius: var(--radius-lg);
 }
 
-/* Header */
+/* ── Header ──────────────────────────────────────────────────────────────────── */
 .main-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
   flex-shrink: 0;
-  overflow: visible;
-  z-index: 10;
   position: relative;
+  z-index: 10;
+  overflow: visible;
 }
 
+/* Row 1 — Universal: always visible */
+.header-universal {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border-glass);
+  -webkit-app-region: no-drag;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.header-brand img {
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(0, 255, 128, 0.4));
+}
+
+.header-brand h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+/* Workspace switcher embedded in universal row */
+.workspace-switcher {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  margin: 0 auto;
+}
+
+.ws-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
+.ws-tab:hover { color: var(--text-main); background: rgba(255,255,255,0.06); }
+
+.ws-tab.active[data-workspace="network"] {
+  background: rgba(94, 114, 235, 0.18);
+  border-color: var(--primary);
+  color: var(--text-main);
+}
+
+.ws-tab.active[data-workspace="webapp"] {
+  background: rgba(139, 92, 246, 0.18);
+  border-color: var(--webapp-btn, #8b5cf6);
+  color: var(--text-main);
+}
+
+.header-global-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Row 2 — Contextual: workspace-aware */
+.header-contextual {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 20px;
+  min-height: var(--header-row-height);
+  /* overflow must stay "visible" so absolutely-positioned dropdowns (scan-all,
+     context menus) are not clipped. Horizontal scroll, if ever needed for very
+     narrow windows, is handled below via the inner groups. */
+  overflow: visible;
+  -webkit-app-region: no-drag;
+}
+
+.header-network { background: var(--network-toolbar-accent); }
+.header-webapp  { background: var(--webapp-toolbar-accent); }
+
+.header-contextual[hidden] { display: none; }
+
+/* Ensure all header children are clickable, not covered by drag region */
+.header-universal *,
+.header-contextual * {
+  -webkit-app-region: no-drag;
+}
+
+/* ── Toolbar Groups ───────────────────────────────────────────────────────────── */
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--toolbar-group-gap);
+  flex-shrink: 0;
+}
+
+.toolbar-group--filters {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.toolbar-group--right {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Vertical divider between groups */
+.h-divider {
+  width: var(--toolbar-divider-w);
+  height: var(--toolbar-divider-h);
+  background: var(--toolbar-divider-clr);
+  flex-shrink: 0;
+}
+
+/* ── Toolbar Status Badges ────────────────────────────────────────────────────── */
+.toolbar-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border-glass);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.toolbar-badge--warn {
+  background: rgba(235, 94, 94, 0.12);
+  border-color: rgba(235, 94, 94, 0.3);
+  color: var(--danger);
+}
+
+/* ── Legacy Controls (preserved for existing panel/modal markup) ──────────────── */
 .header-titles h1 {
   font-size: 24px;
   font-weight: 600;
@@ -99,7 +261,6 @@ body {
   color: var(--text-muted);
 }
 
-/* Controls */
 .control-group {
   display: flex;
   align-items: center;
@@ -111,6 +272,91 @@ body {
   height: 24px;
   background: var(--border-glass);
   margin: 0 4px;
+}
+
+/* ── Network Toolbar — compact layout to fit 1280px ──────────────────────────── */
+
+/* Groups B (offense) and C (passive): always icon-only.
+   The font-size:0 trick hides raw text nodes; .icon restores its own size. */
+#toolbar-network .toolbar-group[data-group="offense"] .btn,
+#toolbar-network .toolbar-group[data-group="passive"] .btn {
+  font-size: 0;
+  padding: 7px 10px;
+  gap: 0;
+  min-width: 0;
+}
+#toolbar-network .toolbar-group[data-group="offense"] .btn .icon,
+#toolbar-network .toolbar-group[data-group="passive"] .btn .icon {
+  font-size: 17px;
+  line-height: 1;
+}
+/* Restore badge font-size inside passive buttons */
+#toolbar-network .toolbar-group[data-group="passive"] .btn .hardening-badge,
+#toolbar-network .toolbar-group[data-group="passive"] .btn .cloudenum-badge {
+  font-size: 10px !important;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+#toolbar-network .toolbar-group[data-group="passive"] .btn {
+  position: relative; /* so badge absolute positioning anchors here */
+}
+
+/* Group A: Blacklist icon-only (Add Hosts keeps its label; Clear is short enough) */
+#toolbar-network #btn-blacklist {
+  font-size: 0;
+  padding: 7px 10px;
+  gap: 0;
+}
+#toolbar-network #btn-blacklist .icon {
+  font-size: 17px;
+  line-height: 1;
+}
+
+/* Filter inputs: narrower */
+#toolbar-network .toolbar-group--filters .text-input {
+  width: 72px;
+  padding: 7px 8px;
+}
+
+/* Sort dropdown: narrower */
+#toolbar-network #sort-select {
+  padding-left: 8px;
+  padding-right: 22px;
+  min-width: 0;
+  width: 90px;
+}
+
+/* Result count: compact */
+#toolbar-network #result-count-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Toolbar group gap tighter inside network row */
+#toolbar-network .toolbar-group {
+  gap: 6px;
+}
+#toolbar-network {
+  gap: 6px;
+}
+
+/* ── View Toggles Container ──────────────────────────────────────────────────── */
+.view-toggles {
+  display: flex;
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  padding: 2px;
+  border: 1px solid var(--border-glass);
+  gap: 0;
+}
+
+.view-toggles .btn {
+  padding: 4px 8px;
+  border-radius: 4px;
+  box-shadow: none;
 }
 
 /* Dropdown */
@@ -1421,15 +1667,17 @@ body {
 
 .scan-all-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 4px);
   right: 0;
-  margin-top: 4px;
   background: #1e2030;
   border: 1px solid var(--border-glass);
   border-radius: 8px;
   padding: 4px;
   min-width: 200px;
-  z-index: 1000;
+  /* Must exceed any z-index on workspace panels, host grid, split panels.
+     The header itself is z-index:10; the dropdown is inside that stacking
+     context, so 9999 here safely floats above ALL sibling workspace content. */
+  z-index: 9999;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
   display: flex;
   flex-direction: column;

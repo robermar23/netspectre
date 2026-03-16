@@ -195,6 +195,7 @@ function _clearFindings() {
   _findings    = [];
   _activityLog = [];
   _tested      = 0;
+  _updateFindingCount();
   _total       = 0;
   _expandedId  = null;
   api.scanner.clear();
@@ -206,14 +207,30 @@ function _clearFindings() {
 
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
 
+function _updateFindingCount() {
+  const n  = _findings.length;
+  const el = document.getElementById('webapp-finding-count');
+  if (!el) return;
+  el.style.display = n > 0 ? '' : 'none';
+  el.textContent   = `${n} finding${n !== 1 ? 's' : ''}`;
+
+  // Keep the toolbar Scanner button badge in sync
+  const badge = document.getElementById('webapp-vuln-badge');
+  if (badge) {
+    badge.style.display = n > 0 ? '' : 'none';
+    badge.textContent   = n > 0 ? String(n) : '';
+  }
+}
+
 function _onFinding(finding) {
   _findings.push(finding);
   // Sort by severity
   _findings.sort((a, b) =>
     SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)
   );
-  // Update network workspace badge
+  // Update network workspace badge and toolbar counters
   _updateNetworkBadge(finding);
+  _updateFindingCount();
   _renderFindings();
 }
 
@@ -530,7 +547,7 @@ async function _probeInNetwork(finding) {
   }
 
   // Switch to the Network workspace tab
-  const networkTab = document.querySelector('.workspace-tab[data-workspace="network"]');
+  const networkTab = document.querySelector('.ws-tab[data-workspace="network"]');
   networkTab?.click();
 }
 

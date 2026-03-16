@@ -468,7 +468,7 @@ export function getFilteredAndSortedHosts() {
 
 export function renderAllHosts() {
   const filteredHosts = getFilteredAndSortedHosts();
-  elements.resultCountText.innerText = `Showing ${filteredHosts.length} of ${state.hosts.length} hosts`;
+  elements.resultCountText.innerText = `${filteredHosts.length} / ${state.hosts.length} hosts`;
 
   if (filteredHosts.length > 0) {
     elements.scanAllGroup.style.display = 'inline-flex';
