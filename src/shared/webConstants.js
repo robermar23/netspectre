@@ -106,3 +106,52 @@ export const AWS_METADATA_KEYS = ['ami-id', 'instance-id', 'iam', 'security-cred
 
 /** Severity order for sorting findings (lower index = higher priority) */
 export const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'];
+
+// ─── Feature 7E — Out-of-Band & Advanced Detection ───────────────────────────
+
+/** Default OAST HTTP listener port */
+export const OAST_DEFAULT_PORT = 7331;
+
+/** OAST token TTL in ms (how long to wait for a callback before discarding the probe) */
+export const OAST_TOKEN_TTL_MS = 120_000;
+
+/** Max pending OAST probes tracked simultaneously */
+export const OAST_MAX_PENDING = 500;
+
+/** Default WebSocket fuzzer concurrency (simultaneous connections) */
+export const WS_FUZZ_DEFAULT_CONCURRENCY = 5;
+
+/** Default per-frame timeout for WebSocket fuzzer (ms) */
+export const WS_FUZZ_DEFAULT_TIMEOUT_MS = 8_000;
+
+/** GraphQL introspection probe query */
+export const GRAPHQL_INTROSPECTION_QUERY = '{"query":"{__schema{types{name kind}}}"}';
+
+/** GraphQL batch abuse probe — 100 identical queries in one request */
+export const GRAPHQL_BATCH_PROBE_COUNT = 100;
+
+/** JWT algorithm values that indicate insecure configuration */
+export const JWT_INSECURE_ALGS = ['none', 'None', 'NONE', 'HS1', 'MD5'];
+
+/** Common weak HMAC secrets for JWT brute-force */
+export const JWT_WEAK_SECRETS = [
+  'secret', 'password', '123456', 'change_me', 'your-256-bit-secret',
+  'jwt_secret', 'supersecret', 'mysecret', 'test', 'development',
+  'production', 'app_secret', 'token_secret', 'auth_secret', 'key',
+];
+
+/** OAuth/OIDC open-redirect test domains */
+export const OAUTH_REDIRECT_TEST_DOMAINS = [
+  'https://evil.com',
+  'https://attacker.example.com',
+  '//evil.com',
+  '/\\evil.com',
+];
+
+/** URL parameter names typically used for redirects (open redirect detection) */
+export const REDIRECT_PARAM_NAMES = [
+  'redirect', 'redirect_uri', 'redirect_url', 'return', 'returnUrl',
+  'return_url', 'next', 'target', 'url', 'goto', 'destination', 'dest',
+  'continue', 'forward', 'successUrl', 'failureUrl', 'callback', 'redir',
+  'go', 'image_url', 'link', 'ref', 'referer', 'referrer',
+];

@@ -27,6 +27,11 @@ import { runCors }          from './cors.js';
 import { runHeaders }       from './headers.js';
 import { runBrokenAuth }    from './brokenAuth.js';
 import { runDeserialize }   from './deserialize.js';
+// Feature 7E modules
+import { runGraphql }       from './graphql.js';
+import { runJwtAttack }     from './jwtAttack.js';
+import { runOauthScan }     from './oauthScan.js';
+import { runOpenRedirect }  from './openRedirect.js';
 
 // ─── Active session state ─────────────────────────────────────────────────────
 
@@ -47,6 +52,11 @@ const MODULE_RUNNERS = {
   headers:       runHeaders,
   brokenAuth:    runBrokenAuth,
   deserialize:   runDeserialize,
+  // Feature 7E
+  graphql:       runGraphql,
+  jwtAttack:     runJwtAttack,
+  oauthScan:     runOauthScan,
+  openRedirect:  runOpenRedirect,
 };
 
 /**
@@ -134,6 +144,39 @@ const MODULE_META = {
       'PHP serialize() strings (a:N:{...}, O:N:), Java serialized object magic bytes (aced0005 in ' +
       'Base64: rO0AB), Python pickle opcodes (\\x80\\x02), and ASP.NET ViewState (__VIEWSTATE). ' +
       'Flags endpoints passing serialized objects directly to the server as high-risk.',
+  },
+  // ─── Feature 7E modules ────────────────────────────────────────────────────
+  graphql: {
+    label: 'GraphQL Security',
+    description:
+      'Detects GraphQL endpoints via path heuristics and Content-Type analysis. Tests for: ' +
+      'introspection enabled (full schema disclosure), batch query abuse (100 queries/request), ' +
+      'deeply nested query DoS (12-level depth), field suggestion leakage when introspection is ' +
+      'disabled, SQL injection via resolver arguments, and OAST confirmation probes.',
+  },
+  jwtAttack: {
+    label: 'JWT Attack Suite',
+    description:
+      'Inspects all JWT tokens found in request/response headers and cookies. Attacks: alg:none ' +
+      'signature bypass, weak HMAC secret brute-force (common secrets), RS256→HS256 confusion, ' +
+      'kid header path-traversal and SQL injection, jku/x5u spoofing header detection, expired ' +
+      'token acceptance, and privilege claim enumeration.',
+  },
+  oauthScan: {
+    label: 'OAuth/OIDC Misconfiguration',
+    description:
+      'Analyses proxied OAuth/OIDC flows for: unvalidated redirect_uri (open redirect), missing ' +
+      'state parameter (CSRF), authorization code leakage via Referer, token in URL fragment or ' +
+      'query string, missing PKCE on code flows, client_secret in URL, implicit flow usage, and ' +
+      'insecure response_type combinations.',
+  },
+  openRedirect: {
+    label: 'Open Redirect Detection',
+    description:
+      'Identifies URL-like parameters (redirect, return, next, url, goto, etc.) and probes them ' +
+      'with external domains using 8 bypass techniques: direct URL, protocol-relative (//), ' +
+      'triple-slash (///), backslash (/\\), URL encoding, double encoding, tab-encoded, and ' +
+      'user-info @ sign bypass. Detects both HTTP Location and in-body JS/meta-refresh redirects.',
   },
 };
 

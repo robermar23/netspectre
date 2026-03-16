@@ -1,6 +1,6 @@
 # Feature 7 — Web Application Security Testing Workspace
 
-> **Status:** Phases 7A–7D COMPLETE. Phase 7E (Out-of-Band / Advanced) in planning.
+> **Status:** Phases 7A–7E COMPLETE.
 > **Branch:** `scanner-enhance` (current), merged features from `webapp-scanner`
 > **Scope:** Full L7 web application security testing capability integrated into the existing NetSpecter Electron application under the "Web App" workspace tab.
 
@@ -15,7 +15,7 @@
 5. [Phase 7B — Web Crawling & Attack Surface Mapping](#5-phase-7b--web-crawling--attack-surface-mapping)
 6. [Phase 7C — Active Vulnerability Scanner](#6-phase-7c--active-vulnerability-scanner)
 7. [Phase 7D — Manual Testing Utilities](#7-phase-7d--manual-testing-utilities)
-8. [Phase 7E — Out-of-Band & Advanced Detection (Planned)](#8-phase-7e--out-of-band--advanced-detection-planned)
+8. [Phase 7E — Out-of-Band & Advanced Detection (COMPLETE)](#8-phase-7e--out-of-band--advanced-detection-complete)
 9. [IPC Channel Definitions](#9-ipc-channel-definitions)
 10. [File & Module Layout](#10-file--module-layout)
 11. [Security Constraints](#11-security-constraints)
@@ -118,13 +118,14 @@ All proxy, crawling, scanning, and engine logic runs in the **main process**. Th
 | 7D | Token Sequencer | ✅ COMPLETE | `sequencerEngine.js`, `sequencer.js` |
 | 7D | Encoder/Decoder | ✅ COMPLETE | `decoder.js` |
 | 7D | Response Comparer | ✅ COMPLETE | `comparer.js` |
-| 7E | OAST Callbacks | 🔲 PLANNED | — |
-| 7E | GraphQL Scanner Module | 🔲 PLANNED | — |
-| 7E | WebSocket Fuzzer | 🔲 PLANNED | — |
-| 7E | JWT Attack Suite | 🔲 PLANNED | — |
-| 7E | OAuth/OIDC Misconfiguration | 🔲 PLANNED | — |
-| 7E | Open Redirect Detection | 🔲 PLANNED | — |
-| 7E | Business Logic Fuzzing | 🔲 PLANNED | — |
+| 7E | OAST Callbacks (local HTTP listener) | ✅ COMPLETE | `oastManager.js` |
+| 7E | GraphQL Scanner Module | ✅ COMPLETE | `scanner/graphql.js` |
+| 7E | WebSocket Fuzzer | ✅ COMPLETE | `wsFuzzer.js`, `modules/webapp/wsFuzzer.js` |
+| 7E | JWT Attack Suite | ✅ COMPLETE | `scanner/jwtAttack.js` |
+| 7E | OAuth/OIDC Misconfiguration | ✅ COMPLETE | `scanner/oauthScan.js` |
+| 7E | Open Redirect Detection | ✅ COMPLETE | `scanner/openRedirect.js` |
+| 7E | OAST Panel UI | ✅ COMPLETE | `modules/webapp/oast.js` |
+| 7E | Business Logic Fuzzing | 🔲 FUTURE | — |
 
 ---
 
@@ -497,7 +498,7 @@ Pure renderer-side diff using Myers diff algorithm:
 
 ---
 
-## 8. Phase 7E — Out-of-Band & Advanced Detection (Planned)
+## 8. Phase 7E — Out-of-Band & Advanced Detection (COMPLETE)
 
 ### 8.1 OAST Integration
 
@@ -839,10 +840,10 @@ NetSpecter's scanner covers the OWASP Top 10 2021 as follows:
 | A04 Insecure Design | Manual only | None | By design — requires business logic knowledge |
 | A05 Security Misconfiguration | `headers.js`, `cors.js`, `cloudEnum.js` | Good | No cloud IAM misconfiguration |
 | A06 Vulnerable Components | `nmapScanner.js` (CVE via Nmap) | Partial | No JS dependency audit (npm audit equivalent) |
-| A07 Auth & Identity Failures | `brokenAuth.js` | Good | JWT suite incomplete (7E planned) |
+| A07 Auth & Identity Failures | `brokenAuth.js`, `jwtAttack.js`, `oauthScan.js` | Full | JWT suite + OAuth/OIDC complete (7E) |
 | A08 Software Integrity Failures | `deserialize.js` | Partial | No SRI check, no CI/CD pipeline inspection |
 | A09 Logging & Monitoring Failures | Manual only | None | Requires access to application logs |
-| A10 SSRF | `ssrf.js` | Good | No DNS rebinding detection; OAST confirmations pending (7E) |
+| A10 SSRF | `ssrf.js`, `oastManager.js` | Full | DNS rebinding not yet covered; OAST HTTP confirmation complete (7E) |
 
 ### Priority Roadmap (Post 7E)
 

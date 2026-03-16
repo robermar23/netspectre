@@ -266,6 +266,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
     transform: (transform, input) => ipcRenderer.invoke(IPC_CHANNELS.DECODER_TRANSFORM, { transform, input }),
   },
 
+  // Feature 7E: OAST (Out-of-Band Application Security Testing)
+  oast: {
+    getInterfaces: ()      => ipcRenderer.invoke(IPC_CHANNELS.OAST_GET_INTERFACES),
+    start:         (opts)  => ipcRenderer.invoke(IPC_CHANNELS.OAST_START, opts),
+    stop:          ()      => ipcRenderer.invoke(IPC_CHANNELS.OAST_STOP),
+    getToken:      (meta)  => ipcRenderer.invoke(IPC_CHANNELS.OAST_GET_TOKEN, meta),
+    clear:         ()      => ipcRenderer.invoke(IPC_CHANNELS.OAST_CLEAR),
+    onStatus:      (cb)    => ipcRenderer.on(IPC_CHANNELS.OAST_STATUS,   (_e, v) => cb(v)),
+    onCallback:    (cb)    => ipcRenderer.on(IPC_CHANNELS.OAST_CALLBACK, (_e, v) => cb(v)),
+  },
+
+  // Feature 7E: WebSocket Fuzzer
+  wsFuzzer: {
+    start:      (opts)  => ipcRenderer.invoke(IPC_CHANNELS.WS_FUZZ_START, opts),
+    stop:       ()      => ipcRenderer.invoke(IPC_CHANNELS.WS_FUZZ_STOP),
+    onResult:   (cb)    => ipcRenderer.on(IPC_CHANNELS.WS_FUZZ_RESULT,   (_e, v) => cb(v)),
+    onProgress: (cb)    => ipcRenderer.on(IPC_CHANNELS.WS_FUZZ_PROGRESS, (_e, v) => cb(v)),
+    onComplete: (cb)    => ipcRenderer.on(IPC_CHANNELS.WS_FUZZ_COMPLETE, (_e, v) => cb(v)),
+    onError:    (cb)    => ipcRenderer.on(IPC_CHANNELS.WS_FUZZ_ERROR,    (_e, v) => cb(v)),
+  },
+
   // Cleanup listeners
   removeListeners: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HOST_FOUND);
@@ -359,5 +380,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.SEQUENCER_TOKEN);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.SEQUENCER_RESULT);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.SEQUENCER_ERROR);
+    // Feature 7E: OAST + WS Fuzzer
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.OAST_STATUS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.OAST_CALLBACK);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.WS_FUZZ_RESULT);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.WS_FUZZ_PROGRESS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.WS_FUZZ_COMPLETE);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.WS_FUZZ_ERROR);
   }
 });
