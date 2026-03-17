@@ -147,6 +147,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDirFuzzProgress: (cb) => ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_PROGRESS, (_e, v) => cb(v)),
   onDirFuzzComplete: (cb) => ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_COMPLETE, (_e, v) => cb(v)),
   onDirFuzzError: (cb) => ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_ERROR, (_e, v) => cb(v)),
+  onDirFuzzActivity: (cb) => ipcRenderer.on(IPC_CHANNELS.DIRFUZZ_ACTIVITY, (_e, v) => cb(v)),
 
   // Feature 5A: Hardening Monitor
   hardeningMonitor: {
@@ -342,6 +343,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_PROGRESS);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_COMPLETE);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_ERROR);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.DIRFUZZ_ACTIVITY);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_DELTA_ALERT);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_DELTA_REPORT);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.HARDENING_MONITOR_STATUS);

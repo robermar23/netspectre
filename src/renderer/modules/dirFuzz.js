@@ -16,6 +16,15 @@ function closePanelHelper(panelEl, sidebarResizerEl) {
   }, 300);
 }
 
+// ─── Activity Log State ────────────────────────────────────────────────────────
+const ACTIVITY_MAX = 1000;
+let _activityLog  = [];
+let $activityWrap, $activityList, $activityToggle, $activityClear;
+
+// Webapp panel activity refs (populated by _initWebAppPanel)
+let $wdfActivityWrap, $wdfActivityList, $wdfActivityToggle, $wdfActivityClear;
+
+// ─── Panel DOM refs ────────────────────────────────────────────────────────────
 const dirfuzzPanel      = document.getElementById('dirfuzz-panel');
 const dirfuzzResizer    = document.getElementById('dirfuzz-resizer');
 const btnDirfuzzOpen    = document.getElementById('btn-dirfuzz-open');
@@ -73,6 +82,12 @@ function setDirFuzzRunning(running) {
 
 function resetDirFuzzUI() {
   dirfuzzHits = [];
+  _activityLog = [];
+  if ($activityList) $activityList.innerHTML = '';
+  if ($activityWrap && !$activityWrap.classList.contains('activity-collapsed')) {
+    $activityWrap.classList.add('activity-collapsed');
+    if ($activityToggle) $activityToggle.textContent = '▸ Activity Log';
+  }
   if (dirfuzzResultsTbody) {
     dirfuzzResultsTbody.innerHTML = '';
     const empty = document.createElement('tr');
@@ -234,8 +249,94 @@ function initResizer(resizerEl, panelEl) {
   });
 }
 
+// ─── Activity Log Helpers ──────────────────────────────────────────────────────
+
+function _initActivityRefs() {
+  $activityWrap   = document.getElementById('dirfuzz-activity-wrap');
+  $activityList   = document.getElementById('dirfuzz-activity-list');
+  $activityToggle = document.getElementById('dirfuzz-activity-toggle');
+  $activityClear  = document.getElementById('dirfuzz-activity-clear');
+
+  $activityToggle?.addEventListener('click', () => {
+    const c = $activityWrap.classList.toggle('activity-collapsed');
+    $activityToggle.textContent = c ? '▸ Activity Log' : '▾ Activity Log';
+  });
+  $activityClear?.addEventListener('click', () => {
+    _activityLog = [];
+    if ($activityList) $activityList.innerHTML = '';
+  });
+}
+
+function _onActivity(ev) {
+  _activityLog.push(ev);
+  if (_activityLog.length > ACTIVITY_MAX) _activityLog.shift();
+
+  // Throttle DOM writes — render every 10th non-hit entry; hits always rendered
+  if (!ev.isHit && _activityLog.length % 10 !== 0) {
+    // Also update webapp panel with same throttle
+    _appendWdfActivity(ev);
+    return;
+  }
+
+  _appendActivityEntry($activityWrap, $activityList, ev);
+  _appendWdfActivity(ev);
+}
+
+function _appendActivityEntry(wrap, list, ev) {
+  if (!list) return;
+  const shortPath = (() => {
+    try { return new URL(ev.url).pathname; } catch { return ev.url ?? ''; }
+  })();
+
+  const row = document.createElement('div');
+  const cls = ev.isHit ? 'activity-done' : 'activity-start';
+  row.className = `activity-entry ${cls}`;
+  if (ev.isHit) {
+    row.style.background = 'rgba(46, 213, 115, 0.08)';
+    // Auto-expand on first hit
+    if (wrap?.classList.contains('activity-collapsed')) {
+      wrap.classList.remove('activity-collapsed');
+      const toggle = wrap.querySelector('.scanner-activity-toggle-btn');
+      if (toggle) toggle.textContent = '▾ Activity Log';
+    }
+  }
+
+  const ts   = document.createElement('span');
+  ts.className = 'activity-ts';
+  ts.textContent = new Date(ev.timestamp).toLocaleTimeString();
+
+  const icon = document.createElement('span');
+  icon.className = 'activity-status-icon';
+  icon.textContent = ev.isHit ? '✓' : '→';
+
+  const method = document.createElement('span');
+  method.className = 'activity-method';
+  method.textContent = ev.method ?? 'HEAD';
+
+  const chip = document.createElement('span');
+  chip.className = `activity-module-chip${ev.isHit ? ' activity-chip-xss' : ''}`;
+  chip.style.cssText = 'min-width:38px; text-align:center;';
+  chip.textContent = ev.statusCode ?? '…';
+
+  const url = document.createElement('span');
+  url.className = 'activity-url';
+  url.title = ev.url ?? '';
+  url.textContent = shortPath;
+
+  row.append(ts, icon, method, chip, url);
+  list.appendChild(row);
+  list.scrollTop = list.scrollHeight;
+}
+
+function _appendWdfActivity(ev) {
+  if (!$wdfActivityList) return;
+  if (!ev.isHit && _activityLog.length % 10 !== 0) return;
+  _appendActivityEntry($wdfActivityWrap, $wdfActivityList, ev);
+}
+
 export function init() {
   _initWebAppPanel();
+  _initActivityRefs();
   initResizer(dirfuzzResizer, dirfuzzPanel);
 
   if (dirfuzzConcurrency) {
@@ -307,6 +408,9 @@ export function init() {
     a.click();
     URL.revokeObjectURL(url);
   });
+
+  // Activity log IPC listener
+  window.electronAPI.onDirFuzzActivity?.(_onActivity);
 
   // IPC event listeners — fan out to both network and webapp panels
   window.electronAPI.onDirFuzzHit?.((hit) => {
@@ -455,6 +559,16 @@ function _initWebAppPanel() {
       <!-- Error banner -->
       <div id="wdf-error-banner" style="display:none;background:rgba(235,94,94,0.1);border-left:3px solid var(--danger);color:var(--danger);font-size:11px;padding:8px 16px;flex-shrink:0;"></div>
 
+      <!-- Dir Fuzzer Activity Log (webapp panel) -->
+      <div id="wdf-activity-wrap" class="scanner-activity-wrap activity-collapsed" style="margin:8px 12px 0;flex-shrink:0;">
+        <div class="scanner-activity-header">
+          <button id="wdf-activity-toggle" class="scanner-activity-toggle-btn">▸ Activity Log</button>
+          <span class="scanner-activity-hint">Per-request probe log — highlighted rows are hits</span>
+          <button id="wdf-activity-clear" class="btn secondary scanner-activity-clear-btn">Clear Log</button>
+        </div>
+        <div id="wdf-activity-list" class="scanner-activity-list"></div>
+      </div>
+
       <!-- Results table -->
       <div style="flex:1;overflow:auto;min-height:0;">
         <table class="data-table" style="width:100%;font-size:12px;">
@@ -505,6 +619,20 @@ function _initWebAppPanel() {
   wdfStatsText        = document.getElementById('wdf-stats-text');
   wdfErrorBanner      = document.getElementById('wdf-error-banner');
   wdfResultsTbody     = document.getElementById('wdf-results-tbody');
+
+  // Activity log refs for webapp panel
+  $wdfActivityWrap   = document.getElementById('wdf-activity-wrap');
+  $wdfActivityList   = document.getElementById('wdf-activity-list');
+  $wdfActivityToggle = document.getElementById('wdf-activity-toggle');
+  $wdfActivityClear  = document.getElementById('wdf-activity-clear');
+
+  $wdfActivityToggle?.addEventListener('click', () => {
+    const c = $wdfActivityWrap.classList.toggle('activity-collapsed');
+    $wdfActivityToggle.textContent = c ? '▸ Activity Log' : '▾ Activity Log';
+  });
+  $wdfActivityClear?.addEventListener('click', () => {
+    if ($wdfActivityList) $wdfActivityList.innerHTML = '';
+  });
 
   // Wire events
   wdfConcurrency?.addEventListener('input', () => {
@@ -573,6 +701,11 @@ function _setWdfRunning(running) {
 
 function _resetWdfUI() {
   wdfHits = [];
+  if ($wdfActivityList) $wdfActivityList.innerHTML = '';
+  if ($wdfActivityWrap && !$wdfActivityWrap.classList.contains('activity-collapsed')) {
+    $wdfActivityWrap.classList.add('activity-collapsed');
+    if ($wdfActivityToggle) $wdfActivityToggle.textContent = '▸ Activity Log';
+  }
   if (wdfResultsTbody) {
     wdfResultsTbody.innerHTML = '';
     const empty = document.createElement('tr');

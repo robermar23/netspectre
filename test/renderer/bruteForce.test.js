@@ -30,9 +30,9 @@ describe('Brute-Force UI', () => {
     };
   });
 
-  it('bruteforce modal overlay exists in DOM', () => {
-    const overlay = document.getElementById('bruteforce-modal-overlay');
-    expect(overlay).not.toBeNull();
+  it('bruteforce panel exists in DOM', () => {
+    const panel = document.getElementById('bruteforce-panel');
+    expect(panel).not.toBeNull();
   });
 
   it('pentest consent overlay exists in DOM', () => {
@@ -40,9 +40,9 @@ describe('Brute-Force UI', () => {
     expect(consent).not.toBeNull();
   });
 
-  it('brute-force modal is initially hidden', () => {
-    const overlay = document.getElementById('bruteforce-modal-overlay');
-    expect(overlay.classList.contains('hidden')).toBe(true);
+  it('brute-force panel is initially hidden', () => {
+    const panel = document.getElementById('bruteforce-panel');
+    expect(panel.style.display).toBe('none');
   });
 
   it('onBruteForceResult callback can be registered via electronAPI', () => {
@@ -69,45 +69,49 @@ describe('Brute-Force UI', () => {
     expect(window.electronAPI.onBruteForceError).toHaveBeenCalledWith(handler);
   });
 
-  it('clicking accept on pentest consent shows brute-force modal', async () => {
+  it('clicking accept on pentest consent opens brute-force panel', async () => {
     const consentOverlay = document.getElementById('pentest-consent-overlay');
-    const bfOverlay = document.getElementById('bruteforce-modal-overlay');
+    const bfPanel = document.getElementById('bruteforce-panel');
     const btnAccept = document.getElementById('btn-pentest-consent-accept');
 
     // Wire up the consent logic manually (as the module would do)
     btnAccept.addEventListener('click', async () => {
       await window.electronAPI.settings.set('pentestConsentAccepted', true);
       consentOverlay.classList.add('hidden');
-      bfOverlay.classList.remove('hidden');
+      bfPanel.style.display = 'flex';
+      bfPanel.classList.add('open');
     });
 
     btnAccept.click();
     await Promise.resolve(); // flush microtasks
 
     expect(window.electronAPI.settings.set).toHaveBeenCalledWith('pentestConsentAccepted', true);
-    expect(bfOverlay.classList.contains('hidden')).toBe(false);
+    expect(bfPanel.style.display).toBe('flex');
     expect(consentOverlay.classList.contains('hidden')).toBe(true);
   });
 
-  it('closing brute-force modal hides the overlay', () => {
-    const bfOverlay = document.getElementById('bruteforce-modal-overlay');
-    const btnClose = document.getElementById('btn-close-bf-modal');
+  it('closing brute-force panel hides it', () => {
+    const bfPanel = document.getElementById('bruteforce-panel');
+    const btnClose = document.getElementById('btn-close-bruteforce-panel');
 
     // Open first
-    bfOverlay.classList.remove('hidden');
+    bfPanel.style.display = 'flex';
+    bfPanel.classList.add('open');
 
     // Wire close button as the module does
     btnClose.addEventListener('click', () => {
-      bfOverlay.classList.add('hidden');
+      bfPanel.classList.remove('open');
+      bfPanel.style.display = 'none';
     });
 
     btnClose.click();
-    expect(bfOverlay.classList.contains('hidden')).toBe(true);
+    expect(bfPanel.style.display).toBe('none');
+    expect(bfPanel.classList.contains('open')).toBe(false);
   });
 
   it('start button calls startBruteForce with correct payload', async () => {
-    const bfOverlay = document.getElementById('bruteforce-modal-overlay');
-    bfOverlay.classList.remove('hidden');
+    const bfPanel = document.getElementById('bruteforce-panel');
+    bfPanel.style.display = 'flex';
 
     const btnStart = document.getElementById('btn-bf-start');
     const btnStop = document.getElementById('btn-bf-stop');

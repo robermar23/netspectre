@@ -19,6 +19,11 @@ let _crawling   = false;
 let _selectedNode = null;  // { url, node }
 let _contextTarget = null; // URL string for context menu
 
+// ─── Activity Log State ────────────────────────────────────────────────────────
+const SITEMAP_ACTIVITY_MAX = 500;
+let _activityLog = [];
+let $activityWrap, $activityList, $activityToggle, $activityClear;
+
 /** Deduplication set — avoids double-counting repeated URL events. */
 const _seenUrls = new Set();
 
@@ -97,6 +102,21 @@ function _bindDomRefs() {
   $crawlError      = document.getElementById('sitemap-crawl-error');
   $crawlErrorText  = document.getElementById('sitemap-crawl-error-text');
   $crawlModal      = document.getElementById('sitemap-crawl-modal');
+
+  // Activity log refs
+  $activityWrap   = document.getElementById('sitemap-activity-wrap');
+  $activityList   = document.getElementById('sitemap-activity-list');
+  $activityToggle = document.getElementById('sitemap-activity-toggle');
+  $activityClear  = document.getElementById('sitemap-activity-clear');
+
+  $activityToggle?.addEventListener('click', () => {
+    const collapsed = $activityWrap.classList.toggle('activity-collapsed');
+    $activityToggle.textContent = collapsed ? '▸ Activity Log' : '▾ Activity Log';
+  });
+  $activityClear?.addEventListener('click', () => {
+    _activityLog = [];
+    if ($activityList) $activityList.innerHTML = '';
+  });
 }
 
 function _bindEvents() {
@@ -212,6 +232,75 @@ function _bindEvents() {
   document.getElementById('btn-sitemap-api-detect-url')?.addEventListener('click', _detailAction('api-detect'));
 }
 
+// ─── Activity Log ──────────────────────────────────────────────────────────────
+
+function _pushActivity(entry) {
+  _activityLog.push(entry);
+  if (_activityLog.length > SITEMAP_ACTIVITY_MAX) _activityLog.shift();
+  _appendActivityEntry(entry);
+
+  // Auto-expand on first entry
+  if ($activityWrap?.classList.contains('activity-collapsed')) {
+    $activityWrap.classList.remove('activity-collapsed');
+    if ($activityToggle) $activityToggle.textContent = '▾ Activity Log';
+  }
+}
+
+function _appendActivityEntry(entry) {
+  if (!$activityList) return;
+
+  const shortUrl = (() => {
+    try {
+      const u = new URL(entry.url);
+      const p = u.pathname;
+      return u.hostname + (p.length > 40 ? p.slice(0, 40) + '…' : p);
+    } catch { return entry.url ?? ''; }
+  })();
+
+  const ts   = new Date(entry.timestamp).toLocaleTimeString();
+  const icon = entry.kind === 'form'  ? '📋'
+             : entry.kind === 'error' ? '✗'
+             : '→';
+
+  const row = document.createElement('div');
+  row.className = `activity-entry activity-${entry.kind === 'error' ? 'start' : 'done'}`;
+
+  const tsSpan = document.createElement('span');
+  tsSpan.className = 'activity-ts';
+  tsSpan.textContent = ts;
+
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'activity-status-icon';
+  iconSpan.textContent = icon;
+
+  const chip = document.createElement('span');
+  chip.className = `activity-module-chip activity-chip-${entry.kind}`;
+  chip.textContent = entry.kind.toUpperCase();
+
+  const urlSpan = document.createElement('span');
+  urlSpan.className = 'activity-url';
+  urlSpan.title = entry.url ?? '';
+  urlSpan.textContent = shortUrl;
+
+  row.append(tsSpan, iconSpan, chip, urlSpan);
+
+  if (entry.status) {
+    const statusSpan = document.createElement('span');
+    statusSpan.className = 'activity-hit';
+    statusSpan.textContent = entry.status;
+    row.appendChild(statusSpan);
+  }
+  if (entry.depth != null) {
+    const depthSpan = document.createElement('span');
+    depthSpan.className = 'activity-desc';
+    depthSpan.textContent = `d${entry.depth}`;
+    row.appendChild(depthSpan);
+  }
+
+  $activityList.appendChild(row);
+  $activityList.scrollTop = $activityList.scrollHeight;
+}
+
 function _scheduleRender() {
   if (_renderTimer) return; // already pending
   _renderTimer = setTimeout(() => {
@@ -225,11 +314,24 @@ function _subscribeIpc() {
   api.crawler.onUrlFound((data) => {
     _addUrlToTree(data.url);
     _scheduleRender();
+    _pushActivity({
+      kind:      'url',
+      url:       data.url,
+      status:    data.statusCode ? String(data.statusCode) : undefined,
+      depth:     data.depth,
+      timestamp: Date.now(),
+    });
   });
 
   api.crawler.onFormFound((data) => {
     _addFormToTree(data.form);
     _scheduleRender();
+    _pushActivity({
+      kind:      'form',
+      url:       data.form?.action ?? '',
+      status:    data.form?.method?.toUpperCase(),
+      timestamp: Date.now(),
+    });
   });
 
   api.crawler.onProgress((progress) => {
@@ -252,6 +354,7 @@ function _subscribeIpc() {
     if ($proxyNotice) $proxyNotice.style.display = 'none';
     _flushRender();
     _showCrawlError(err.message ?? 'Unknown crawl error');
+    _pushActivity({ kind: 'error', url: '', status: err?.message ?? 'Error', timestamp: Date.now() });
   });
 
   api.crawler.onDependencyMissing(() => {
@@ -346,6 +449,13 @@ async function _startCrawl() {
 
   if (res.success) {
     _crawling = true;
+    // Clear activity log for fresh crawl
+    _activityLog = [];
+    if ($activityList) $activityList.innerHTML = '';
+    if ($activityWrap && !$activityWrap.classList.contains('activity-collapsed')) {
+      $activityWrap.classList.add('activity-collapsed');
+      if ($activityToggle) $activityToggle.textContent = '▸ Activity Log';
+    }
     _updateCrawlButtons();
     if ($progressWrap) {
       $progressWrap.style.display = 'flex';

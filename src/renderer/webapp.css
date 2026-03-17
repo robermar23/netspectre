@@ -2023,6 +2023,25 @@
   50%       { box-shadow: 0 0 10px rgba(239,68,68,0.5); }
 }
 
+/* ── Host Details: Web Vulnerability Section ──────────────────────────────── */
+.webvuln-sev-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid currentColor;
+}
+.webvuln-sev-badge.sev-critical { color: var(--danger); background: rgba(239,68,68,0.12); }
+.webvuln-sev-badge.sev-high     { color: var(--danger); background: rgba(239,68,68,0.08); }
+.webvuln-sev-badge.sev-medium   { color: var(--warning); background: rgba(234,179,8,0.10); }
+.webvuln-sev-badge.sev-low      { color: var(--text-secondary); background: rgba(255,255,255,0.06); }
+.webvuln-sev-badge.sev-info     { color: var(--text-muted); background: rgba(255,255,255,0.04); }
+
+.webvuln-row summary::-webkit-details-marker { color: var(--warning); }
+.webvuln-row[open] { background: rgba(255,200,0,0.06) !important; }
+
 /* ── Scanner: Probe in Network action ──────────────────────────────────────── */
 .scanner-detail-actions {
   display: flex;

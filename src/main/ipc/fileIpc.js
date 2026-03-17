@@ -47,7 +47,14 @@ export function registerIpcHandlers(ipcMain, getWindow) {
 
       if (canceled || !filePath) return { status: 'cancelled' };
 
-      fs.writeFileSync(filePath, JSON.stringify(results, null, 2));
+      // Cap webVulnFindings to last 200 entries per host before serializing
+      const WEB_VULN_CAP = 200;
+      const sanitized = (results || []).map(h => {
+        if (!Array.isArray(h.webVulnFindings) || h.webVulnFindings.length <= WEB_VULN_CAP) return h;
+        return { ...h, webVulnFindings: h.webVulnFindings.slice(-WEB_VULN_CAP) };
+      });
+
+      fs.writeFileSync(filePath, JSON.stringify(sanitized, null, 2));
       return { status: 'saved', path: filePath };
     } catch (e) {
       console.error('Save failed:', e);

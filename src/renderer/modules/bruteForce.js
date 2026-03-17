@@ -14,15 +14,33 @@ function escapeHtml(unsafe) {
 export let pentestConsentAccepted = false;
 export let pendingBfConfig = null;
 
-// ---- Brute-Force Modal elements ----
+// ---- Panel helpers (same pattern as dirFuzz / credSpray) ----
+function openPanelHelper(panel, resizer) {
+  if (!panel) return;
+  panel.style.display = 'flex';
+  setTimeout(() => panel.classList.add('open'), 10);
+  if (resizer) resizer.style.display = 'block';
+}
+
+function closePanelHelper(panel, resizer) {
+  if (!panel) return;
+  panel.classList.remove('open');
+  setTimeout(() => {
+    panel.style.display = 'none';
+    if (resizer) resizer.style.display = 'none';
+  }, 300);
+}
+
+// ---- Brute-Force Panel elements ----
 const pentestConsentOverlay = document.getElementById('pentest-consent-overlay');
 const btnClosePentestConsent = document.getElementById('btn-close-pentest-consent');
 const btnPentestConsentReject = document.getElementById('btn-pentest-consent-reject');
 const btnPentestConsentAccept = document.getElementById('btn-pentest-consent-accept');
 
-const bfOverlay = document.getElementById('bruteforce-modal-overlay');
-const btnCloseBfModal = document.getElementById('btn-close-bf-modal');
+const bfPanel   = document.getElementById('bruteforce-panel');
+const bfResizer = document.getElementById('bruteforce-resizer');
 const bfTargetIp = document.getElementById('bf-target-ip');
+const btnCloseBfPanel = document.getElementById('btn-close-bruteforce-panel');
 const bfPort = document.getElementById('bf-port');
 const bfProtocol = document.getElementById('bf-protocol');
 const bfUsername = document.getElementById('bf-username');
@@ -66,29 +84,34 @@ function closePentestConsent() {
   pendingBfConfig = null;
 }
 
-function showBruteForceModal(ip, port, protocol) {
+function showBruteForcePanel(ip, port, protocol) {
   resetBfModal();
   if (bfTargetIp) bfTargetIp.value = ip || '';
   if (bfPort) bfPort.value = port || 22;
   if (bfProtocol) bfProtocol.value = protocol || 'ssh';
-  bfOverlay?.classList.remove('hidden');
+  openPanelHelper(bfPanel, bfResizer);
 }
 
-export function openBruteForceModal(ip, port, protocol) {
+export function openBruteForcePanel(ip, port, protocol) {
   if (!pentestConsentAccepted) {
     pendingBfConfig = { ip, port, protocol };
     pentestConsentOverlay?.classList.remove('hidden');
     return;
   }
-  showBruteForceModal(ip, port, protocol);
+  showBruteForcePanel(ip, port, protocol);
+}
+
+/** Alias kept for backward compatibility with any callers using `openModal` */
+export function openBruteForceModal(ip, port, protocol) {
+  return openBruteForcePanel(ip, port, protocol);
 }
 
 export function openModal(ip, port, protocol) {
-  return openBruteForceModal(ip, port, protocol);
+  return openBruteForcePanel(ip, port, protocol);
 }
 
-function closeBfModal() {
-  bfOverlay?.classList.add('hidden');
+function closeBfPanel() {
+  closePanelHelper(bfPanel, bfResizer);
 }
 
 function resetBfModal() {
@@ -150,13 +173,13 @@ export function init() {
       if (_onConsentAcceptedCallback) {
         _onConsentAcceptedCallback(cfg);
       } else if (cfg._type !== 'dirfuzz' && cfg._type !== 'credspray') {
-        showBruteForceModal(cfg.ip, cfg.port, cfg.protocol);
+        showBruteForcePanel(cfg.ip, cfg.port, cfg.protocol);
       }
     }
   });
 
-  // Brute-Force Modal
-  btnCloseBfModal?.addEventListener('click', closeBfModal);
+  // Brute-Force Panel close
+  btnCloseBfPanel?.addEventListener('click', closeBfPanel);
 
   bfThreads?.addEventListener('input', () => {
     if (bfThreadsVal) bfThreadsVal.textContent = bfThreads.value;
@@ -287,7 +310,32 @@ export function init() {
     }
   });
 
-  return { openModal, openBruteForceModal, closeBfModal, setConsentCallback };
+  // Resizer drag (same pattern as dirFuzz)
+  if (bfResizer && bfPanel) {
+    let activeResize = null;
+    bfResizer.addEventListener('mousedown', (e) => {
+      const startWidth = parseInt(document.defaultView.getComputedStyle(bfPanel).width, 10);
+      activeResize = { startX: e.clientX, startWidth };
+      bfResizer.classList.add('is-resizing');
+      document.body.style.cursor = 'col-resize';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!activeResize) return;
+      const newWidth = activeResize.startWidth - (e.clientX - activeResize.startX);
+      if (newWidth > 320 && newWidth < Math.min(900, window.innerWidth - 100)) {
+        bfPanel.style.width = `${newWidth}px`;
+      }
+    });
+    document.addEventListener('mouseup', () => {
+      if (!activeResize) return;
+      bfResizer.classList.remove('is-resizing');
+      document.body.style.cursor = '';
+      activeResize = null;
+    });
+  }
+
+  return { openModal, openBruteForceModal, openBruteForcePanel, closeBfPanel, setConsentCallback };
 }
 
 function setConsentCallback(fn) {

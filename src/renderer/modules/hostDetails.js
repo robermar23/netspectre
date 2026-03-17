@@ -666,7 +666,7 @@ function openDetailsPanel(host) {
         btn.innerHTML = `${bfPorts[port].toUpperCase()} :${port}`;
         btn.title = `Brute-force ${bfPorts[port]} on port ${port}`;
         btn.addEventListener('click', () => {
-          if (_bruteForce) _bruteForce.openModal(host.ip, port, bfPorts[port]);
+          if (_bruteForce) _bruteForce.openBruteForcePanel(host.ip, port, bfPorts[port]);
         });
         bfSection.appendChild(btn);
       });
@@ -710,6 +710,9 @@ function openDetailsPanel(host) {
 
   // Cloud / Container Evidence section (populated if host was enumerated this session)
   renderCloudFindingsSection(host, elements.detailsContent);
+
+  // Web Vulnerability Findings section (populated by active scanner)
+  renderWebVulnSection(host, elements.detailsContent);
 
   if (host.routing && host.routing.length > 0) {
     document.getElementById('dp-routing-section').style.display = 'block';
@@ -1418,6 +1421,91 @@ function renderCloudFindingsSection(host, container) {
     viewBtn.textContent = '🐳 View in Cloud Panel';
     viewBtn.addEventListener('click', () => {
       if (window.__openCloudEnumPanel) window.__openCloudEnumPanel(f.ip);
+    });
+    details.appendChild(viewBtn);
+
+    section.appendChild(details);
+  });
+
+  container.appendChild(section);
+}
+
+// ─── Web Vulnerability Findings section in host details ──────────────────────
+
+function renderWebVulnSection(host, container) {
+  const findings = host.webVulnFindings;
+  if (!findings || findings.length === 0) return;
+
+  const SEV_COLORS = {
+    critical: 'var(--danger)',
+    high:     'var(--danger)',
+    medium:   'var(--warning)',
+    low:      'var(--text-secondary)',
+    info:     'var(--text-muted)',
+  };
+
+  const section = document.createElement('div');
+  section.className = 'dp-section';
+  section.style.cssText = 'margin-top:12px; border-top:1px solid var(--border-glass); padding-top:12px;';
+
+  const label = document.createElement('div');
+  label.className = 'dp-section-label';
+  label.style.cssText = 'font-weight:500; font-size:14px; color:var(--warning); display:flex; align-items:center; gap:6px; margin-bottom:8px;';
+  label.textContent = `🌐 Web Vulnerabilities (${findings.length})`;
+  section.appendChild(label);
+
+  // Summary badge row
+  const summaryRow = document.createElement('div');
+  summaryRow.style.cssText = 'display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap;';
+  ['critical', 'high', 'medium', 'low', 'info'].forEach(sev => {
+    const count = findings.filter(f => f.severity === sev).length;
+    if (count === 0) return;
+    const badge = document.createElement('span');
+    badge.className = `webvuln-sev-badge sev-${sev}`;
+    badge.textContent = `${count} ${sev.toUpperCase()}`;
+    summaryRow.appendChild(badge);
+  });
+  section.appendChild(summaryRow);
+
+  // Individual finding rows
+  findings.forEach(f => {
+    const sevColor = SEV_COLORS[f.severity] || SEV_COLORS.info;
+    const details = document.createElement('details');
+    details.className = 'webvuln-row';
+    details.style.cssText = `margin-top:6px; border-left:3px solid ${sevColor}; padding:4px 8px; border-radius:2px; background:rgba(255,200,0,0.04);`;
+
+    const summary = document.createElement('summary');
+    summary.style.cssText = 'cursor:pointer; font-size:11px; font-weight:600; color:var(--text-main); user-select:none;';
+    summary.textContent = `[${f.type || '?'}] ${f.title || f.url || ''}`;
+    details.appendChild(summary);
+
+    if (f.url) {
+      const urlDiv = document.createElement('div');
+      urlDiv.style.cssText = 'font-size:10px; color:var(--text-muted); font-family:monospace; word-break:break-all; margin-top:4px;';
+      urlDiv.textContent = f.url;
+      details.appendChild(urlDiv);
+    }
+
+    if (f.description) {
+      const descDiv = document.createElement('div');
+      descDiv.style.cssText = 'font-size:11px; color:var(--text-secondary); margin-top:4px; line-height:1.4;';
+      descDiv.textContent = f.description;
+      details.appendChild(descDiv);
+    }
+
+    if (f.remediation) {
+      const remDiv = document.createElement('div');
+      remDiv.style.cssText = 'font-size:10px; color:var(--text-muted); margin-top:4px; line-height:1.4; font-style:italic;';
+      remDiv.textContent = `Fix: ${f.remediation}`;
+      details.appendChild(remDiv);
+    }
+
+    const viewBtn = document.createElement('button');
+    viewBtn.className = 'btn-action';
+    viewBtn.style.cssText = 'font-size:10px; padding:2px 8px; margin-top:6px; border-color:var(--warning); color:var(--warning);';
+    viewBtn.textContent = '🌐 View in Scanner';
+    viewBtn.addEventListener('click', () => {
+      if (window.__openScannerPanel && f.url) window.__openScannerPanel(f.url);
     });
     details.appendChild(viewBtn);
 
