@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.22.0](https://github.com/robermar23/netspectre/compare/v1.21.0...v1.22.0) (2026-03-17)
+
+
+### Features
+
+* Refactor Brute-Force Modal to Brute-Force Panel with enhanced U… ([0081b88](https://github.com/robermar23/netspectre/commit/0081b8834ab148eab81e0f8352ebdd00bd05f5f2))
+* Refactor Brute-Force Modal to Brute-Force Panel with enhanced UI and activity logging ([6f6373e](https://github.com/robermar23/netspectre/commit/6f6373ed0e801307022e0d224a9d1299af4cd59d))
+
 ## [1.21.0](https://github.com/robermar23/netspectre/compare/v1.20.0...v1.21.0) (2026-03-16)
 
 
